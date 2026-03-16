@@ -1,0 +1,40 @@
+from rest_framework import serializers
+from apps.results.models import Result
+
+
+class ResultSerializer(serializers.ModelSerializer):
+
+    student_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    class_name   = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Result
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "subject",
+            "subject_name",
+            "school_class",
+            "class_name",
+            "term",
+            "reopen",
+            "ca",
+            "exams",
+            "score",
+            "grade",
+            "remark",
+            "subject_position",
+            "created_at",
+        ]
+        read_only_fields = ["score", "grade", "remark", "subject_position"]
+
+    def get_student_name(self, obj):
+        return obj.student.full_name if obj.student else "-"
+
+    def get_subject_name(self, obj):
+        return obj.subject.name if obj.subject else "-"
+
+    def get_class_name(self, obj):
+        return obj.school_class.name if obj.school_class else "-"
