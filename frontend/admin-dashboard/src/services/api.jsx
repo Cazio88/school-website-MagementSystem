@@ -6,7 +6,7 @@ import axios from "axios";
 const PUBLIC_ENDPOINTS = ["/auth/login/", "/auth/refresh/", "/auth/register/"];
 
 const API = axios.create({
-  baseURL: "http://127.0.0.1:8000/api/",
+  baseURL: "https://school-backend-bzk3.onrender.com/api/",
 });
 
 API.interceptors.request.use((config) => {
