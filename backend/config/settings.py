@@ -7,11 +7,14 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-o%qu(##-!$unbd(c4bhfg!6y-v6roa9h=(%@hync^i49y*w#oi'
+SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-secret-key")
 
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
+
+
+# ── Installed Apps ─────────────────────────────────────────────
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -41,9 +44,16 @@ INSTALLED_APPS = [
     'apps.ai',
 ]
 
+
+# ── Middleware ─────────────────────────────────────────────────
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+
+    # WhiteNoise for static files in production
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -52,7 +62,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
 ROOT_URLCONF = 'config.urls'
+
+
+# ── Templates ──────────────────────────────────────────────────
 
 TEMPLATES = [
     {
@@ -69,7 +83,11 @@ TEMPLATES = [
     },
 ]
 
+
 WSGI_APPLICATION = 'config.wsgi.application'
+
+
+# ── Database ───────────────────────────────────────────────────
 
 DATABASES = {
     'default': {
@@ -78,6 +96,9 @@ DATABASES = {
     }
 }
 
+
+# ── Password Validation ────────────────────────────────────────
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -85,60 +106,88 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+
+# ── Internationalization ───────────────────────────────────────
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
+
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# ── Cloudinary / Media ────────────────────────────────────────
+# ── Static Files (IMPORTANT FOR RENDER) ────────────────────────
+
+STATIC_URL = '/static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+
+# ── Cloudinary / Media ─────────────────────────────────────────
+
 CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
-CLOUDINARY_API_KEY    = os.environ.get("CLOUDINARY_API_KEY",    "")
+CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
 
 if CLOUDINARY_CLOUD_NAME:
+
     import cloudinary
 
-    # Configure the Cloudinary SDK directly — this is what actually
-    # makes file saves go to Cloudinary instead of the local filesystem.
     cloudinary.config(
-        cloud_name = CLOUDINARY_CLOUD_NAME,
-        api_key    = CLOUDINARY_API_KEY,
-        api_secret = CLOUDINARY_API_SECRET,
-        secure     = True,
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
     )
 
     CLOUDINARY_STORAGE = {
         "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
-        "API_KEY":    CLOUDINARY_API_KEY,
+        "API_KEY": CLOUDINARY_API_KEY,
         "API_SECRET": CLOUDINARY_API_SECRET,
     }
 
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
     MEDIA_URL = f"https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/image/upload/"
 
 else:
-    MEDIA_URL  = "/media/"
+
+    MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
 
-# ── Auth & CORS ───────────────────────────────────────────────
+
+# ── Auth & CORS ────────────────────────────────────────────────
+
 CORS_ALLOW_ALL_ORIGINS = True
+
 AUTH_USER_MODEL = 'accounts.User'
 
-# ── Django REST Framework ─────────────────────────────────────
+
+# ── Django REST Framework ──────────────────────────────────────
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
 
+
+# ── JWT Settings ───────────────────────────────────────────────
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+
+# ── Logging ────────────────────────────────────────────────────
 
 LOGGING = {
     'version': 1,
