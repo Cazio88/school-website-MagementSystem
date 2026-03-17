@@ -34,13 +34,12 @@ const Login = () => {
     setLoading(true);
     try {
       const user = await login(username, password);
-      if      (user.role === "admin")   navigate("/");
+      if      (user.role === "admin")   navigate("/admin");
       else if (user.role === "teacher") navigate("/teacher");
       else if (user.role === "student") navigate("/student");
       else navigate("/");
     } catch (err) {
       const errData = err.response?.data;
-      // Server returns { error: "pending_approval", message: "..." } for unapproved admins
       if (errData?.error === "pending_approval") {
         setPendingApproval(true);
       } else {
@@ -110,7 +109,7 @@ const Login = () => {
             <span>{selectedRole?.hint}</span>
           </div>
 
-          {/* ── Pending approval banner (admin only) ── */}
+          {/* ── Pending approval banner ── */}
           {pendingApproval && (
             <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
               <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm mb-1">
@@ -169,7 +168,6 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Register link — admin tab only */}
           {role === "admin" && (
             <p className="text-center text-xs text-gray-400 mt-5">
               New admin?{" "}

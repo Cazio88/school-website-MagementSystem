@@ -36,6 +36,7 @@ GRAY  = colors.HexColor("#f3f4f6")
 DGRAY = colors.HexColor("#374151")
 WHITE = colors.white
 GOLD  = colors.HexColor("#fbbf24")
+GREEN = colors.HexColor("#15803d")
 
 LOGO_PATH = os.path.join(settings.BASE_DIR, "static", "images", "logo.jpeg")
 
@@ -79,15 +80,15 @@ GRADE_THRESHOLDS_B16 = [
 ]
 
 INTERP_ROWS_B79 = [
-    ("90-100: 1 – HIGHEST",    "55-59: 4 – HIGH AVERAGE", "40-44: 7 – LOW"   ),
-    ("80-89: 2 – HIGHER",      "50-54: 5 – AVERAGE",      "35-39: 8 – LOWER" ),
-    ("60-79: 3 – HIGH",        "45-49: 6 – LOW AVERAGE",  "0-34: 9 – LOWEST" ),
+    ("90-100: 1 – HIGHEST",   "55-59: 4 – HIGH AVERAGE", "40-44: 7 – LOW"   ),
+    ("80-89: 2 – HIGHER",     "50-54: 5 – AVERAGE",      "35-39: 8 – LOWER" ),
+    ("60-79: 3 – HIGH",       "45-49: 6 – LOW AVERAGE",  "0-34: 9 – LOWEST" ),
 ]
 
 INTERP_ROWS_B16 = [
-    ("90-100: A – EXCELLENT",  "55-59: D – HIGH AVERAGE", "40-44: E3 – LOW"   ),
-    ("80-89: B – VERY GOOD",   "50-54: E – AVERAGE",      "35-39: E4 – LOWER" ),
-    ("60-79: C – GOOD",        "45-49: E2 – BELOW AVG",   "0-34: E5 – LOWEST" ),
+    ("90-100: A – EXCELLENT", "55-59: D – HIGH AVERAGE", "40-44: E3 – LOW"   ),
+    ("80-89: B – VERY GOOD",  "50-54: E – AVERAGE",      "35-39: E4 – LOWER" ),
+    ("60-79: C – GOOD",       "45-49: E2 – BELOW AVG",   "0-34: E5 – LOWEST" ),
 ]
 
 
@@ -118,6 +119,27 @@ def fmt_pos(n):
     return f"{n}{suffix}"
 
 
+def fmt_date(date_val):
+    """Format a date object or string → e.g. 'Monday, 14th July 2025'"""
+    if not date_val:
+        return "-"
+    try:
+        from datetime import date as date_type
+        import datetime
+        if isinstance(date_val, str):
+            date_val = datetime.date.fromisoformat(date_val)
+        day = date_val.day
+        suffix = (
+            "th" if 10 <= day % 100 <= 20
+            else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+        )
+        month = date_val.strftime("%B")
+        weekday = date_val.strftime("%A")
+        return f"{weekday}, {day}{suffix} {month} {date_val.year}"
+    except Exception:
+        return str(date_val)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -136,7 +158,6 @@ def load_image_flowable(path_or_url, width, height):
 
 
 def make_para(styles):
-    """Return a para() factory bound to a stylesheet."""
     def para(text, size=9, bold=False, color=DGRAY, align=TA_LEFT):
         return Paragraph(text, ParagraphStyle(
             "p", parent=styles["Normal"],
@@ -175,28 +196,19 @@ class StudentReportPDFView(APIView):
         school_motto  = SCHOOL_MOTTOS.get(level, "WHERE LEADERS ARE BORN")
         interp_rows   = INTERP_ROWS_B79 if level == "basic_7_9" else INTERP_ROWS_B16
 
-        # ------------------------------
         # Attendance
-        # ------------------------------
-
         term_attendance = Attendance.objects.filter(student=student, term=term)
         total_days      = term_attendance.count()
         present_days    = term_attendance.filter(status__in=["present", "late"]).count()
         att_percent     = round((present_days / total_days) * 100) if total_days else 0
 
-        # ------------------------------
         # Results
-        # ------------------------------
-
         subjects    = []
         total_score = 0
-        passed      = 0
-        failed      = 0
 
         for r in results:
-            score          = r.score or 0
-            grade, remark  = get_grade_and_remark(score, thresholds)
-
+            score         = r.score or 0
+            grade, remark = get_grade_and_remark(score, thresholds)
             subjects.append({
                 "name":     r.subject.name,
                 "reopen":   r.reopen,
@@ -208,36 +220,31 @@ class StudentReportPDFView(APIView):
                 "position": r.subject_position if show_position else None,
             })
             total_score += score
-            if score >= 50:
-                passed += 1
-            else:
-                failed += 1
 
         subject_count = len(subjects)
         average       = round(total_score / subject_count, 1) if subject_count else 0
         overall_grade = get_overall_grade(average, thresholds)
 
-        # ------------------------------
         # Class ranking
-        # ------------------------------
-
         class_students = Student.objects.filter(school_class=student.school_class)
         student_totals = []
-
         for s in class_students:
             s_res = Result.objects.filter(student=s, term=term)
             student_totals.append({
                 "student_id": s.id,
                 "total":      sum(r.score or 0 for r in s_res),
             })
-
         ranked   = sorted(student_totals, key=lambda x: x["total"], reverse=True)
         position = next(
             (i + 1 for i, item in enumerate(ranked) if item["student_id"] == student.id),
             None,
         ) if show_position else None
 
-        # ── Build PDF ──
+        # Vacation / Resumption dates from Report model
+        vacation_date   = getattr(report, "vacation_date",   None) if report else None
+        resumption_date = getattr(report, "resumption_date", None) if report else None
+
+        # ── Build PDF ──────────────────────────────────────────────────────
         buffer = BytesIO()
         pdf    = SimpleDocTemplate(
             buffer, pagesize=A4,
@@ -248,9 +255,9 @@ class StudentReportPDFView(APIView):
         elements = []
         para     = make_para(styles)
 
-        # ── Header ──
-        logo_img   = load_image_flowable(LOGO_PATH, width=22*mm, height=22*mm)
-        logo_cell  = logo_img if logo_img else para("", 9)
+        # ── Header ────────────────────────────────────────────────────────
+        logo_img  = load_image_flowable(LOGO_PATH, width=22*mm, height=22*mm)
+        logo_cell = logo_img if logo_img else para("", 9)
 
         photo_img = None
         if student.photo:
@@ -260,14 +267,13 @@ class StudentReportPDFView(APIView):
                 photo_img  = load_image_flowable(photo_path, width=20*mm, height=22*mm)
             else:
                 photo_img = load_image_flowable(photo_url, width=20*mm, height=22*mm)
-
         photo_cell = photo_img if photo_img else para("", 9)
 
         school_center = [
-            para(school_name,                  15, bold=True,  color=BLUE, align=TA_CENTER),
-            para(school_motto,                  8, bold=False, color=colors.HexColor("#92400e"), align=TA_CENTER),
-            para("TERMINAL REPORT CARD",       11, bold=True,  color=GOLD, align=TA_CENTER),
-            para(TERM_LABELS.get(term, term),   9, bold=False, color=DGRAY, align=TA_CENTER),
+            para(school_name,                 15, bold=True,  color=BLUE, align=TA_CENTER),
+            para(school_motto,                 8, bold=False, color=colors.HexColor("#92400e"), align=TA_CENTER),
+            para("TERMINAL REPORT CARD",      11, bold=True,  color=GOLD, align=TA_CENTER),
+            para(TERM_LABELS.get(term, term),  9, bold=False, color=DGRAY, align=TA_CENTER),
         ]
 
         header_table = Table([[logo_cell, school_center, photo_cell]], colWidths=[25*mm, 136*mm, 25*mm])
@@ -285,12 +291,11 @@ class StudentReportPDFView(APIView):
         elements.append(header_table)
         elements.append(Spacer(1, 4*mm))
 
-        # ── Student Info ──
+        # ── Student Info ──────────────────────────────────────────────────
         class_name = student.school_class.name if student.school_class else "-"
         position_text = (
             f"<b>POSITION:</b>  {fmt_pos(position)} out of {len(ranked)}"
-            if show_position else
-            "<b>POSITION:</b>  N/A"
+            if show_position else "<b>POSITION:</b>  N/A"
         )
         info_rows = [
             [
@@ -322,7 +327,7 @@ class StudentReportPDFView(APIView):
         elements.append(info_table)
         elements.append(Spacer(1, 4*mm))
 
-        # ── Subject Table ──
+        # ── Subject Table ─────────────────────────────────────────────────
         subj_header = [
             para("SUBJECT",            8, bold=True, color=BLUE),
             para("RE-OPEN\n& RDA 20%", 7, bold=True, color=BLUE, align=TA_CENTER),
@@ -332,7 +337,6 @@ class StudentReportPDFView(APIView):
             para("GRADE",              7, bold=True, color=BLUE, align=TA_CENTER),
             para("REMARK",             7, bold=True, color=BLUE, align=TA_CENTER),
         ]
-
         if show_position:
             subj_header.insert(5, para("POSITION", 7, bold=True, color=BLUE, align=TA_CENTER))
 
@@ -345,13 +349,13 @@ class StudentReportPDFView(APIView):
         subj_rows = [subj_header]
         for sub in subjects:
             row = [
-                para(sub["name"],                 8),
-                para(str(sub["reopen"]),          8, align=TA_CENTER),
-                para(str(sub["ca"]),              8, align=TA_CENTER),
-                para(str(sub["exams"]),           8, align=TA_CENTER),
-                para(f'<b>{sub["score"]}</b>',    8, color=BLUE, align=TA_CENTER),
-                para(f'<b>{sub["grade"]}</b>',    8, color=BLUE, align=TA_CENTER),
-                para(sub["remark"],               7, align=TA_CENTER),
+                para(sub["name"],                8),
+                para(str(sub["reopen"]),         8, align=TA_CENTER),
+                para(str(sub["ca"]),             8, align=TA_CENTER),
+                para(str(sub["exams"]),          8, align=TA_CENTER),
+                para(f'<b>{sub["score"]}</b>',   8, color=BLUE, align=TA_CENTER),
+                para(f'<b>{sub["grade"]}</b>',   8, color=BLUE, align=TA_CENTER),
+                para(sub["remark"],              7, align=TA_CENTER),
             ]
             if show_position:
                 row.insert(5, para(str(sub["position"] or "-"), 8, align=TA_CENTER))
@@ -371,7 +375,7 @@ class StudentReportPDFView(APIView):
         elements.append(subj_table)
         elements.append(Spacer(1, 4*mm))
 
-        # ── Attendance + Remarks ──
+        # ── Attendance + Remarks ──────────────────────────────────────────
         att_rows = [[para("Attendance", 9, bold=True, color=BLUE)]]
         if total_days > 0:
             att_rows.append([para(f"Days Present:  <b>{present_days}</b> out of <b>{total_days}</b>  ({att_percent}%)", 9)])
@@ -384,6 +388,16 @@ class StudentReportPDFView(APIView):
                 att_rows.append([para(f"<b>ATTITUDE:</b>  {report.conduct}", 9, color=BLUE)])
             if report.interest:
                 att_rows.append([para(f"<b>INTEREST:</b>  {report.interest}", 9, color=BLUE)])
+
+        # Vacation & Resumption dates
+        if vacation_date:
+            att_rows.append([para(
+                f"<b>VACATION DATE:</b>  {fmt_date(vacation_date)}", 9, color=GREEN
+            )])
+        if resumption_date:
+            att_rows.append([para(
+                f"<b>RESUMPTION DATE:</b>  {fmt_date(resumption_date)}", 9, color=GREEN
+            )])
 
         rem_rows = [[para("Class Teacher Remarks", 9, bold=True, color=BLUE)]]
         if report and report.teacher_remark:
@@ -412,7 +426,7 @@ class StudentReportPDFView(APIView):
         elements.append(bottom_table)
         elements.append(Spacer(1, 4*mm))
 
-        # ── Result Interpretation ──
+        # ── Result Interpretation ─────────────────────────────────────────
         interp_data = [[
             para("RESULT INTERPRETATION", 8, bold=True, color=BLUE),
             para(""), para(""), para(""), para(""), para(""),
@@ -436,7 +450,7 @@ class StudentReportPDFView(APIView):
         ]))
         elements.append(interp_table)
 
-        # ── Footer ──
+        # ── Footer ────────────────────────────────────────────────────────
         elements.append(Spacer(1, 4*mm))
         elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#d1d5db")))
         elements.append(Spacer(1, 2*mm))

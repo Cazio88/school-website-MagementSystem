@@ -10,18 +10,6 @@ from apps.classes.models import SchoolClass
 # Constants
 # ---------------------------------------------------------------------------
 
-GRADE_THRESHOLDS = [
-    (90, "1", "HIGHEST"),
-    (80, "2", "HIGHER"),
-    (60, "3", "HIGH"),
-    (55, "4", "HIGH AVERAGE"),
-    (50, "5", "AVERAGE"),
-    (45, "6", "LOW AVERAGE"),
-    (40, "7", "LOW"),
-    (35, "8", "LOWER"),
-    (0,  "9", "LOWEST"),
-]
-
 TERM_CHOICES = (
     ("term1", "Term 1"),
     ("term2", "Term 2"),
@@ -71,10 +59,10 @@ class Result(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(40)],
     )
 
-    # Computed fields — never set these directly; they are derived on save()
-    score    = models.FloatField(default=0, editable=False)
-    grade    = models.CharField(max_length=2,  blank=True, editable=False)
-    remark   = models.CharField(max_length=20, blank=True, editable=False)
+    # Computed total — derived on save(), never set directly.
+    # grade/remark are intentionally NOT stored: they depend on the student's
+    # school level (B79 / B16 / NKG) and are computed at query time in the view.
+    score = models.FloatField(default=0, editable=False)
 
     subject_position = models.IntegerField(null=True, blank=True, default=None)
 
@@ -87,28 +75,8 @@ class Result(models.Model):
     def __str__(self):
         return f"{self.student} – {self.subject} – {self.score}"
 
-    # ------------------------------------------------------------------
-    # Grade / remark derivation
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def compute_grade_and_remark(score: float) -> tuple[str, str]:
-        """
-        Return (grade, remark) for a given total score.
-        Moved from module level — it belongs on the model it serves.
-        """
-        for threshold, grade, remark in GRADE_THRESHOLDS:
-            if score >= threshold:
-                return grade, remark
-        return "9", "LOWEST"
-
-    # ------------------------------------------------------------------
-    # Save
-    # ------------------------------------------------------------------
-
     def save(self, *args, **kwargs):
-        self.score          = round(self.reopen + self.ca + self.exams, 1)
-        self.grade, self.remark = self.compute_grade_and_remark(self.score)
+        self.score = round(self.reopen + self.ca + self.exams, 1)
         super().save(*args, **kwargs)
 
 
@@ -123,23 +91,25 @@ class Report(models.Model):
         on_delete=models.CASCADE,
         related_name="reports",
     )
-    term             = models.CharField(max_length=10, choices=TERM_CHOICES)
-    year             = models.PositiveIntegerField(
+    term = models.CharField(max_length=10, choices=TERM_CHOICES)
+    year = models.PositiveIntegerField(
         validators=[MinValueValidator(2000), MaxValueValidator(2100)],
     )
-    attendance       = models.PositiveIntegerField(
-        validators=[MinValueValidator(0)],
-    )
-    attendance_total = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)],   # total of zero makes no sense
-    )
+
+    attendance       = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    attendance_total = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+
     interest       = models.TextField(blank=True)
-    conduct        = models.CharField(max_length=100)
-    teacher_remark = models.TextField()
-    created_at     = models.DateTimeField(auto_now_add=True)
+    conduct        = models.CharField(max_length=100, blank=True)
+    teacher_remark = models.TextField(blank=True)
+
+    # Term calendar dates — editable by teachers via the report page
+    vacation_date   = models.DateField(null=True, blank=True)
+    resumption_date = models.DateField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # fix: prevents duplicate reports for the same student/term/year
         unique_together = ["student", "term", "year"]
         ordering        = ["-year", "term"]
 

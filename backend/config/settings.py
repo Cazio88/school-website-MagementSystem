@@ -1,5 +1,9 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from pathlib import Path
 from datetime import timedelta
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,6 +24,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'drf_yasg',
+
+    'cloudinary',
+    'cloudinary_storage',
 
     'apps.accounts',
     'apps.students',
@@ -83,15 +90,38 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# ── Static files ──────────────────────────────────────────────
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# ── Media files (user uploads) ────────────────────────────────
-MEDIA_URL  = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# ── Cloudinary / Media ────────────────────────────────────────
+CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+CLOUDINARY_API_KEY    = os.environ.get("CLOUDINARY_API_KEY",    "")
+CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
+
+if CLOUDINARY_CLOUD_NAME:
+    import cloudinary
+
+    # Configure the Cloudinary SDK directly — this is what actually
+    # makes file saves go to Cloudinary instead of the local filesystem.
+    cloudinary.config(
+        cloud_name = CLOUDINARY_CLOUD_NAME,
+        api_key    = CLOUDINARY_API_KEY,
+        api_secret = CLOUDINARY_API_SECRET,
+        secure     = True,
+    )
+
+    CLOUDINARY_STORAGE = {
+        "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
+        "API_KEY":    CLOUDINARY_API_KEY,
+        "API_SECRET": CLOUDINARY_API_SECRET,
+    }
+
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+    MEDIA_URL = f"https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/image/upload/"
+
+else:
+    MEDIA_URL  = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
 
 # ── Auth & CORS ───────────────────────────────────────────────
 CORS_ALLOW_ALL_ORIGINS = True
@@ -114,9 +144,7 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
+        'console': {'class': 'logging.StreamHandler'},
     },
     'root': {
         'handlers': ['console'],

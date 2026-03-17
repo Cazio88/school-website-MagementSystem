@@ -15,36 +15,58 @@ from api.serializers.result_serializer import ResultSerializer
 
 
 # ---------------------------------------------------------------------------
-# Constants
+# Grading systems  (grade/remark are NOT stored on the model — computed here)
 # ---------------------------------------------------------------------------
 
-GRADE_THRESHOLDS = [
-    (90, "1"),
-    (80, "2"),
-    (60, "3"),
-    (55, "4"),
-    (50, "5"),
-    (45, "6"),
-    (40, "7"),
-    (35, "8"),
-    (0,  "9"),
+GRADE_THRESHOLDS_B79 = [
+    (90, "1", "HIGHEST"),
+    (80, "2", "HIGHER"),
+    (60, "3", "HIGH"),
+    (55, "4", "HIGH AVERAGE"),
+    (50, "5", "AVERAGE"),
+    (45, "6", "LOW AVERAGE"),
+    (40, "7", "LOW"),
+    (35, "8", "LOWER"),
+    (0,  "9", "LOWEST"),
 ]
+
+GRADE_THRESHOLDS_B16 = [
+    (90, "A",  "EXCELLENT"),
+    (80, "B",  "VERY GOOD"),
+    (60, "C",  "GOOD"),
+    (55, "D",  "HIGH AVERAGE"),
+    (45, "E2", "BELOW AVERAGE"),
+    (40, "E3", "LOW"),
+    (35, "E4", "LOWER"),
+    (0,  "E5", "LOWEST"),
+]
+
+# Nursery/KG uses the same scale as Basic 1–6
+GRADE_THRESHOLDS_NKG = GRADE_THRESHOLDS_B16
+
+
+def get_thresholds(level: str) -> list:
+    if level in ("basic_1_6", "nursery_kg"):
+        return GRADE_THRESHOLDS_B16
+    return GRADE_THRESHOLDS_B79
+
+
+def get_grade_and_remark(score: float, thresholds: list) -> tuple[str, str]:
+    for threshold, grade, remark in thresholds:
+        if score >= threshold:
+            return grade, remark
+    return thresholds[-1][1], thresholds[-1][2]
+
+
+def get_overall_grade(avg: float, thresholds: list) -> str:
+    return get_grade_and_remark(avg, thresholds)[0]
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _overall_grade(avg: float) -> str:
-    """Return the grade string for a given average score."""
-    for threshold, grade in GRADE_THRESHOLDS:
-        if avg >= threshold:
-            return grade
-    return "9"
-
-
 def _fmt_position(n: int | None) -> str:
-    """Return '1st', '2nd', '3rd', '4th', … or '-' for None."""
     if n is None:
         return "-"
     suffix = (
@@ -55,25 +77,17 @@ def _fmt_position(n: int | None) -> str:
     return f"{n}{suffix}"
 
 
-def recompute_subject_positions(
-    subject_id: int,
-    term: str,
-    school_class_id: int,
-) -> None:
-    """
-    Rank all results for a given subject/term/class by score descending.
-    Tied scores receive the same position (dense ranking).
-    """
+def recompute_subject_positions(subject_id, term, school_class_id):
     results = list(
         Result.objects.filter(
             subject_id=subject_id,
             term=term,
             school_class_id=school_class_id,
-        ).order_by("-score", "id")   # stable secondary sort
+        ).order_by("-score", "id")
     )
 
     current_rank = 0
-    prev_score   = object()          # sentinel — never equal to a real score
+    prev_score   = object()
 
     for i, r in enumerate(results):
         if r.score != prev_score:
@@ -85,14 +99,8 @@ def recompute_subject_positions(
 
 
 def _assign_ranks(rows: list[dict], key: str = "total_score") -> None:
-    """
-    Add a 'rank' key to each dict in *rows* (sorted descending by *key*).
-    Equal values share the same rank (standard competition ranking).
-    Mutates the list in-place.
-    """
     current_rank = 0
     prev_value   = object()
-
     for i, row in enumerate(rows):
         if row[key] != prev_value:
             current_rank = i + 1
@@ -110,12 +118,8 @@ class ResultViewSet(ModelViewSet):
     serializer_class   = ResultSerializer
     permission_classes = [IsAuthenticated]
 
-    # ------------------------------------------------------------------
-    # Queryset filtering
-    # ------------------------------------------------------------------
-
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs     = super().get_queryset()
         params = self.request.query_params
 
         student      = params.get("student")
@@ -128,10 +132,6 @@ class ResultViewSet(ModelViewSet):
         if term:         qs = qs.filter(term=term)
         if subject:      qs = qs.filter(subject_id=subject)
         return qs
-
-    # ------------------------------------------------------------------
-    # Single-record create / update
-    # ------------------------------------------------------------------
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -149,20 +149,17 @@ class ResultViewSet(ModelViewSet):
     # Bulk upsert
     # ------------------------------------------------------------------
 
-    @action(detail=False, methods=["post"], url_path="bulk-save")  # fix: was missing @action
+    @action(detail=False, methods=["post"], url_path="bulk-save")
     def bulk_save(self, request):
         records = request.data if isinstance(request.data, list) else [request.data]
-
-        saved  = []
-        errors = []
+        saved   = []
+        errors  = []
 
         for record in records:
-            # Validate required keys before attempting the DB call
             missing = [k for k in ("student", "subject", "term") if k not in record]
             if missing:
                 errors.append({"record": record, "error": f"Missing fields: {missing}"})
                 continue
-
             try:
                 instance, _ = Result.objects.update_or_create(
                     student_id=record["student"],
@@ -179,7 +176,6 @@ class ResultViewSet(ModelViewSet):
             except Exception as exc:
                 errors.append({"record": record, "error": str(exc)})
 
-        # Recompute positions for every affected subject/term/class combo
         combos = {
             (r["subject"], r["term"], r.get("school_class"))
             for r in records
@@ -189,9 +185,9 @@ class ResultViewSet(ModelViewSet):
             recompute_subject_positions(subject_id, term, class_id)
 
         response_status = (
-            status.HTTP_400_BAD_REQUEST if not saved and errors
-            else status.HTTP_207_MULTI_STATUS if errors
-            else status.HTTP_200_OK
+            status.HTTP_400_BAD_REQUEST  if not saved and errors else
+            status.HTTP_207_MULTI_STATUS if errors               else
+            status.HTTP_200_OK
         )
         return Response({"saved": len(saved), "errors": errors}, status=response_status)
 
@@ -213,7 +209,7 @@ class ResultViewSet(ModelViewSet):
         results = (
             Result.objects
             .filter(school_class_id=school_class, term=term)
-            .select_related("student", "student__user", "subject")
+            .select_related("student", "student__school_class", "subject")
         )
 
         student_map: dict = {}
@@ -221,11 +217,18 @@ class ResultViewSet(ModelViewSet):
         for r in results:
             sid = r.student.id
 
+            # Resolve thresholds from the student's school level
+            level      = getattr(r.student.school_class, "level", "basic_7_9") if r.student.school_class else "basic_7_9"
+            thresholds = get_thresholds(level)
+            score      = r.score or 0
+            grade, remark = get_grade_and_remark(score, thresholds)
+
             if sid not in student_map:
                 student_map[sid] = {
                     "student_id":       r.student.id,
                     "student_name":     r.student.full_name,
                     "admission_number": r.student.admission_number,
+                    "level":            level,
                     "subjects":         [],
                     "total_score":      0,
                     "count":            0,
@@ -238,21 +241,21 @@ class ResultViewSet(ModelViewSet):
                 "ca":               r.ca,
                 "exams":            r.exams,
                 "score":            r.score,
-                "grade":            r.grade,
-                "remark":           r.remark,
+                "grade":            grade,    # computed, not from model
+                "remark":           remark,   # computed, not from model
                 "subject_position": r.subject_position,
             })
 
-            # fix: don't count None-score subjects toward the average
             if r.score is not None:
                 student_map[sid]["total_score"] += r.score
                 student_map[sid]["count"]        += 1
 
         rows = []
         for data in student_map.values():
-            count = data["count"]
-            total = round(data["total_score"], 1)
-            avg   = round(total / count, 1) if count else 0
+            count      = data["count"]
+            total      = round(data["total_score"], 1)
+            avg        = round(total / count, 1) if count else 0
+            thresholds = get_thresholds(data["level"])
 
             rows.append({
                 "student_id":       data["student_id"],
@@ -261,7 +264,7 @@ class ResultViewSet(ModelViewSet):
                 "subjects":         data["subjects"],
                 "total_score":      total,
                 "average_score":    avg,
-                "overall_grade":    _overall_grade(avg),
+                "overall_grade":    get_overall_grade(avg, thresholds),
                 "subject_count":    count,
             })
 
@@ -282,8 +285,9 @@ class StudentReportView(APIView):
         if not term:
             raise ValidationError({"error": "term is required"})
 
-        # fix: raises 404 instead of unhandled DoesNotExist
-        student = get_object_or_404(Student, id=student_id)
+        student    = get_object_or_404(Student.objects.select_related("school_class"), id=student_id)
+        level      = getattr(student.school_class, "level", "basic_7_9") if student.school_class else "basic_7_9"
+        thresholds = get_thresholds(level)
 
         results = (
             Result.objects
@@ -297,15 +301,17 @@ class StudentReportView(APIView):
         failed      = 0
 
         for r in results:
-            score = r.score or 0    # fix: guard against None before arithmetic
+            score         = r.score or 0
+            grade, remark = get_grade_and_remark(score, thresholds)
+
             subjects.append({
                 "subject":          r.subject.name,
                 "reopen":           r.reopen,
                 "ca":               r.ca,
                 "exams":            r.exams,
                 "score":            r.score,
-                "grade":            r.grade,
-                "remark":           r.remark,
+                "grade":            grade,    # computed, not from model
+                "remark":           remark,   # computed, not from model
                 "subject_position": r.subject_position,
             })
             total_score += score
@@ -317,23 +323,18 @@ class StudentReportView(APIView):
         subject_count = len(subjects)
         average       = round(total_score / subject_count, 1) if subject_count else 0
 
-        # fix: single aggregation query instead of N per-student queries
+        # Single aggregation query for class ranking
         class_totals = (
             Result.objects
-            .filter(
-                student__school_class=student.school_class,
-                term=term,
-            )
+            .filter(student__school_class=student.school_class, term=term)
             .values("student_id")
             .annotate(total=Sum("score"))
             .order_by("-total")
         )
-
         ranked = list(class_totals)
         ranked.sort(key=lambda x: x["total"] or 0, reverse=True)
-
-        # Assign dense ranks to the aggregated list
         _assign_ranks(ranked, key="total")
+
         position = next(
             (row["rank"] for row in ranked if row["student_id"] == student.id),
             None,
@@ -347,10 +348,11 @@ class StudentReportView(APIView):
             "class":              student.school_class.name if student.school_class else None,
             "photo":              student.photo.url if student.photo else None,
             "term":               term,
+            "level":              level,
             "subjects":           subjects,
             "total_score":        round(total_score, 1),
             "average_score":      average,
-            "overall_grade":      _overall_grade(average),  # bonus: was missing from report
+            "overall_grade":      get_overall_grade(average, thresholds),
             "subjects_passed":    passed,
             "subjects_failed":    failed,
             "position":           position,

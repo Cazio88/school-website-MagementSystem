@@ -7,7 +7,6 @@ from rest_framework.response import Response
 from django.db.models import Sum, Count, Q
 
 from apps.fees.models import Fee, PaymentTransaction
-from api.serializers.fee_serializer import PaymentTransactionSerializer
 
 TERM_LABELS = {
     "term1": "Term 1",
@@ -66,24 +65,43 @@ class AccountsDashboardView(APIView):
                 "balance": float(t_agg["bal"]    or 0),
             })
 
-        # Recent transactions
-        recent = PaymentTransaction.objects.select_related(
-            "fee__student", "recorded_by"
-        ).order_by("-created_at")[:10]
+        # Recent transactions — flat fields, no serializer
+        recent_qs = (
+            PaymentTransaction.objects
+            .select_related("fee__student", "fee__student__school_class", "recorded_by")
+            .order_by("-created_at")[:10]
+        )
+        recent_transactions = [
+            {
+                "id":               t.id,
+                "student_name":     t.fee.student.full_name,
+                "admission_number": t.fee.student.admission_number,
+                "class":            t.fee.student.school_class.name if t.fee.student.school_class else "-",
+                "term":             TERM_LABELS.get(t.fee.term, t.fee.term),
+                "amount":           float(t.amount),
+                "note":             t.note,
+                "recorded_by":      (
+                    t.recorded_by.get_full_name() or t.recorded_by.username
+                    if t.recorded_by else "System"
+                ),
+                "created_at":       t.created_at.strftime("%d %b %Y, %I:%M %p"),
+            }
+            for t in recent_qs
+        ]
 
         return Response({
-            "total_billed":    float(total_billed),
-            "total_paid":      float(agg["total_paid"]     or 0),
-            "total_balance":   float(agg["total_balance"]  or 0),
-            "total_students":  agg["total_students"]       or 0,
-            "fully_paid":      agg["fully_paid"]           or 0,
-            "partial":         agg["partial"]              or 0,
-            "unpaid":          agg["unpaid"]               or 0,
-            "collection_rate": round(
+            "total_billed":        float(total_billed),
+            "total_paid":          float(agg["total_paid"]    or 0),
+            "total_balance":       float(agg["total_balance"] or 0),
+            "total_students":      agg["total_students"]      or 0,
+            "fully_paid":          agg["fully_paid"]          or 0,
+            "partial":             agg["partial"]             or 0,
+            "unpaid":              agg["unpaid"]              or 0,
+            "collection_rate":     round(
                 float(agg["total_paid"] or 0) / float(total_billed) * 100, 1
             ) if total_billed else 0,
-            "term_breakdown":  term_breakdown,
-            "recent_transactions": PaymentTransactionSerializer(recent, many=True).data,
+            "term_breakdown":      term_breakdown,
+            "recent_transactions": recent_transactions,
         })
 
 
@@ -109,19 +127,23 @@ class IncomeLedgerView(APIView):
 
         agg = transactions.aggregate(total=Sum("amount"))
 
-        data = []
-        for t in transactions:
-            data.append({
-                "id":             t.id,
-                "student_name":   t.fee.student.full_name,
+        data = [
+            {
+                "id":               t.id,
+                "student_name":     t.fee.student.full_name,
                 "admission_number": t.fee.student.admission_number,
-                "class":          t.fee.student.school_class.name if t.fee.student.school_class else "-",
-                "term":           TERM_LABELS.get(t.fee.term, t.fee.term),
-                "amount":         float(t.amount),
-                "note":           t.note,
-                "recorded_by":    t.recorded_by.get_full_name() or t.recorded_by.username if t.recorded_by else "-",
-                "created_at":     t.created_at,
-            })
+                "class":            t.fee.student.school_class.name if t.fee.student.school_class else "-",
+                "term":             TERM_LABELS.get(t.fee.term, t.fee.term),
+                "amount":           float(t.amount),
+                "note":             t.note,
+                "recorded_by":      (
+                    t.recorded_by.get_full_name() or t.recorded_by.username
+                    if t.recorded_by else "-"
+                ),
+                "created_at":       t.created_at.strftime("%d %b %Y, %I:%M %p"),
+            }
+            for t in transactions
+        ]
 
         return Response({
             "total_collected": float(agg["total"] or 0),
@@ -142,7 +164,6 @@ class FeeCollectionReportView(APIView):
         if term:
             fees = fees.filter(term=term)
 
-        # Group by class
         from django.db.models import F
         class_data = (
             fees
@@ -151,12 +172,12 @@ class FeeCollectionReportView(APIView):
                 class_name = F("student__school_class__name"),
             )
             .annotate(
-                total_billed  = Sum("amount"),
-                total_paid    = Sum("paid"),
-                total_balance = Sum("balance"),
-                total_students= Count("id"),
-                fully_paid    = Count("id", filter=Q(balance__lte=0)),
-                unpaid        = Count("id", filter=Q(paid=0)),
+                total_billed   = Sum("amount"),
+                total_paid     = Sum("paid"),
+                total_balance  = Sum("balance"),
+                total_students = Count("id"),
+                fully_paid     = Count("id", filter=Q(balance__lte=0)),
+                unpaid         = Count("id", filter=Q(paid=0)),
             )
             .order_by("class_name")
         )
@@ -166,14 +187,14 @@ class FeeCollectionReportView(APIView):
             billed = float(row["total_billed"] or 0)
             paid   = float(row["total_paid"]   or 0)
             rows.append({
-                "class_id":       row["class_id"],
-                "class_name":     row["class_name"] or "Unassigned",
-                "total_students": row["total_students"],
-                "total_billed":   billed,
-                "total_paid":     paid,
-                "total_balance":  float(row["total_balance"] or 0),
-                "fully_paid":     row["fully_paid"],
-                "unpaid":         row["unpaid"],
+                "class_id":        row["class_id"],
+                "class_name":      row["class_name"] or "Unassigned",
+                "total_students":  row["total_students"],
+                "total_billed":    billed,
+                "total_paid":      paid,
+                "total_balance":   float(row["total_balance"] or 0),
+                "fully_paid":      row["fully_paid"],
+                "unpaid":          row["unpaid"],
                 "collection_rate": round(paid / billed * 100, 1) if billed else 0,
             })
 
@@ -199,9 +220,8 @@ class DefaultersListView(APIView):
         if term:         fees = fees.filter(term=term)
         if school_class: fees = fees.filter(student__school_class_id=school_class)
 
-        data = []
-        for fee in fees:
-            data.append({
+        data = [
+            {
                 "student_id":       fee.student.id,
                 "student_name":     fee.student.full_name,
                 "admission_number": fee.student.admission_number,
@@ -211,7 +231,9 @@ class DefaultersListView(APIView):
                 "paid":             float(fee.paid),
                 "balance":          float(fee.balance),
                 "arrears":          float(fee.arrears),
-            })
+            }
+            for fee in fees
+        ]
 
         agg = fees.aggregate(total_outstanding=Sum("balance"))
 

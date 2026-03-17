@@ -18,6 +18,7 @@ from api.views.auth_view import RegisterView, MeView, LoginView, AdminApprovalVi
 from api.views.report_view import StudentReportView
 from api.views.report_pdf_view import StudentReportPDFView
 from api.views.bill_pdf_view import StudentFeeBillPDFView, ClassFeeBillPDFView
+from api.views.receipt_pdf_view import PaymentReceiptPDFView
 from api.views.accounts_view import (
     AccountsDashboardView,
     IncomeLedgerView,
@@ -59,6 +60,7 @@ urlpatterns = [
 
     path("fees/bill/student/<int:student_id>/",   StudentFeeBillPDFView.as_view()),
     path("fees/bill/class/",                      ClassFeeBillPDFView.as_view()),
+    path("fees/receipt/<int:transaction_id>/",    PaymentReceiptPDFView.as_view()),
 
     path("accounts/dashboard/",  AccountsDashboardView.as_view()),
     path("accounts/ledger/",     IncomeLedgerView.as_view()),

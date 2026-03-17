@@ -38,9 +38,12 @@ class TeacherViewSet(ModelViewSet):
         password = "teacher123"
 
         user = User.objects.create_user(
-            username=teacher_id,
-            password=password
-        )
+    username=teacher_id,
+    password=password,
+    role="teacher",
+    is_active=True,
+    is_approved=True,
+)
 
         serializer.save(
             teacher_id=teacher_id,

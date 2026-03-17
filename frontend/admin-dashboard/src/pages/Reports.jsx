@@ -69,7 +69,13 @@ const Reports = () => {
   const [downloading, setDownloading]         = useState(false);
   const [error, setError]                     = useState("");
 
-  const [remarks, setRemarks]             = useState({ conduct: "", interest: "", teacher_remark: "" });
+  const [remarks, setRemarks] = useState({
+    conduct:          "",
+    interest:         "",
+    teacher_remark:   "",
+    vacation_date:    "",
+    resumption_date:  "",
+  });
   const [savingRemarks, setSavingRemarks] = useState(false);
   const [remarksSaved, setRemarksSaved]   = useState(false);
 
@@ -105,9 +111,11 @@ const Reports = () => {
       const res = await API.get(`/report/student/${selectedStudent}/?term=${selectedTerm}`);
       setReport(res.data);
       setRemarks({
-        conduct:        res.data.conduct        || "",
-        interest:       res.data.interest       || "",
-        teacher_remark: res.data.teacher_remark || "",
+        conduct:         res.data.conduct         || "",
+        interest:        res.data.interest        || "",
+        teacher_remark:  res.data.teacher_remark  || "",
+        vacation_date:   res.data.vacation_date   || "",
+        resumption_date: res.data.resumption_date || "",
       });
     } catch (err) {
       setError(
@@ -122,10 +130,12 @@ const Reports = () => {
     setSavingRemarks(true); setRemarksSaved(false); setError("");
     try {
       await API.patch(`/report/student/${selectedStudent}/`, {
-        term:           selectedTerm,
-        conduct:        remarks.conduct,
-        interest:       remarks.interest,
-        teacher_remark: remarks.teacher_remark,
+        term:            selectedTerm,
+        conduct:         remarks.conduct,
+        interest:        remarks.interest,
+        teacher_remark:  remarks.teacher_remark,
+        vacation_date:   remarks.vacation_date   || "",
+        resumption_date: remarks.resumption_date || "",
       });
       setRemarksSaved(true);
       const res = await API.get(`/report/student/${selectedStudent}/?term=${selectedTerm}`);
@@ -357,6 +367,7 @@ const Reports = () => {
             <div className="border rounded p-4">
               <h3 className="font-semibold text-gray-700 mb-3">Teacher's Remarks</h3>
               <div className="space-y-3">
+
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Conduct</label>
                   <select value={remarks.conduct}
@@ -390,6 +401,28 @@ const Reports = () => {
                   />
                 </div>
 
+                {/* ── Vacation & Resumption dates ── */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Vacation Date</label>
+                    <input
+                      type="date"
+                      value={remarks.vacation_date}
+                      onChange={(e) => { setRemarks((p) => ({ ...p, vacation_date: e.target.value })); setRemarksSaved(false); }}
+                      className="w-full border rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Resumption Date</label>
+                    <input
+                      type="date"
+                      value={remarks.resumption_date}
+                      onChange={(e) => { setRemarks((p) => ({ ...p, resumption_date: e.target.value })); setRemarksSaved(false); }}
+                      className="w-full border rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <button onClick={saveRemarks} disabled={savingRemarks}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors">
@@ -399,6 +432,7 @@ const Reports = () => {
                     <span className="text-green-600 text-xs font-medium">✓ Saved</span>
                   )}
                 </div>
+
               </div>
             </div>
           </div>

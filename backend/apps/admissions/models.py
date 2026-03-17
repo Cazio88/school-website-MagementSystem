@@ -1,10 +1,9 @@
 from django.db import models
+from cloudinary.models import CloudinaryField
 
 
 class Admission(models.Model):
 
-    # blank=True + default="" lets existing rows migrate without interactive prompts.
-    # Required validation is enforced at the serializer level instead.
     first_name   = models.CharField(max_length=150, blank=True, default="")
     last_name    = models.CharField(max_length=150, blank=True, default="")
     student_name = models.CharField(max_length=255, blank=True, default="")
@@ -19,14 +18,19 @@ class Admission(models.Model):
     religion      = models.CharField(
         max_length=50,
         choices=[
-            ("Christian",         "Christian"),
-            ("Muslim",            "Muslim"),
-            ("Other",             "Other"),
-            ("Prefer not to say", "Prefer not to say"),
+            ("Christian", "Christian"), ("Muslim", "Muslim"),
+            ("Other", "Other"), ("Prefer not to say", "Prefer not to say"),
         ],
         blank=True, default="",
     )
-    photo = models.ImageField(upload_to="admissions/photos/", blank=True, null=True)
+
+    # Use resource_type keyword argument, not positional
+    photo = CloudinaryField(
+        resource_type="image",
+        folder="admissions/photos",
+        blank=True,
+        null=True,
+    )
 
     applied_class = models.ForeignKey(
         "classes.SchoolClass",
@@ -77,5 +81,5 @@ class Admission(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        name = self.student_name or f"{self.first_name} {self.last_name}".strip() or "Unknown"
+        name = self.student_name or "Unknown"
         return f"{name} ({self.admission_number})" if self.admission_number else name

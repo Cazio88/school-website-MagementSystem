@@ -1,7 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -15,7 +14,6 @@ from apps.attendance.models import Attendance
 # Grading systems
 # ---------------------------------------------------------------------------
 
-# Basic 7-9
 GRADE_THRESHOLDS_B79 = [
     (90, "1", "HIGHEST"),
     (80, "2", "HIGHER"),
@@ -28,7 +26,6 @@ GRADE_THRESHOLDS_B79 = [
     (0,  "9", "LOWEST"),
 ]
 
-# Basic 1-6
 GRADE_THRESHOLDS_B16 = [
     (90, "A",  "EXCELLENT"),
     (80, "B",  "VERY GOOD"),
@@ -40,7 +37,6 @@ GRADE_THRESHOLDS_B16 = [
     (0,  "E5", "LOWEST"),
 ]
 
-# Nursery/KG — same thresholds as Basic 1-6
 GRADE_THRESHOLDS_NKG = GRADE_THRESHOLDS_B16
 
 SCHOOL_NAMES = {
@@ -79,9 +75,15 @@ def format_position(n):
     return f"{n}{suffix}"
 
 
+# ---------------------------------------------------------------------------
+# View
+# ---------------------------------------------------------------------------
+
 class StudentReportView(APIView):
 
     permission_classes = [IsAuthenticated]
+
+    # ── GET ──────────────────────────────────────────────────────────────
 
     def get(self, request, student_id):
         term = request.query_params.get("term")
@@ -107,9 +109,7 @@ class StudentReportView(APIView):
         failed      = 0
 
         for r in results:
-            score = r.score or 0
-
-            # Recompute grade/remark using correct level thresholds
+            score         = r.score or 0
             grade, remark = get_grade_and_remark(score, thresholds)
 
             subjects.append({
@@ -180,10 +180,17 @@ class StudentReportView(APIView):
             "attendance_total":   total_days,
             "attendance_percent": round((present_days / total_days) * 100) if total_days else 0,
 
-            "interest":           report.interest       if report else None,
-            "conduct":            report.conduct        if report else None,
-            "teacher_remark":     report.teacher_remark if report else None,
+            # Remarks
+            "conduct":          report.conduct          if report else None,
+            "interest":         report.interest         if report else None,
+            "teacher_remark":   report.teacher_remark   if report else None,
+
+            # Dates
+            "vacation_date":    str(report.vacation_date)   if report and report.vacation_date   else None,
+            "resumption_date":  str(report.resumption_date) if report and report.resumption_date else None,
         })
+
+    # ── PATCH ─────────────────────────────────────────────────────────────
 
     def patch(self, request, student_id):
         term = request.data.get("term")
@@ -192,30 +199,42 @@ class StudentReportView(APIView):
 
         student = get_object_or_404(Student, id=student_id)
 
+        # year is part of unique_together — must be in the lookup, not just defaults
         report, _ = Report.objects.get_or_create(
             student=student,
             term=term,
+            year=timezone.now().year,
             defaults={
-                "year":             timezone.now().year,
                 "attendance":       0,
-                "attendance_total": 0,
+                "attendance_total": 1,  # must be >= 1 per model validator
             },
         )
 
-        updatable = ["conduct", "interest", "teacher_remark"]
-        changed   = []
+        updatable = [
+            "conduct",
+            "interest",
+            "teacher_remark",
+            "vacation_date",
+            "resumption_date",
+        ]
+        changed = []
 
         for field in updatable:
             if field in request.data:
-                setattr(report, field, request.data[field])
+                value = request.data[field]
+                if field in ("vacation_date", "resumption_date") and value == "":
+                    value = None
+                setattr(report, field, value)
                 changed.append(field)
 
         if changed:
             report.save(update_fields=changed)
 
         return Response({
-            "detail":         "Remarks saved.",
-            "conduct":        report.conduct,
-            "interest":       report.interest,
-            "teacher_remark": report.teacher_remark,
+            "detail":           "Saved.",
+            "conduct":          report.conduct,
+            "interest":         report.interest,
+            "teacher_remark":   report.teacher_remark,
+            "vacation_date":    str(report.vacation_date)   if report.vacation_date   else None,
+            "resumption_date":  str(report.resumption_date) if report.resumption_date else None,
         })
