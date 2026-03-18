@@ -1,8 +1,5 @@
 import axios from "axios";
 
-// Endpoints that must never carry an Authorization header.
-// Sending a stale token on these causes the server to reject
-// the request before it even checks the submitted credentials.
 const PUBLIC_ENDPOINTS = ["/auth/login/", "/auth/refresh/", "/auth/register/"];
 
 const API = axios.create({
@@ -30,8 +27,6 @@ API.interceptors.response.use(
       originalRequest.url?.includes(path)
     );
 
-    // Only attempt token refresh for protected endpoints.
-    // Never retry login/refresh/register — a 401 there means bad credentials.
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
@@ -48,7 +43,7 @@ API.interceptors.response.use(
         }
 
         const res = await axios.post(
-          "http://127.0.0.1:8000/api/auth/refresh/",
+          "https://school-backend-bzk3.onrender.com/api/auth/refresh/",  // ← fixed
           { refresh }
         );
 
