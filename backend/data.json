@@ -1,1404 +1,13 @@
 [
 {
   "model": "admin.logentry",
-  "pk": 1,
+  "pk": 110,
   "fields": {
-    "action_time": "2026-03-10T21:29:42.100Z",
-    "user": 1,
-    "content_type": 7,
-    "object_id": "1",
-    "object_repr": "Basic 1 Lower Primary",
-    "action_flag": 1,
-    "change_message": "[{\"added\": {}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 2,
-  "fields": {
-    "action_time": "2026-03-10T21:30:13.831Z",
-    "user": 1,
-    "content_type": 8,
-    "object_id": "1",
-    "object_repr": "Computing - Basic 1 Lower Primary",
-    "action_flag": 1,
-    "change_message": "[{\"added\": {}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 3,
-  "fields": {
-    "action_time": "2026-03-10T21:30:27.721Z",
-    "user": 1,
-    "content_type": 8,
-    "object_id": "1",
-    "object_repr": "Computing - Basic 1 Lower Primary",
-    "action_flag": 2,
-    "change_message": "[]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 4,
-  "fields": {
-    "action_time": "2026-03-10T21:34:11.289Z",
-    "user": 1,
-    "content_type": 9,
-    "object_id": "1",
-    "object_repr": "cazio",
-    "action_flag": 1,
-    "change_message": "[{\"added\": {}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 5,
-  "fields": {
-    "action_time": "2026-03-10T21:34:17.659Z",
-    "user": 1,
-    "content_type": 9,
-    "object_id": "1",
-    "object_repr": "cazio",
-    "action_flag": 2,
-    "change_message": "[]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 6,
-  "fields": {
-    "action_time": "2026-03-10T21:37:38.929Z",
-    "user": 1,
-    "content_type": 10,
-    "object_id": "1",
-    "object_repr": "cazio (LSA22039)",
-    "action_flag": 1,
-    "change_message": "[{\"added\": {}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 7,
-  "fields": {
-    "action_time": "2026-03-10T21:40:06.636Z",
+    "action_time": "2026-03-17T00:46:01.596Z",
     "user": 1,
     "content_type": 11,
-    "object_id": "1",
-    "object_repr": "cazio (LSA22039) - 2026-03-10 - present",
-    "action_flag": 1,
-    "change_message": "[{\"added\": {}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 8,
-  "fields": {
-    "action_time": "2026-03-10T21:42:57.467Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "1",
-    "object_repr": "cazio (LSA22039) - Computing - Basic 1 Lower Primary - 80",
-    "action_flag": 1,
-    "change_message": "[{\"added\": {}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 9,
-  "fields": {
-    "action_time": "2026-03-10T21:45:34.647Z",
-    "user": 1,
-    "content_type": 13,
-    "object_id": "1",
-    "object_repr": "cazio (LSA22039) - term1",
-    "action_flag": 1,
-    "change_message": "[{\"added\": {}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 10,
-  "fields": {
-    "action_time": "2026-03-10T22:06:02.781Z",
-    "user": 1,
-    "content_type": 9,
-    "object_id": "1",
-    "object_repr": "cazio",
-    "action_flag": 2,
-    "change_message": "[]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 11,
-  "fields": {
-    "action_time": "2026-03-13T00:04:49.462Z",
-    "user": 1,
-    "content_type": 10,
-    "object_id": "3",
-    "object_repr": "LSA-2026-0001 (LSA-2026-0001)",
-    "action_flag": 2,
-    "change_message": "[{\"changed\": {\"fields\": [\"School class\", \"Photo\"]}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 12,
-  "fields": {
-    "action_time": "2026-03-13T00:06:13.912Z",
-    "user": 1,
-    "content_type": 10,
-    "object_id": "3",
-    "object_repr": "LSA-2026-0001 (LSA-2026-0001)",
-    "action_flag": 2,
-    "change_message": "[{\"changed\": {\"fields\": [\"School class\"]}}]"
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 13,
-  "fields": {
-    "action_time": "2026-03-17T00:43:08.793Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "67",
-    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) – Our World Our People - Nursery 1 – 70.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 14,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "66",
-    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) – Our World Our People - Nursery 1 – 63.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 15,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "65",
-    "object_repr": "Bryan A Asiamah (LSA-2026-0064) – Our World Our People - Nursery 1 – 100.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 16,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "64",
-    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) – Our World Our People - Nursery 1 – 6.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 17,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "63",
-    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) – Our World Our People - Nursery 1 – 44.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 18,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "62",
-    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) – Our World Our People - Nursery 1 – 92.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 19,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "61",
-    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) – Our World Our People - Nursery 1 – 65.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 20,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "60",
-    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) – Our World Our People - Nursery 1 – 81.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 21,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.634Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "59",
-    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) – Our World Our People - Nursery 1 – 88.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 22,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "58",
-    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) – Our World Our People - Nursery 1 – 90.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 23,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "57",
-    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) – Our World Our People - Nursery 1 – 97.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 24,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "56",
-    "object_repr": "Selina Boakye (LSA-2026-0055) – Our World Our People - Nursery 1 – 54.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 25,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "55",
-    "object_repr": "Erica Wiafe (LSA-2026-0054) – Our World Our People - Nursery 1 – 78.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 26,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "54",
-    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) – Numeracy - Nursery 1 – 70.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 27,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "53",
-    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) – Numeracy - Nursery 1 – 63.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 28,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "52",
-    "object_repr": "Bryan A Asiamah (LSA-2026-0064) – Numeracy - Nursery 1 – 100.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 29,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "51",
-    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) – Numeracy - Nursery 1 – 6.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 30,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "50",
-    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) – Numeracy - Nursery 1 – 44.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 31,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "49",
-    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) – Numeracy - Nursery 1 – 92.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 32,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "48",
-    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) – Numeracy - Nursery 1 – 65.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 33,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "47",
-    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) – Numeracy - Nursery 1 – 44.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 34,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "46",
-    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) – Numeracy - Nursery 1 – 88.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 35,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "45",
-    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) – Numeracy - Nursery 1 – 90.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 36,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "44",
-    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) – Numeracy - Nursery 1 – 97.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 37,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "43",
-    "object_repr": "Selina Boakye (LSA-2026-0055) – Numeracy - Nursery 1 – 54.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 38,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "42",
-    "object_repr": "Erica Wiafe (LSA-2026-0054) – Numeracy - Nursery 1 – 78.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 39,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "41",
-    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) – Creativity - Nursery 1 – 70.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 40,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "40",
-    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) – Creativity - Nursery 1 – 63.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 41,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "39",
-    "object_repr": "Bryan A Asiamah (LSA-2026-0064) – Creativity - Nursery 1 – 100.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 42,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "38",
-    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) – Creativity - Nursery 1 – 6.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 43,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "37",
-    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) – Creativity - Nursery 1 – 44.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 44,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "36",
-    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) – Creativity - Nursery 1 – 92.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 45,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "35",
-    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) – Creativity - Nursery 1 – 65.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 46,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "34",
-    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) – Creativity - Nursery 1 – 44.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 47,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "33",
-    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) – Creativity - Nursery 1 – 88.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 48,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "32",
-    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) – Creativity - Nursery 1 – 90.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 49,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "31",
-    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) – Creativity - Nursery 1 – 97.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 50,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "30",
-    "object_repr": "Selina Boakye (LSA-2026-0055) – Creativity - Nursery 1 – 54.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 51,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "29",
-    "object_repr": "Erica Wiafe (LSA-2026-0054) – Creativity - Nursery 1 – 78.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 52,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "28",
-    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) – Literacy - Nursery 1 – 70.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 53,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "27",
-    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) – Literacy - Nursery 1 – 63.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 54,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "26",
-    "object_repr": "Bryan A Asiamah (LSA-2026-0064) – Literacy - Nursery 1 – 100.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 55,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "25",
-    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) – Literacy - Nursery 1 – 6.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 56,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "24",
-    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) – Literacy - Nursery 1 – 44.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 57,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "23",
-    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) – Literacy - Nursery 1 – 92.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 58,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "22",
-    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) – Literacy - Nursery 1 – 65.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 59,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "21",
-    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) – Literacy - Nursery 1 – 44.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 60,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "20",
-    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) – Literacy - Nursery 1 – 88.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 61,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "19",
-    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) – Literacy - Nursery 1 – 90.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 62,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.635Z",
-    "user": 1,
-    "content_type": 12,
     "object_id": "18",
-    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) – Literacy - Nursery 1 – 97.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 63,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.636Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "17",
-    "object_repr": "Selina Boakye (LSA-2026-0055) – Literacy - Nursery 1 – 54.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 64,
-  "fields": {
-    "action_time": "2026-03-17T00:43:33.636Z",
-    "user": 1,
-    "content_type": 12,
-    "object_id": "16",
-    "object_repr": "Erica Wiafe (LSA-2026-0054) – Literacy - Nursery 1 – 78.0",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 65,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.539Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "36",
-    "object_repr": "LSA-2026-0053",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 66,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "35",
-    "object_repr": "LSA-2026-0052",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 67,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "34",
-    "object_repr": "LSA-2026-0051",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 68,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "33",
-    "object_repr": "LSA-2026-0050",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 69,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "32",
-    "object_repr": "LSA-2026-0049",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 70,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "31",
-    "object_repr": "LSA-2026-0048",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 71,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "30",
-    "object_repr": "LSA-2026-0047",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 72,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "28",
-    "object_repr": "Mike",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 73,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "27",
-    "object_repr": "Aduboaheng",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 74,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "25",
-    "object_repr": "danielobeng",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 75,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "24",
-    "object_repr": "LSA-2026-0046",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 76,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "23",
-    "object_repr": "LSA-2026-0045",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 77,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "22",
-    "object_repr": "LSA-2026-0044",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 78,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "21",
-    "object_repr": "LSA-2026-0043",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 79,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "20",
-    "object_repr": "LSA-2026-0042",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 80,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "19",
-    "object_repr": "LSA-2026-0041",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 81,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "18",
-    "object_repr": "LSA-2026-0012",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 82,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "17",
-    "object_repr": "LSA-2026-0011",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 83,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "16",
-    "object_repr": "LSA-2026-0010",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 84,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "15",
-    "object_repr": "LSA-2026-0009",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 85,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "14",
-    "object_repr": "LSA-2026-0008",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 86,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.540Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "13",
-    "object_repr": "LSA-2026-0007",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 87,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "12",
-    "object_repr": "LSA-2026-0006",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 88,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "11",
-    "object_repr": "LSA-2026-0005",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 89,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "10",
-    "object_repr": "LSA-2026-0004",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 90,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "9",
-    "object_repr": "LSA-2026-0003",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 91,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "8",
-    "object_repr": "richardofori",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 92,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "7",
-    "object_repr": "Test",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 93,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "6",
-    "object_repr": "LSA-2026-0002",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 94,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "5",
-    "object_repr": "LSA-2026-0001",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 95,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "4",
-    "object_repr": "LSA-2026-0040",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 96,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "3",
-    "object_repr": "rootSnipper",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 97,
-  "fields": {
-    "action_time": "2026-03-17T00:45:39.541Z",
-    "user": 1,
-    "content_type": 6,
-    "object_id": "2",
-    "object_repr": "teacher1",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 98,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "30",
-    "object_repr": "Selina Boakye (LSA-2026-0055) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 99,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "29",
-    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 100,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "28",
-    "object_repr": "Bryan A Asiamah (LSA-2026-0064) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 101,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "27",
-    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 102,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "26",
-    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) - 2026-03-16 - absent",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 103,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "25",
-    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 104,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "24",
-    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 105,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "23",
-    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 106,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "22",
-    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 107,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "21",
-    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) - 2026-03-16 - present",
-    "action_flag": 3,
-    "change_message": ""
-  }
-},
-{
-  "model": "admin.logentry",
-  "pk": 108,
-  "fields": {
-    "action_time": "2026-03-17T00:46:01.596Z",
-    "user": 1,
-    "content_type": 11,
-    "object_id": "20",
-    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) - 2026-03-16 - present",
+    "object_repr": "Erica Wiafe (LSA-2026-0054) - 2026-03-16 - present",
     "action_flag": 3,
     "change_message": ""
   }
@@ -1418,15 +27,1542 @@
 },
 {
   "model": "admin.logentry",
-  "pk": 110,
+  "pk": 108,
   "fields": {
     "action_time": "2026-03-17T00:46:01.596Z",
     "user": 1,
     "content_type": 11,
-    "object_id": "18",
-    "object_repr": "Erica Wiafe (LSA-2026-0054) - 2026-03-16 - present",
+    "object_id": "20",
+    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) - 2026-03-16 - present",
     "action_flag": 3,
     "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 107,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "21",
+    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 106,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "22",
+    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 105,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "23",
+    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 104,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "24",
+    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 103,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "25",
+    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 102,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "26",
+    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) - 2026-03-16 - absent",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 101,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "27",
+    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 100,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "28",
+    "object_repr": "Bryan A Asiamah (LSA-2026-0064) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 99,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "29",
+    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 98,
+  "fields": {
+    "action_time": "2026-03-17T00:46:01.596Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "30",
+    "object_repr": "Selina Boakye (LSA-2026-0055) - 2026-03-16 - present",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 97,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "2",
+    "object_repr": "teacher1",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 96,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "3",
+    "object_repr": "rootSnipper",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 95,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "4",
+    "object_repr": "LSA-2026-0040",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 94,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "5",
+    "object_repr": "LSA-2026-0001",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 93,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "6",
+    "object_repr": "LSA-2026-0002",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 92,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "7",
+    "object_repr": "Test",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 91,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "8",
+    "object_repr": "richardofori",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 90,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "9",
+    "object_repr": "LSA-2026-0003",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 89,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "10",
+    "object_repr": "LSA-2026-0004",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 88,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "11",
+    "object_repr": "LSA-2026-0005",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 87,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.541Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "12",
+    "object_repr": "LSA-2026-0006",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 86,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "13",
+    "object_repr": "LSA-2026-0007",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 85,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "14",
+    "object_repr": "LSA-2026-0008",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 84,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "15",
+    "object_repr": "LSA-2026-0009",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 83,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "16",
+    "object_repr": "LSA-2026-0010",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 82,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "17",
+    "object_repr": "LSA-2026-0011",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 81,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "18",
+    "object_repr": "LSA-2026-0012",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 80,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "19",
+    "object_repr": "LSA-2026-0041",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 79,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "20",
+    "object_repr": "LSA-2026-0042",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 78,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "21",
+    "object_repr": "LSA-2026-0043",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 77,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "22",
+    "object_repr": "LSA-2026-0044",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 76,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "23",
+    "object_repr": "LSA-2026-0045",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 75,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "24",
+    "object_repr": "LSA-2026-0046",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 74,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "25",
+    "object_repr": "danielobeng",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 73,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "27",
+    "object_repr": "Aduboaheng",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 72,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "28",
+    "object_repr": "Mike",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 71,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "30",
+    "object_repr": "LSA-2026-0047",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 70,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "31",
+    "object_repr": "LSA-2026-0048",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 69,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "32",
+    "object_repr": "LSA-2026-0049",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 68,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "33",
+    "object_repr": "LSA-2026-0050",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 67,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "34",
+    "object_repr": "LSA-2026-0051",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 66,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.540Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "35",
+    "object_repr": "LSA-2026-0052",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 65,
+  "fields": {
+    "action_time": "2026-03-17T00:45:39.539Z",
+    "user": 1,
+    "content_type": 6,
+    "object_id": "36",
+    "object_repr": "LSA-2026-0053",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 64,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.636Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "16",
+    "object_repr": "Erica Wiafe (LSA-2026-0054) \u2013 Literacy - Nursery 1 \u2013 78.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 63,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.636Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "17",
+    "object_repr": "Selina Boakye (LSA-2026-0055) \u2013 Literacy - Nursery 1 \u2013 54.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 62,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "18",
+    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) \u2013 Literacy - Nursery 1 \u2013 97.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 61,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "19",
+    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) \u2013 Literacy - Nursery 1 \u2013 90.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 60,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "20",
+    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) \u2013 Literacy - Nursery 1 \u2013 88.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 59,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "21",
+    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) \u2013 Literacy - Nursery 1 \u2013 44.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 58,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "22",
+    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) \u2013 Literacy - Nursery 1 \u2013 65.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 57,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "23",
+    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) \u2013 Literacy - Nursery 1 \u2013 92.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 56,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "24",
+    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) \u2013 Literacy - Nursery 1 \u2013 44.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 55,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "25",
+    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) \u2013 Literacy - Nursery 1 \u2013 6.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 54,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "26",
+    "object_repr": "Bryan A Asiamah (LSA-2026-0064) \u2013 Literacy - Nursery 1 \u2013 100.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 53,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "27",
+    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) \u2013 Literacy - Nursery 1 \u2013 63.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 52,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "28",
+    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) \u2013 Literacy - Nursery 1 \u2013 70.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 51,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "29",
+    "object_repr": "Erica Wiafe (LSA-2026-0054) \u2013 Creativity - Nursery 1 \u2013 78.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 50,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "30",
+    "object_repr": "Selina Boakye (LSA-2026-0055) \u2013 Creativity - Nursery 1 \u2013 54.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 49,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "31",
+    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) \u2013 Creativity - Nursery 1 \u2013 97.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 48,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "32",
+    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) \u2013 Creativity - Nursery 1 \u2013 90.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 47,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "33",
+    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) \u2013 Creativity - Nursery 1 \u2013 88.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 46,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "34",
+    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) \u2013 Creativity - Nursery 1 \u2013 44.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 45,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "35",
+    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) \u2013 Creativity - Nursery 1 \u2013 65.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 44,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "36",
+    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) \u2013 Creativity - Nursery 1 \u2013 92.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 43,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "37",
+    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) \u2013 Creativity - Nursery 1 \u2013 44.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 42,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "38",
+    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) \u2013 Creativity - Nursery 1 \u2013 6.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 41,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "39",
+    "object_repr": "Bryan A Asiamah (LSA-2026-0064) \u2013 Creativity - Nursery 1 \u2013 100.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 40,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "40",
+    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) \u2013 Creativity - Nursery 1 \u2013 63.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 39,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "41",
+    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) \u2013 Creativity - Nursery 1 \u2013 70.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 38,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "42",
+    "object_repr": "Erica Wiafe (LSA-2026-0054) \u2013 Numeracy - Nursery 1 \u2013 78.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 37,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "43",
+    "object_repr": "Selina Boakye (LSA-2026-0055) \u2013 Numeracy - Nursery 1 \u2013 54.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 36,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "44",
+    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) \u2013 Numeracy - Nursery 1 \u2013 97.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 35,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "45",
+    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) \u2013 Numeracy - Nursery 1 \u2013 90.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 34,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "46",
+    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) \u2013 Numeracy - Nursery 1 \u2013 88.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 33,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "47",
+    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) \u2013 Numeracy - Nursery 1 \u2013 44.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 32,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "48",
+    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) \u2013 Numeracy - Nursery 1 \u2013 65.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 31,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "49",
+    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) \u2013 Numeracy - Nursery 1 \u2013 92.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 30,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "50",
+    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) \u2013 Numeracy - Nursery 1 \u2013 44.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 29,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "51",
+    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) \u2013 Numeracy - Nursery 1 \u2013 6.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 28,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "52",
+    "object_repr": "Bryan A Asiamah (LSA-2026-0064) \u2013 Numeracy - Nursery 1 \u2013 100.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 27,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "53",
+    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) \u2013 Numeracy - Nursery 1 \u2013 63.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 26,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "54",
+    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) \u2013 Numeracy - Nursery 1 \u2013 70.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 25,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "55",
+    "object_repr": "Erica Wiafe (LSA-2026-0054) \u2013 Our World Our People - Nursery 1 \u2013 78.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 24,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "56",
+    "object_repr": "Selina Boakye (LSA-2026-0055) \u2013 Our World Our People - Nursery 1 \u2013 54.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 23,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "57",
+    "object_repr": "Kendra Mbiriwaa Nana Akua Eduful (LSA-2026-0056) \u2013 Our World Our People - Nursery 1 \u2013 97.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 22,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.635Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "58",
+    "object_repr": "Nyiraba Obeng Owusu (LSA-2026-0057) \u2013 Our World Our People - Nursery 1 \u2013 90.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 21,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "59",
+    "object_repr": "Okatakyie Kwabena Ampem Darko Adu (LSA-2026-0058) \u2013 Our World Our People - Nursery 1 \u2013 88.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 20,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "60",
+    "object_repr": "Angel Agyeiwaa Ayensu (LSA-2026-0059) \u2013 Our World Our People - Nursery 1 \u2013 81.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 19,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "61",
+    "object_repr": "Jael Ekua Adazewa Arkoful (LSA-2026-0060) \u2013 Our World Our People - Nursery 1 \u2013 65.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 18,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "62",
+    "object_repr": "Pamela Akua Opoku (LSA-2026-0061) \u2013 Our World Our People - Nursery 1 \u2013 92.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 17,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "63",
+    "object_repr": "Afia Serwaa Frimpong (LSA-2026-0062) \u2013 Our World Our People - Nursery 1 \u2013 44.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 16,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "64",
+    "object_repr": "Joshua Bentum Agyare Otoo (LSA-2026-0063) \u2013 Our World Our People - Nursery 1 \u2013 6.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 15,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "65",
+    "object_repr": "Bryan A Asiamah (LSA-2026-0064) \u2013 Our World Our People - Nursery 1 \u2013 100.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 14,
+  "fields": {
+    "action_time": "2026-03-17T00:43:33.634Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "66",
+    "object_repr": "Castiel Jnr. Asiamah Danquah (LSA-2026-0065) \u2013 Our World Our People - Nursery 1 \u2013 63.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 13,
+  "fields": {
+    "action_time": "2026-03-17T00:43:08.793Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "67",
+    "object_repr": "Betty Valerie N.L Lamptey (LSA-2026-0066) \u2013 Our World Our People - Nursery 1 \u2013 70.0",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 12,
+  "fields": {
+    "action_time": "2026-03-13T00:06:13.912Z",
+    "user": 1,
+    "content_type": 10,
+    "object_id": "3",
+    "object_repr": "LSA-2026-0001 (LSA-2026-0001)",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"School class\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 11,
+  "fields": {
+    "action_time": "2026-03-13T00:04:49.462Z",
+    "user": 1,
+    "content_type": 10,
+    "object_id": "3",
+    "object_repr": "LSA-2026-0001 (LSA-2026-0001)",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"School class\", \"Photo\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 10,
+  "fields": {
+    "action_time": "2026-03-10T22:06:02.781Z",
+    "user": 1,
+    "content_type": 9,
+    "object_id": "1",
+    "object_repr": "cazio",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 9,
+  "fields": {
+    "action_time": "2026-03-10T21:45:34.647Z",
+    "user": 1,
+    "content_type": 13,
+    "object_id": "1",
+    "object_repr": "cazio (LSA22039) - term1",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 8,
+  "fields": {
+    "action_time": "2026-03-10T21:42:57.467Z",
+    "user": 1,
+    "content_type": 12,
+    "object_id": "1",
+    "object_repr": "cazio (LSA22039) - Computing - Basic 1 Lower Primary - 80",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 7,
+  "fields": {
+    "action_time": "2026-03-10T21:40:06.636Z",
+    "user": 1,
+    "content_type": 11,
+    "object_id": "1",
+    "object_repr": "cazio (LSA22039) - 2026-03-10 - present",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 6,
+  "fields": {
+    "action_time": "2026-03-10T21:37:38.929Z",
+    "user": 1,
+    "content_type": 10,
+    "object_id": "1",
+    "object_repr": "cazio (LSA22039)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 5,
+  "fields": {
+    "action_time": "2026-03-10T21:34:17.659Z",
+    "user": 1,
+    "content_type": 9,
+    "object_id": "1",
+    "object_repr": "cazio",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 4,
+  "fields": {
+    "action_time": "2026-03-10T21:34:11.289Z",
+    "user": 1,
+    "content_type": 9,
+    "object_id": "1",
+    "object_repr": "cazio",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 3,
+  "fields": {
+    "action_time": "2026-03-10T21:30:27.721Z",
+    "user": 1,
+    "content_type": 8,
+    "object_id": "1",
+    "object_repr": "Computing - Basic 1 Lower Primary",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 2,
+  "fields": {
+    "action_time": "2026-03-10T21:30:13.831Z",
+    "user": 1,
+    "content_type": 8,
+    "object_id": "1",
+    "object_repr": "Computing - Basic 1 Lower Primary",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 1,
+  "fields": {
+    "action_time": "2026-03-10T21:29:42.100Z",
+    "user": 1,
+    "content_type": 7,
+    "object_id": "1",
+    "object_repr": "Basic 1 Lower Primary",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 1,
+  "fields": {
+    "app_label": "admin",
+    "model": "logentry"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 2,
+  "fields": {
+    "app_label": "auth",
+    "model": "group"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 3,
+  "fields": {
+    "app_label": "auth",
+    "model": "permission"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 4,
+  "fields": {
+    "app_label": "contenttypes",
+    "model": "contenttype"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 5,
+  "fields": {
+    "app_label": "sessions",
+    "model": "session"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 6,
+  "fields": {
+    "app_label": "accounts",
+    "model": "user"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 7,
+  "fields": {
+    "app_label": "classes",
+    "model": "schoolclass"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 8,
+  "fields": {
+    "app_label": "subjects",
+    "model": "subject"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 9,
+  "fields": {
+    "app_label": "teachers",
+    "model": "teacher"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 10,
+  "fields": {
+    "app_label": "students",
+    "model": "student"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 11,
+  "fields": {
+    "app_label": "attendance",
+    "model": "attendance"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 12,
+  "fields": {
+    "app_label": "results",
+    "model": "result"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 13,
+  "fields": {
+    "app_label": "fees",
+    "model": "fee"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 14,
+  "fields": {
+    "app_label": "announcements",
+    "model": "announcement"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 15,
+  "fields": {
+    "app_label": "admissions",
+    "model": "admission"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 16,
+  "fields": {
+    "app_label": "results",
+    "model": "report"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 17,
+  "fields": {
+    "app_label": "fees",
+    "model": "paymenttransaction"
   }
 },
 {
@@ -2003,46 +2139,6 @@
 },
 {
   "model": "classes.schoolclass",
-  "pk": 2,
-  "fields": {
-    "name": "Nursery 1",
-    "section": null,
-    "level": "nursery_kg",
-    "created_at": "2026-03-12T21:07:33.233Z"
-  }
-},
-{
-  "model": "classes.schoolclass",
-  "pk": 3,
-  "fields": {
-    "name": "Nursery 2",
-    "section": null,
-    "level": "nursery_kg",
-    "created_at": "2026-03-12T21:07:54.187Z"
-  }
-},
-{
-  "model": "classes.schoolclass",
-  "pk": 4,
-  "fields": {
-    "name": "KG 1",
-    "section": null,
-    "level": "nursery_kg",
-    "created_at": "2026-03-12T21:08:02.869Z"
-  }
-},
-{
-  "model": "classes.schoolclass",
-  "pk": 5,
-  "fields": {
-    "name": "KG 2",
-    "section": null,
-    "level": "nursery_kg",
-    "created_at": "2026-03-12T21:08:07.869Z"
-  }
-},
-{
-  "model": "classes.schoolclass",
   "pk": 6,
   "fields": {
     "name": "Basic 2",
@@ -2129,6 +2225,46 @@
     "section": "C",
     "level": "nursery_kg",
     "created_at": "2026-03-16T21:54:38.539Z"
+  }
+},
+{
+  "model": "classes.schoolclass",
+  "pk": 4,
+  "fields": {
+    "name": "KG 1",
+    "section": null,
+    "level": "nursery_kg",
+    "created_at": "2026-03-12T21:08:02.869Z"
+  }
+},
+{
+  "model": "classes.schoolclass",
+  "pk": 5,
+  "fields": {
+    "name": "KG 2",
+    "section": null,
+    "level": "nursery_kg",
+    "created_at": "2026-03-12T21:08:07.869Z"
+  }
+},
+{
+  "model": "classes.schoolclass",
+  "pk": 2,
+  "fields": {
+    "name": "Nursery 1",
+    "section": null,
+    "level": "nursery_kg",
+    "created_at": "2026-03-12T21:07:33.233Z"
+  }
+},
+{
+  "model": "classes.schoolclass",
+  "pk": 3,
+  "fields": {
+    "name": "Nursery 2",
+    "section": null,
+    "level": "nursery_kg",
+    "created_at": "2026-03-12T21:07:54.187Z"
   }
 },
 {
@@ -2403,22 +2539,6 @@
 },
 {
   "model": "results.result",
-  "pk": 68,
-  "fields": {
-    "student": 28,
-    "subject": 2,
-    "school_class": 2,
-    "term": "term1",
-    "reopen": 20.0,
-    "ca": 40.0,
-    "exams": 40.0,
-    "score": 100.0,
-    "subject_position": 1,
-    "created_at": "2026-03-17T07:39:09.510Z"
-  }
-},
-{
-  "model": "results.result",
   "pk": 69,
   "fields": {
     "student": 28,
@@ -2431,6 +2551,22 @@
     "score": 49.5,
     "subject_position": 1,
     "created_at": "2026-03-17T21:44:36.255Z"
+  }
+},
+{
+  "model": "results.result",
+  "pk": 68,
+  "fields": {
+    "student": 28,
+    "subject": 2,
+    "school_class": 2,
+    "term": "term1",
+    "reopen": 20.0,
+    "ca": 40.0,
+    "exams": 40.0,
+    "score": 100.0,
+    "subject_position": 1,
+    "created_at": "2026-03-17T07:39:09.510Z"
   }
 },
 {
@@ -2469,34 +2605,18 @@
 },
 {
   "model": "fees.fee",
-  "pk": 19,
+  "pk": 22,
   "fields": {
-    "student": 35,
-    "term": "term1",
-    "amount": "300.00",
-    "book_user_fee": "50.00",
-    "workbook_fee": "11.00",
-    "arrears": "0.00",
-    "paid": "0.00",
-    "balance": "361.00",
-    "created_at": "2026-03-17T20:45:06.625Z",
-    "updated_at": "2026-03-17T20:45:06.625Z"
-  }
-},
-{
-  "model": "fees.fee",
-  "pk": 20,
-  "fields": {
-    "student": 36,
+    "student": 33,
     "term": "term1",
     "amount": "500.00",
     "book_user_fee": "0.00",
     "workbook_fee": "0.00",
     "arrears": "0.00",
-    "paid": "500.00",
-    "balance": "0.00",
-    "created_at": "2026-03-17T20:49:45.016Z",
-    "updated_at": "2026-03-17T21:40:54.708Z"
+    "paid": "0.00",
+    "balance": "500.00",
+    "created_at": "2026-03-17T21:23:08.839Z",
+    "updated_at": "2026-03-17T21:23:08.839Z"
   }
 },
 {
@@ -2517,29 +2637,45 @@
 },
 {
   "model": "fees.fee",
-  "pk": 22,
+  "pk": 20,
   "fields": {
-    "student": 33,
+    "student": 36,
     "term": "term1",
     "amount": "500.00",
     "book_user_fee": "0.00",
     "workbook_fee": "0.00",
     "arrears": "0.00",
+    "paid": "500.00",
+    "balance": "0.00",
+    "created_at": "2026-03-17T20:49:45.016Z",
+    "updated_at": "2026-03-17T21:40:54.708Z"
+  }
+},
+{
+  "model": "fees.fee",
+  "pk": 19,
+  "fields": {
+    "student": 35,
+    "term": "term1",
+    "amount": "300.00",
+    "book_user_fee": "50.00",
+    "workbook_fee": "11.00",
+    "arrears": "0.00",
     "paid": "0.00",
-    "balance": "500.00",
-    "created_at": "2026-03-17T21:23:08.839Z",
-    "updated_at": "2026-03-17T21:23:08.839Z"
+    "balance": "361.00",
+    "created_at": "2026-03-17T20:45:06.625Z",
+    "updated_at": "2026-03-17T20:45:06.625Z"
   }
 },
 {
   "model": "fees.paymenttransaction",
-  "pk": 1,
+  "pk": 3,
   "fields": {
-    "fee": 21,
-    "amount": "184.00",
+    "fee": 20,
+    "amount": "20.00",
     "recorded_by": 1,
-    "note": "Cash",
-    "created_at": "2026-03-17T21:23:59.773Z"
+    "note": "Momo Payment",
+    "created_at": "2026-03-17T21:40:54.915Z"
   }
 },
 {
@@ -2555,27 +2691,13 @@
 },
 {
   "model": "fees.paymenttransaction",
-  "pk": 3,
-  "fields": {
-    "fee": 20,
-    "amount": "20.00",
-    "recorded_by": 1,
-    "note": "Momo Payment",
-    "created_at": "2026-03-17T21:40:54.915Z"
-  }
-},
-{
-  "model": "announcements.announcement",
   "pk": 1,
   "fields": {
-    "title": "Public Holiday",
-    "message": "Friday and Monday have been officially decleard a holiday",
-    "priority": "normal",
-    "audience": "all",
-    "is_pinned": true,
-    "expires_at": "2026-03-15T22:49:00Z",
-    "created_at": "2026-03-15T23:49:18.696Z",
-    "updated_at": "2026-03-15T23:49:18.696Z"
+    "fee": 21,
+    "amount": "184.00",
+    "recorded_by": 1,
+    "note": "Cash",
+    "created_at": "2026-03-17T21:23:59.773Z"
   }
 },
 {
@@ -2593,299 +2715,43 @@
   }
 },
 {
-  "model": "admissions.admission",
-  "pk": 42,
+  "model": "announcements.announcement",
+  "pk": 1,
   "fields": {
-    "first_name": "Erica",
-    "last_name": "Wiafe",
-    "student_name": "Erica Wiafe",
-    "gender": "Female",
-    "date_of_birth": "2026-01-16",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773699596/admissions/photos/l8rgxnmkoucywfrotkym.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Rhoda Wiafe",
-    "parent_gender": "Female",
-    "relationship": "Mother",
-    "email": "rhoda@gmail.com",
-    "phone": "0596436782",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0054",
-    "application_date": "2026-03-16T22:19:56.422Z",
-    "status": "approved"
+    "title": "Public Holiday",
+    "message": "Friday and Monday have been officially decleard a holiday",
+    "priority": "normal",
+    "audience": "all",
+    "is_pinned": true,
+    "expires_at": "2026-03-15T22:49:00Z",
+    "created_at": "2026-03-15T23:49:18.696Z",
+    "updated_at": "2026-03-15T23:49:18.696Z"
   }
 },
 {
   "model": "admissions.admission",
-  "pk": 44,
+  "pk": 56,
   "fields": {
-    "first_name": "Nyiraba Obeng",
-    "last_name": "Owusu",
-    "student_name": "Nyiraba Obeng Owusu",
-    "gender": "Male",
-    "date_of_birth": "2026-03-01",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773700517/admissions/photos/kj9riu6vtptfcnbdoda0.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Comfort Owusu",
-    "parent_gender": "Female",
-    "relationship": "Mother",
-    "email": "comfort@gmail.com",
-    "phone": "0245904552",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0057",
-    "application_date": "2026-03-16T22:35:17.523Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 45,
-  "fields": {
-    "first_name": "Kendra Mbiriwaa Nana Akua",
-    "last_name": "Eduful",
-    "student_name": "Kendra Mbiriwaa Nana Akua Eduful",
+    "first_name": "Betty Valerie N.L",
+    "last_name": "Lamptey",
+    "student_name": "Betty Valerie N.L Lamptey",
     "gender": "Female",
-    "date_of_birth": "2026-01-13",
+    "date_of_birth": "2025-10-08",
     "nationality": "Ghanaian",
     "religion": "Christian",
-    "photo": "image/upload/v1773700666/admissions/photos/bejayviltbabjzv0k33m.jpg",
+    "photo": "image/upload/v1773702156/admissions/photos/trpkghupct7rvrma7msm.jpg",
     "applied_class": 2,
     "previous_school": "",
     "health_notes": "",
-    "parent_name": "Kingsford Eduful",
+    "parent_name": "Samuel Lamptey",
     "parent_gender": "Male",
     "relationship": "Father",
-    "email": "kingsford@gmail.com",
-    "phone": "0549586019",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0056",
-    "application_date": "2026-03-16T22:37:46.698Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 46,
-  "fields": {
-    "first_name": "Selina",
-    "last_name": "Boakye",
-    "student_name": "Selina Boakye",
-    "gender": "Female",
-    "date_of_birth": "2025-10-01",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773700817/admissions/photos/kl4pljcwrznngineptnt.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "John Boakye",
-    "parent_gender": "Male",
-    "relationship": "Father",
-    "email": "john@gmail.com",
-    "phone": "0247813773",
-    "alt_phone": "",
-    "address": "Weija",
-    "admission_number": "LSA-2026-0055",
-    "application_date": "2026-03-16T22:40:18.252Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 47,
-  "fields": {
-    "first_name": "Okatakyie Kwabena",
-    "last_name": "Ampem Darko Adu",
-    "student_name": "Okatakyie Kwabena Ampem Darko Adu",
-    "gender": "Male",
-    "date_of_birth": "2025-10-09",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773701073/admissions/photos/xeinqygy5vy9vxe8km3r.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Linda Adu",
-    "parent_gender": "Female",
-    "relationship": "Mother",
-    "email": "adu@gmail.com",
-    "phone": "0548288783",
+    "email": "lampey@gmail.com",
+    "phone": "0246310497",
     "alt_phone": "",
     "address": "Oblogo",
-    "admission_number": "LSA-2026-0058",
-    "application_date": "2026-03-16T22:44:33.850Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 48,
-  "fields": {
-    "first_name": "Angel Agyeiwaa",
-    "last_name": "Ayensu",
-    "student_name": "Angel Agyeiwaa Ayensu",
-    "gender": "Female",
-    "date_of_birth": "2025-11-12",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773701195/admissions/photos/aoz1vs18ms665sb341q6.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Samuel Ayensu",
-    "parent_gender": "Male",
-    "relationship": "Father",
-    "email": "ayensu@gmail.com",
-    "phone": "0554500204",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0059",
-    "application_date": "2026-03-16T22:46:35.551Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 49,
-  "fields": {
-    "first_name": "Jael Ekua Adazewa",
-    "last_name": "Arkoful",
-    "student_name": "Jael Ekua Adazewa Arkoful",
-    "gender": "Female",
-    "date_of_birth": "2025-10-07",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773701322/admissions/photos/it3eyvu1aaadowqe3gjn.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Naomi Arkoful",
-    "parent_gender": "Female",
-    "relationship": "Mother",
-    "email": "arkoful@gmail.com",
-    "phone": "0268647277",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0060",
-    "application_date": "2026-03-16T22:48:42.623Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 50,
-  "fields": {
-    "first_name": "Pamela Akua",
-    "last_name": "Opoku",
-    "student_name": "Pamela Akua Opoku",
-    "gender": "Female",
-    "date_of_birth": "2025-09-09",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773701434/admissions/photos/djxfwr1bh8gukfhqrd5z.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Zulleya Karim",
-    "parent_gender": "Female",
-    "relationship": "Mother",
-    "email": "zulleyah@gmail.com",
-    "phone": "0248502590",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0061",
-    "application_date": "2026-03-16T22:50:34.845Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 52,
-  "fields": {
-    "first_name": "Afia Serwaa",
-    "last_name": "Frimpong",
-    "student_name": "Afia Serwaa Frimpong",
-    "gender": "Female",
-    "date_of_birth": "2025-11-06",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773701684/admissions/photos/evhru9vqr3xfkmcnj6zq.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Dorcas Sesi",
-    "parent_gender": "Female",
-    "relationship": "Mother",
-    "email": "dorcas@gmail.com",
-    "phone": "0545376982",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0062",
-    "application_date": "2026-03-16T22:54:44.437Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 53,
-  "fields": {
-    "first_name": "Joshua Bentum",
-    "last_name": "Agyare Otoo",
-    "student_name": "Joshua Bentum Agyare Otoo",
-    "gender": "Male",
-    "date_of_birth": "2025-11-13",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773701799/admissions/photos/ffgrrx4apot1leyr29m5.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Bernice Honu",
-    "parent_gender": "Female",
-    "relationship": "Mother",
-    "email": "bernice@gmail.com",
-    "phone": "0243246731",
-    "alt_phone": "",
-    "address": "Tettegu",
-    "admission_number": "LSA-2026-0063",
-    "application_date": "2026-03-16T22:56:40.228Z",
-    "status": "approved"
-  }
-},
-{
-  "model": "admissions.admission",
-  "pk": 54,
-  "fields": {
-    "first_name": "Bryan A",
-    "last_name": "Asiamah",
-    "student_name": "Bryan A Asiamah",
-    "gender": "Male",
-    "date_of_birth": "2025-11-05",
-    "nationality": "Ghanaian",
-    "religion": "Christian",
-    "photo": "image/upload/v1773701921/admissions/photos/zoxh8p8wnwshwbuvejhk.jpg",
-    "applied_class": 2,
-    "previous_school": "",
-    "health_notes": "",
-    "parent_name": "Christian Asimah",
-    "parent_gender": "Male",
-    "relationship": "Father",
-    "email": "christian@gmail.com",
-    "phone": "0508711815",
-    "alt_phone": "",
-    "address": "Oblogo",
-    "admission_number": "LSA-2026-0064",
-    "application_date": "2026-03-16T22:58:41.635Z",
+    "admission_number": "LSA-2026-0066",
+    "application_date": "2026-03-16T23:02:36.672Z",
     "status": "approved"
   }
 },
@@ -2918,28 +2784,298 @@
 },
 {
   "model": "admissions.admission",
-  "pk": 56,
+  "pk": 54,
   "fields": {
-    "first_name": "Betty Valerie N.L",
-    "last_name": "Lamptey",
-    "student_name": "Betty Valerie N.L Lamptey",
-    "gender": "Female",
-    "date_of_birth": "2025-10-08",
+    "first_name": "Bryan A",
+    "last_name": "Asiamah",
+    "student_name": "Bryan A Asiamah",
+    "gender": "Male",
+    "date_of_birth": "2025-11-05",
     "nationality": "Ghanaian",
     "religion": "Christian",
-    "photo": "image/upload/v1773702156/admissions/photos/trpkghupct7rvrma7msm.jpg",
+    "photo": "image/upload/v1773701921/admissions/photos/zoxh8p8wnwshwbuvejhk.jpg",
     "applied_class": 2,
     "previous_school": "",
     "health_notes": "",
-    "parent_name": "Samuel Lamptey",
+    "parent_name": "Christian Asimah",
     "parent_gender": "Male",
     "relationship": "Father",
-    "email": "lampey@gmail.com",
-    "phone": "0246310497",
+    "email": "christian@gmail.com",
+    "phone": "0508711815",
     "alt_phone": "",
     "address": "Oblogo",
-    "admission_number": "LSA-2026-0066",
-    "application_date": "2026-03-16T23:02:36.672Z",
+    "admission_number": "LSA-2026-0064",
+    "application_date": "2026-03-16T22:58:41.635Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 53,
+  "fields": {
+    "first_name": "Joshua Bentum",
+    "last_name": "Agyare Otoo",
+    "student_name": "Joshua Bentum Agyare Otoo",
+    "gender": "Male",
+    "date_of_birth": "2025-11-13",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773701799/admissions/photos/ffgrrx4apot1leyr29m5.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Bernice Honu",
+    "parent_gender": "Female",
+    "relationship": "Mother",
+    "email": "bernice@gmail.com",
+    "phone": "0243246731",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0063",
+    "application_date": "2026-03-16T22:56:40.228Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 52,
+  "fields": {
+    "first_name": "Afia Serwaa",
+    "last_name": "Frimpong",
+    "student_name": "Afia Serwaa Frimpong",
+    "gender": "Female",
+    "date_of_birth": "2025-11-06",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773701684/admissions/photos/evhru9vqr3xfkmcnj6zq.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Dorcas Sesi",
+    "parent_gender": "Female",
+    "relationship": "Mother",
+    "email": "dorcas@gmail.com",
+    "phone": "0545376982",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0062",
+    "application_date": "2026-03-16T22:54:44.437Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 50,
+  "fields": {
+    "first_name": "Pamela Akua",
+    "last_name": "Opoku",
+    "student_name": "Pamela Akua Opoku",
+    "gender": "Female",
+    "date_of_birth": "2025-09-09",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773701434/admissions/photos/djxfwr1bh8gukfhqrd5z.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Zulleya Karim",
+    "parent_gender": "Female",
+    "relationship": "Mother",
+    "email": "zulleyah@gmail.com",
+    "phone": "0248502590",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0061",
+    "application_date": "2026-03-16T22:50:34.845Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 49,
+  "fields": {
+    "first_name": "Jael Ekua Adazewa",
+    "last_name": "Arkoful",
+    "student_name": "Jael Ekua Adazewa Arkoful",
+    "gender": "Female",
+    "date_of_birth": "2025-10-07",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773701322/admissions/photos/it3eyvu1aaadowqe3gjn.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Naomi Arkoful",
+    "parent_gender": "Female",
+    "relationship": "Mother",
+    "email": "arkoful@gmail.com",
+    "phone": "0268647277",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0060",
+    "application_date": "2026-03-16T22:48:42.623Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 48,
+  "fields": {
+    "first_name": "Angel Agyeiwaa",
+    "last_name": "Ayensu",
+    "student_name": "Angel Agyeiwaa Ayensu",
+    "gender": "Female",
+    "date_of_birth": "2025-11-12",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773701195/admissions/photos/aoz1vs18ms665sb341q6.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Samuel Ayensu",
+    "parent_gender": "Male",
+    "relationship": "Father",
+    "email": "ayensu@gmail.com",
+    "phone": "0554500204",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0059",
+    "application_date": "2026-03-16T22:46:35.551Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 47,
+  "fields": {
+    "first_name": "Okatakyie Kwabena",
+    "last_name": "Ampem Darko Adu",
+    "student_name": "Okatakyie Kwabena Ampem Darko Adu",
+    "gender": "Male",
+    "date_of_birth": "2025-10-09",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773701073/admissions/photos/xeinqygy5vy9vxe8km3r.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Linda Adu",
+    "parent_gender": "Female",
+    "relationship": "Mother",
+    "email": "adu@gmail.com",
+    "phone": "0548288783",
+    "alt_phone": "",
+    "address": "Oblogo",
+    "admission_number": "LSA-2026-0058",
+    "application_date": "2026-03-16T22:44:33.850Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 46,
+  "fields": {
+    "first_name": "Selina",
+    "last_name": "Boakye",
+    "student_name": "Selina Boakye",
+    "gender": "Female",
+    "date_of_birth": "2025-10-01",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773700817/admissions/photos/kl4pljcwrznngineptnt.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "John Boakye",
+    "parent_gender": "Male",
+    "relationship": "Father",
+    "email": "john@gmail.com",
+    "phone": "0247813773",
+    "alt_phone": "",
+    "address": "Weija",
+    "admission_number": "LSA-2026-0055",
+    "application_date": "2026-03-16T22:40:18.252Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 45,
+  "fields": {
+    "first_name": "Kendra Mbiriwaa Nana Akua",
+    "last_name": "Eduful",
+    "student_name": "Kendra Mbiriwaa Nana Akua Eduful",
+    "gender": "Female",
+    "date_of_birth": "2026-01-13",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773700666/admissions/photos/bejayviltbabjzv0k33m.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Kingsford Eduful",
+    "parent_gender": "Male",
+    "relationship": "Father",
+    "email": "kingsford@gmail.com",
+    "phone": "0549586019",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0056",
+    "application_date": "2026-03-16T22:37:46.698Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 44,
+  "fields": {
+    "first_name": "Nyiraba Obeng",
+    "last_name": "Owusu",
+    "student_name": "Nyiraba Obeng Owusu",
+    "gender": "Male",
+    "date_of_birth": "2026-03-01",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773700517/admissions/photos/kj9riu6vtptfcnbdoda0.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Comfort Owusu",
+    "parent_gender": "Female",
+    "relationship": "Mother",
+    "email": "comfort@gmail.com",
+    "phone": "0245904552",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0057",
+    "application_date": "2026-03-16T22:35:17.523Z",
+    "status": "approved"
+  }
+},
+{
+  "model": "admissions.admission",
+  "pk": 42,
+  "fields": {
+    "first_name": "Erica",
+    "last_name": "Wiafe",
+    "student_name": "Erica Wiafe",
+    "gender": "Female",
+    "date_of_birth": "2026-01-16",
+    "nationality": "Ghanaian",
+    "religion": "Christian",
+    "photo": "image/upload/v1773699596/admissions/photos/l8rgxnmkoucywfrotkym.jpg",
+    "applied_class": 2,
+    "previous_school": "",
+    "health_notes": "",
+    "parent_name": "Rhoda Wiafe",
+    "parent_gender": "Female",
+    "relationship": "Mother",
+    "email": "rhoda@gmail.com",
+    "phone": "0596436782",
+    "alt_phone": "",
+    "address": "Tettegu",
+    "admission_number": "LSA-2026-0054",
+    "application_date": "2026-03-16T22:19:56.422Z",
     "status": "approved"
   }
 }
