@@ -1,7 +1,7 @@
 [build]
   base    = "frontend/admin-dashboard"
   command = "npm run build"
-  publish = "frontend/admin-dashboard/dist"
+  publish = "dist"          # ← relative to base, NOT the full path
 
 [[redirects]]
   from   = "/*"
