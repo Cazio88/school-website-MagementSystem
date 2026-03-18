@@ -19,6 +19,7 @@ from api.views.report_view import StudentReportView
 from api.views.report_pdf_view import StudentReportPDFView
 from api.views.bill_pdf_view import StudentFeeBillPDFView, ClassFeeBillPDFView
 from api.views.receipt_pdf_view import PaymentReceiptPDFView
+from api.views.admission_form_pdf_view import AdmissionFormPDFView   # NEW
 from api.views.accounts_view import (
     AccountsDashboardView,
     IncomeLedgerView,
@@ -43,9 +44,13 @@ router.register("admin-approvals", AdminApprovalViewSet, basename="admin-approva
 
 urlpatterns = [
 
-    # Must be before router.urls to take priority
+    # ✅ KEEP THIS FIRST
     path("results/bulk/", ResultViewSet.as_view({"post": "bulk_save"})),
 
+    # ✅ MOVE THIS ABOVE router.urls
+    path("admissions/<int:admission_id>/form/", AdmissionFormPDFView.as_view()),
+
+    # Router AFTER custom routes
     path("", include(router.urls)),
 
     path("dashboard/", DashboardView.as_view()),
