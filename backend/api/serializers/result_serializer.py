@@ -22,13 +22,14 @@ class ResultSerializer(serializers.ModelSerializer):
             "reopen",
             "ca",
             "exams",
-            "score",
-            "grade",
-            "remark",
+            "score",           # computed on model.save(), read-only
             "subject_position",
             "created_at",
         ]
-        read_only_fields = ["score", "grade", "remark", "subject_position"]
+        read_only_fields = ["score", "subject_position", "created_at"]
+        # NOTE: grade and remark are intentionally excluded — they depend on the
+        # student's school level (B79 / B16 / NKG) and are computed at query
+        # time in the view (ResultViewSet / StudentReportView), never stored.
 
     def get_student_name(self, obj):
         return obj.student.full_name if obj.student else "-"

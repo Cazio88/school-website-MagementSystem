@@ -22,56 +22,25 @@ TERM_CHOICES = (
 # ---------------------------------------------------------------------------
 
 class Result(models.Model):
-
-    student = models.ForeignKey(
-        Student,
-        on_delete=models.CASCADE,
-        related_name="results",
-    )
-    subject = models.ForeignKey(
-        Subject,
-        on_delete=models.CASCADE,
-        related_name="results",
-    )
-    school_class = models.ForeignKey(
-        SchoolClass,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="results",
-    )
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="results")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="results")
+    school_class = models.ForeignKey(SchoolClass, on_delete=models.CASCADE, null=True, blank=True, related_name="results")
     term = models.CharField(max_length=10, choices=TERM_CHOICES)
 
-    # Score breakdown — each component is capped at its maximum
-    reopen = models.FloatField(
-        default=0,
-        help_text="Re-open/RDA score (max 20)",
-        validators=[MinValueValidator(0), MaxValueValidator(20)],
-    )
-    ca = models.FloatField(
-        default=0,
-        help_text="CA/MGT score (max 40)",
-        validators=[MinValueValidator(0), MaxValueValidator(40)],
-    )
-    exams = models.FloatField(
-        default=0,
-        help_text="Exams score (max 40)",
-        validators=[MinValueValidator(0), MaxValueValidator(40)],
-    )
+    # ✅ ADD THIS
+    year = models.PositiveIntegerField(default=2025)
 
-    # Computed total — derived on save(), never set directly.
-    # grade/remark are intentionally NOT stored: they depend on the student's
-    # school level (B79 / B16 / NKG) and are computed at query time in the view.
-    score = models.FloatField(default=0, editable=False)
-
+    reopen = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(20)])
+    ca     = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(40)])
+    exams  = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(40)])
+    score  = models.FloatField(default=0, editable=False)
     subject_position = models.IntegerField(null=True, blank=True, default=None)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ["student", "subject", "term"]
-        ordering        = ["-created_at"]
-
+        # ✅ ADD year here so two terms in different years don't collide
+        unique_together = ["student", "subject", "term", "year"]
+        ordering = ["-created_at"]
     def __str__(self):
         return f"{self.student} – {self.subject} – {self.score}"
 

@@ -7,20 +7,20 @@ class StudentSerializer(serializers.ModelSerializer):
     username     = serializers.CharField(source="user.username", read_only=True)
     student_name = serializers.SerializerMethodField()
     email        = serializers.EmailField(source="user.email", read_only=True)
-    class_name   = serializers.CharField(source="school_class.name", read_only=True)
+    class_name   = serializers.CharField(source="school_class.name", read_only=True, allow_null=True)
 
-    # Returns full Cloudinary URL; also accepts file upload on PUT
     photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model  = Student
         fields = [
             "id", "username", "student_name", "email",
-            "admission_number", "parent_name", "date_of_birth",
+            "admission_number", "parent_name", "parent_phone", "date_of_birth",
             "address", "photo", "photo_url", "school_class", "class_name", "admission_date",
         ]
         extra_kwargs = {
-            "photo": {"required": False},
+            "photo":        {"required": False},
+            "school_class": {"required": False, "allow_null": True},  # ← makes it writable
         }
 
     def get_student_name(self, obj):
@@ -36,6 +36,5 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Replace raw photo field with the full URL for frontend consumption
         data["photo"] = self.get_photo_url(instance)
         return data

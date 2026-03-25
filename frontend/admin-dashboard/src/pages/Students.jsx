@@ -73,11 +73,13 @@ const DetailPanel = ({ student, onClose, onEdit }) => {
   return (
     <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-      <div className="relative z-50 w-full max-w-md bg-white shadow-2xl flex flex-col h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="relative z-50 w-full max-w-md bg-white shadow-2xl flex flex-col h-full overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}>
         <div className="bg-gradient-to-r from-blue-700 to-blue-800 px-6 py-6 text-white">
           <div className="flex justify-between items-start mb-4">
             <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest">Student Profile</p>
-            <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors text-sm">✕</button>
+            <button onClick={onClose}
+              className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors text-sm">✕</button>
           </div>
           <div className="flex items-center gap-4">
             <Avatar student={student} size="lg" />
@@ -85,7 +87,9 @@ const DetailPanel = ({ student, onClose, onEdit }) => {
               <h3 className="font-bold text-xl leading-tight">{name}</h3>
               <p className="text-blue-200 text-xs mt-1 font-mono">{student.admission_number}</p>
               {student.class_name && (
-                <span className="inline-block mt-2 bg-white/20 text-white text-xs px-2.5 py-1 rounded-full">{student.class_name}</span>
+                <span className="inline-block mt-2 bg-white/20 text-white text-xs px-2.5 py-1 rounded-full">
+                  {student.class_name}
+                </span>
               )}
             </div>
           </div>
@@ -141,12 +145,14 @@ const DetailPanel = ({ student, onClose, onEdit }) => {
 };
 
 // ─────────────────────────────────────────────
-// Edit modal — with photo upload
+// Edit modal
 // ─────────────────────────────────────────────
 
-const EditModal = ({ student, onClose, onSaved, setError }) => {
+const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
   const [form, setForm] = useState({
+    school_class:    student.school_class    || "",
     parent_name:     student.parent_name     || "",
+    parent_phone:    student.parent_phone    || "",
     date_of_birth:   student.date_of_birth   || "",
     phone:           student.phone           || "",
     address:         student.address         || "",
@@ -156,12 +162,11 @@ const EditModal = ({ student, onClose, onSaved, setError }) => {
     health_notes:    student.health_notes    || "",
     previous_school: student.previous_school || "",
   });
-  const [photoFile, setPhotoFile]     = useState(null);   // new file chosen
-  const [previewUrl, setPreviewUrl]   = useState(null);   // local blob preview
-  const [saving, setSaving]           = useState(false);
-  const fileInputRef                  = useRef(null);
+  const [photoFile, setPhotoFile]   = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [saving, setSaving]         = useState(false);
+  const fileInputRef                = useRef(null);
 
-  // Revoke blob URL on unmount
   useEffect(() => {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
   }, [previewUrl]);
@@ -177,28 +182,24 @@ const EditModal = ({ student, onClose, onSaved, setError }) => {
     setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      let updatedStudent;
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => {
+        // Only append fields that have a value
+        if (v !== "" && v !== null && v !== undefined) {
+          fd.append(k, v);
+        }
+      });
+      if (photoFile) fd.append("photo", photoFile);
 
-      if (photoFile) {
-        // Use FormData when a new photo is included
-        const fd = new FormData();
-        Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-        fd.append("photo", photoFile);
-        const res = await API.put(`/students/${student.id}/`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        updatedStudent = res.data;
-      } else {
-        // JSON when no photo change
-        const res = await API.put(`/students/${student.id}/`, form);
-        updatedStudent = res.data;
-      }
+      await API.patch(`/students/${student.id}/`, fd, {   // ← PATCH not PUT
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      onSaved(updatedStudent);
+      onSaved();
       onClose();
     } catch (err) {
       const detail =
@@ -233,7 +234,6 @@ const EditModal = ({ student, onClose, onSaved, setError }) => {
 
           {/* ── Photo upload ── */}
           <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            {/* Current / preview photo */}
             <div className="relative flex-shrink-0">
               {currentPhoto ? (
                 <img src={currentPhoto} alt="Student"
@@ -243,44 +243,45 @@ const EditModal = ({ student, onClose, onSaved, setError }) => {
                   {getInitials(getStudentName(student))}
                 </div>
               )}
-              {/* Camera overlay button */}
               <button type="button" onClick={() => fileInputRef.current?.click()}
                 className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs shadow transition-colors">
                 📷
               </button>
             </div>
-
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-700 mb-1">Student Photo</p>
               <p className="text-xs text-gray-400 mb-2">
-                {photoFile ? `New photo: ${photoFile.name}` : "Click the camera icon or button to change"}
+                {photoFile ? `New photo: ${photoFile.name}` : "Click the camera icon to change"}
               </p>
               <button type="button" onClick={() => fileInputRef.current?.click()}
                 className="text-xs bg-white border border-gray-200 hover:border-blue-400 text-gray-600 hover:text-blue-600 px-3 py-1.5 rounded-lg transition-colors">
                 {student.photo ? "Change Photo" : "Upload Photo"}
               </button>
               {photoFile && (
-                <button type="button" onClick={() => { setPhotoFile(null); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                  className="ml-2 text-xs text-red-500 hover:text-red-700">
+                <button type="button" onClick={() => {
+                  setPhotoFile(null);
+                  if (previewUrl) URL.revokeObjectURL(previewUrl);
+                  setPreviewUrl(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }} className="ml-2 text-xs text-red-500 hover:text-red-700">
                   Remove
                 </button>
               )}
             </div>
-
             <input ref={fileInputRef} type="file" accept="image/*"
               onChange={handlePhotoChange} className="hidden" />
           </div>
 
           {/* ── Fields grid ── */}
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Parent / Guardian Name">
-              <input name="parent_name" value={form.parent_name} onChange={handleChange}
-                required placeholder="Full name" className={inputCls} />
-            </Field>
 
-            <Field label="Date of Birth">
-              <input name="date_of_birth" type="date" value={form.date_of_birth}
-                onChange={handleChange} required className={inputCls} />
+            <Field label="Class">
+              <select name="school_class" value={form.school_class} onChange={handleChange} className={inputCls}>
+                <option value="">No class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </Field>
 
             <Field label="Gender">
@@ -289,6 +290,21 @@ const EditModal = ({ student, onClose, onSaved, setError }) => {
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
+            </Field>
+
+            <Field label="Parent / Guardian Name">
+              <input name="parent_name" value={form.parent_name} onChange={handleChange}
+                placeholder="Full name" className={inputCls} />
+            </Field>
+
+            <Field label="Parent Phone">
+              <input name="parent_phone" type="tel" value={form.parent_phone} onChange={handleChange}
+                placeholder="e.g. 0244123456" className={inputCls} />
+            </Field>
+
+            <Field label="Date of Birth">
+              <input name="date_of_birth" type="date" value={form.date_of_birth}
+                onChange={handleChange} className={inputCls} />
             </Field>
 
             <Field label="Phone">
@@ -352,6 +368,7 @@ const EditModal = ({ student, onClose, onSaved, setError }) => {
 
 const Students = () => {
   const [students, setStudents]               = useState([]);
+  const [classes, setClasses]                 = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [editingStudent, setEditingStudent]   = useState(null);
   const [search, setSearch]                   = useState("");
@@ -374,7 +391,17 @@ const Students = () => {
     }
   }, []);
 
-  useEffect(() => { loadStudents(); }, [loadStudents]);
+  const loadClasses = useCallback(async () => {
+    try {
+      const res = await API.get("/classes/");
+      setClasses(res.data.results ?? res.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadStudents();
+    loadClasses();
+  }, [loadStudents, loadClasses]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Permanently delete this student?")) return;
@@ -390,13 +417,13 @@ const Students = () => {
     }
   };
 
-  const handleSaved = (updated) => {
-    setStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
-    if (selectedStudent?.id === updated.id) setSelectedStudent(updated);
+  // Re-fetch everything so class_name is always fresh from the serializer
+  const handleSaved = async () => {
+    await loadStudents();
     setSuccess("Student updated successfully.");
   };
 
-  const classes = [...new Set(students.map((s) => s.class_name).filter(Boolean))].sort();
+  const classNames = [...new Set(students.map((s) => s.class_name).filter(Boolean))].sort();
 
   const filtered = students.filter((s) => {
     const term = search.toLowerCase();
@@ -414,7 +441,7 @@ const Students = () => {
     total:   students.length,
     male:    students.filter((s) => s.gender === "Male").length,
     female:  students.filter((s) => s.gender === "Female").length,
-    classes: classes.length,
+    classes: classNames.length,
   };
 
   return (
@@ -446,7 +473,7 @@ const Students = () => {
           <label className="text-xs font-medium text-gray-400 block mb-1">Class</label>
           <select value={filterClass} onChange={(e) => setFilterClass(e.target.value)} className={inputCls}>
             <option value="all">All classes</option>
-            {classes.map((c) => <option key={c} value={c}>{c}</option>)}
+            {classNames.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
@@ -470,9 +497,15 @@ const Students = () => {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-14 text-gray-400"><p className="text-3xl mb-2">⏳</p><p className="text-sm">Loading students…</p></div>
+          <div className="text-center py-14 text-gray-400">
+            <p className="text-3xl mb-2">⏳</p>
+            <p className="text-sm">Loading students…</p>
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-14 text-gray-400"><p className="text-3xl mb-2">🎓</p><p className="text-sm">No students match your filters.</p></div>
+          <div className="text-center py-14 text-gray-400">
+            <p className="text-3xl mb-2">🎓</p>
+            <p className="text-sm">No students match your filters.</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -505,7 +538,11 @@ const Students = () => {
                       <td className="px-4 py-3 text-gray-600">{student.class_name ?? "—"}</td>
                       <td className="px-4 py-3">
                         {student.gender ? (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ring-1 ${student.gender === "Male" ? "bg-sky-50 text-sky-700 ring-sky-200" : "bg-pink-50 text-pink-700 ring-pink-200"}`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ring-1 ${
+                            student.gender === "Male"
+                              ? "bg-sky-50 text-sky-700 ring-sky-200"
+                              : "bg-pink-50 text-pink-700 ring-pink-200"
+                          }`}>
                             {student.gender === "Male" ? "♂" : "♀"} {student.gender}
                           </span>
                         ) : <span className="text-gray-300">—</span>}
@@ -515,11 +552,17 @@ const Students = () => {
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => setSelectedStudent(isActive ? null : student)}
-                            className="bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-gray-100 hover:border-blue-200">View</button>
+                            className="bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-gray-100 hover:border-blue-200">
+                            View
+                          </button>
                           <button onClick={() => setEditingStudent(student)}
-                            className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-blue-100 hover:border-blue-600">Edit</button>
+                            className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-blue-100 hover:border-blue-600">
+                            Edit
+                          </button>
                           <button onClick={() => handleDelete(student.id)}
-                            className="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-red-100 hover:border-red-600">Delete</button>
+                            className="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-red-100 hover:border-red-600">
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -532,10 +575,20 @@ const Students = () => {
       </div>
 
       {selectedStudent && (
-        <DetailPanel student={selectedStudent} onClose={() => setSelectedStudent(null)} onEdit={setEditingStudent} />
+        <DetailPanel
+          student={selectedStudent}
+          onClose={() => setSelectedStudent(null)}
+          onEdit={setEditingStudent}
+        />
       )}
       {editingStudent && (
-        <EditModal student={editingStudent} onClose={() => setEditingStudent(null)} onSaved={handleSaved} setError={setError} />
+        <EditModal
+          student={editingStudent}
+          classes={classes}
+          onClose={() => setEditingStudent(null)}
+          onSaved={handleSaved}
+          setError={setError}
+        />
       )}
     </div>
   );

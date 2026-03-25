@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'apps.subjects',
     'apps.attendance',
     'apps.results',
-    'apps.fees',
+    'apps.fees.apps.FeesConfig',  # ← updated to load FeesConfig
     'apps.announcements',
     'apps.admissions',
     'apps.ai',
@@ -117,7 +117,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-# ── Static Files (IMPORTANT FOR RENDER) ────────────────────────
+# ── Static Files ───────────────────────────────────────────────
 
 STATIC_URL = '/static/'
 
@@ -133,7 +133,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # ── Cloudinary / Media ─────────────────────────────────────────
 
 CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
-CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_KEY    = os.environ.get("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
 
 if CLOUDINARY_CLOUD_NAME:
@@ -149,7 +149,7 @@ if CLOUDINARY_CLOUD_NAME:
 
     CLOUDINARY_STORAGE = {
         "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
-        "API_KEY": CLOUDINARY_API_KEY,
+        "API_KEY":    CLOUDINARY_API_KEY,
         "API_SECRET": CLOUDINARY_API_SECRET,
     }
 
@@ -159,8 +159,14 @@ if CLOUDINARY_CLOUD_NAME:
 
 else:
 
-    MEDIA_URL = "/media/"
+    MEDIA_URL  = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
+
+
+# ── Termii SMS ─────────────────────────────────────────────────
+
+TERMII_API_KEY   = os.environ.get("TERMII_API_KEY", "")
+TERMII_SENDER_ID = os.environ.get("TERMII_SENDER_ID", "LEADSTARS")
 
 
 # ── Auth & CORS ────────────────────────────────────────────────
@@ -182,9 +188,9 @@ REST_FRAMEWORK = {
 # ── JWT Settings ───────────────────────────────────────────────
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "ACCESS_TOKEN_LIFETIME":  timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_TYPES":      ("Bearer",),
 }
 
 

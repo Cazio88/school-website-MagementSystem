@@ -31,6 +31,7 @@ class Student(models.Model):
 
     date_of_birth  = models.DateField(null=True, blank=True)
     parent_name    = models.CharField(max_length=100, blank=True, default="")
+    parent_phone   = models.CharField(max_length=20,  blank=True, default="")  # ← NEW
     address        = models.TextField(blank=True, null=True)
     admission_date = models.DateField(auto_now_add=True)
 

@@ -18,3 +18,19 @@ Thumbs.db
 
 # Photos / uploads
 backend/admissions/photos/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django
+db.sqlite3
+
+# Node
+node_modules/
+package-lock.json
+
+# Env
+.env
