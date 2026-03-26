@@ -42,5 +42,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(create_admin, reverse_func=reverse_admin),
+        migrations.RunPython(create_admin, reverse_code=reverse_admin),  # ← fixed
     ]
