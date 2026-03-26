@@ -38,8 +38,8 @@ def reverse_admin(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0004_auto_20260325_1703'),
-    ]
+    ('accounts', '0003_user_is_approved'),
+]
 
     operations = [
         migrations.RunPython(create_admin, reverse_code=reverse_admin),  # ← fixed
