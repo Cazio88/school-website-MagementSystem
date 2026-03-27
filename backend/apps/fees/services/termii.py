@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class TermiiSMSService:
 
-    BASE_URL = "https://api.termii.com"
+    BASE_URL = "https://v3.api.termii.com"   # ← fixed
     ENDPOINT = "/api/sms/send"
 
     def __init__(self):
@@ -23,7 +23,7 @@ class TermiiSMSService:
             "from":    self.sender_id,
             "sms":     message,
             "type":    "plain",
-            "channel": "dnd",
+            "channel": "generic",   # ← fixed
         }
 
         try:
