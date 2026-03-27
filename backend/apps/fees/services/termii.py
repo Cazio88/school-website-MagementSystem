@@ -1,3 +1,8 @@
+import logging
+import requests
+from django.conf import settings  # ← this line is missing
+
+logger = logging.getLogger(__name__)
 class TermiiSMSService:
 
     BASE_URL = "https://v3.api.termii.com/api"  # ← fixed
