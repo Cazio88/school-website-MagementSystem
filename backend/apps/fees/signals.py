@@ -52,3 +52,8 @@ def notify_parent_on_payment(
             "Failed to send SMS for transaction pk=%s to %s: %s",
             instance.pk, parent_phone, exc,
         )
+    except Exception as exc:                          # ← add this
+        logger.error(
+            "Unexpected SMS error for transaction pk=%s: %s",
+            instance.pk, exc,
+        )
