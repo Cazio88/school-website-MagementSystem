@@ -1,14 +1,7 @@
-import logging
-import requests
-from django.conf import settings
-
-logger = logging.getLogger(__name__)
-
-
 class TermiiSMSService:
 
-    BASE_URL = "https://v3.api.termii.com"
-    ENDPOINT = "/api/sms/number/send"  # ← no sender ID required
+    BASE_URL = "https://v3.api.termii.com/api"  # ← fixed
+    ENDPOINT = "/sms/send"                        # ← fixed
 
     def __init__(self):
         self.api_key   = settings.TERMII_API_KEY
@@ -20,8 +13,10 @@ class TermiiSMSService:
         payload = {
             "api_key": self.api_key,
             "to":      phone,
+            "from":    self.sender_id,
             "sms":     message,
             "type":    "plain",
+            "channel": "generic",
         }
 
         try:
