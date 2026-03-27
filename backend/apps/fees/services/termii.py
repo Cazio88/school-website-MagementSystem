@@ -7,8 +7,8 @@ logger = logging.getLogger(__name__)
 
 class TermiiSMSService:
 
-    BASE_URL = "https://api.ng.termii.com"  # ← fixed
-    ENDPOINT = "/api/sms/send"
+    BASE_URL = "https://v3.api.termii.com"
+    ENDPOINT = "/api/sms/number/send"  # ← no sender ID required
 
     def __init__(self):
         self.api_key   = settings.TERMII_API_KEY
@@ -20,10 +20,8 @@ class TermiiSMSService:
         payload = {
             "api_key": self.api_key,
             "to":      phone,
-            "from":    self.sender_id,
             "sms":     message,
             "type":    "plain",
-            "channel": "generic",  # ← fixed
         }
 
         try:
@@ -33,6 +31,7 @@ class TermiiSMSService:
                 headers={"Content-Type": "application/json"},
                 timeout=10,
             )
+            logger.info("Termii response: %s %s", response.status_code, response.text)
             response.raise_for_status()
         except requests.Timeout:
             logger.error("Termii SMS timeout for %s", phone)
