@@ -8,7 +8,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
+from PIL import Image as PilImage, ImageOps
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -30,13 +32,24 @@ from apps.attendance.models import Attendance
 
 TERM_LABELS = {"term1": "Term 1", "term2": "Term 2", "term3": "Term 3"}
 
-BLUE  = colors.HexColor("#1d4ed8")
-LBLUE = colors.HexColor("#dbeafe")
-GRAY  = colors.HexColor("#f3f4f6")
-DGRAY = colors.HexColor("#374151")
-WHITE = colors.white
-GOLD  = colors.HexColor("#fbbf24")
-GREEN = colors.HexColor("#15803d")
+BLUE    = colors.HexColor("#1e3a5f")
+BLUE2   = colors.HexColor("#1d4ed8")
+LBLUE   = colors.HexColor("#dbeafe")
+MBLUE   = colors.HexColor("#bfdbfe")
+GRAY    = colors.HexColor("#f8fafc")
+MGRAY   = colors.HexColor("#f1f5f9")
+DGRAY   = colors.HexColor("#374151")
+LGRAY   = colors.HexColor("#9ca3af")
+WHITE   = colors.white
+GOLD    = colors.HexColor("#b45309")
+GOLD2   = colors.HexColor("#fef3c7")
+GREEN   = colors.HexColor("#15803d")
+LGREEN  = colors.HexColor("#dcfce7")
+RED     = colors.HexColor("#dc2626")
+LRED    = colors.HexColor("#fee2e2")
+BLACK   = colors.HexColor("#111827")
+DIVIDER = colors.HexColor("#e2e8f0")
+ACCENT  = colors.HexColor("#0369a1")
 
 LOGO_PATH = os.path.join(settings.BASE_DIR, "static", "images", "logo.jpeg")
 
@@ -120,7 +133,6 @@ def fmt_pos(n):
 
 
 def fmt_date(date_val):
-    """Format a date object or string → e.g. 'Monday, 14th July 2025'"""
     if not date_val:
         return "-"
     try:
@@ -133,33 +145,57 @@ def fmt_date(date_val):
             "th" if 10 <= day % 100 <= 20
             else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
         )
-        month = date_val.strftime("%B")
-        weekday = date_val.strftime("%A")
-        return f"{weekday}, {day}{suffix} {month} {date_val.year}"
+        return f"{date_val.strftime('%A')}, {day}{suffix} {date_val.strftime('%B')} {date_val.year}"
     except Exception:
         return str(date_val)
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Image loading — with EXIF orientation fix
 # ---------------------------------------------------------------------------
 
 def load_image_flowable(path_or_url, width, height):
+    """
+    Load an image from a local path or remote URL.
+    Applies EXIF orientation correction so phone photos appear upright in PDFs.
+    """
     try:
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-            resp = requests.get(path_or_url, timeout=5)
+            resp = requests.get(path_or_url, timeout=10)
             resp.raise_for_status()
-            return Image(BytesIO(resp.content), width=width, height=height)
-        if os.path.exists(path_or_url):
-            return Image(path_or_url, width=width, height=height)
+            img_bytes = BytesIO(resp.content)
+        elif os.path.exists(path_or_url):
+            with open(path_or_url, "rb") as f:
+                img_bytes = BytesIO(f.read())
+        else:
+            return None
+
+        # Fix EXIF rotation (phones save images sideways with metadata for rotation)
+        pil_img = PilImage.open(img_bytes)
+        pil_img = ImageOps.exif_transpose(pil_img)
+
+        # Convert to RGB — required for JPEG embedding in ReportLab
+        if pil_img.mode in ("RGBA", "P", "CMYK", "LA", "L"):
+            pil_img = pil_img.convert("RGB")
+
+        corrected = BytesIO()
+        pil_img.save(corrected, format="JPEG", quality=90)
+        corrected.seek(0)
+
+        return Image(corrected, width=width, height=height)
+
     except Exception:
         pass
     return None
 
 
+# ---------------------------------------------------------------------------
+# Paragraph helper
+# ---------------------------------------------------------------------------
+
 def make_para(styles):
     def para(text, size=9, bold=False, color=DGRAY, align=TA_LEFT):
-        return Paragraph(text, ParagraphStyle(
+        return Paragraph(str(text), ParagraphStyle(
             "p", parent=styles["Normal"],
             fontSize=size,
             fontName="Helvetica-Bold" if bold else "Helvetica",
@@ -168,6 +204,20 @@ def make_para(styles):
             leading=size + 3,
         ))
     return para
+
+
+# ---------------------------------------------------------------------------
+# Section label helper
+# ---------------------------------------------------------------------------
+
+def section_label_row(para, text, col_width):
+    tbl = Table([[para(f"  {text}", 7, bold=True, color=WHITE)]], colWidths=[col_width])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), BLUE),
+        ("TOPPADDING",    (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    return tbl
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +290,6 @@ class StudentReportPDFView(APIView):
             None,
         ) if show_position else None
 
-        # Vacation / Resumption dates from Report model
         vacation_date   = getattr(report, "vacation_date",   None) if report else None
         resumption_date = getattr(report, "resumption_date", None) if report else None
 
@@ -254,6 +303,8 @@ class StudentReportPDFView(APIView):
         styles   = getSampleStyleSheet()
         elements = []
         para     = make_para(styles)
+
+        FULL_W = A4[0] - 24*mm  # 186mm usable
 
         # ── Header ────────────────────────────────────────────────────────
         logo_img  = load_image_flowable(LOGO_PATH, width=22*mm, height=22*mm)
@@ -270,10 +321,11 @@ class StudentReportPDFView(APIView):
         photo_cell = photo_img if photo_img else para("", 9)
 
         school_center = [
-            para(school_name,                 15, bold=True,  color=BLUE, align=TA_CENTER),
-            para(school_motto,                 8, bold=False, color=colors.HexColor("#92400e"), align=TA_CENTER),
-            para("TERMINAL REPORT CARD",      11, bold=True,  color=GOLD, align=TA_CENTER),
-            para(TERM_LABELS.get(term, term),  9, bold=False, color=DGRAY, align=TA_CENTER),
+            para(school_name,                 15, bold=True,  color=WHITE, align=TA_CENTER),
+            para(school_motto,                  7, bold=False, color=colors.HexColor("#93c5fd"), align=TA_CENTER),
+            Spacer(1, 2*mm),
+            para("TERMINAL REPORT CARD",       11, bold=True,  color=GOLD, align=TA_CENTER),
+            para(TERM_LABELS.get(term, term),   8, bold=False, color=colors.HexColor("#e0f2fe"), align=TA_CENTER),
         ]
 
         header_table = Table([[logo_cell, school_center, photo_cell]], colWidths=[25*mm, 136*mm, 25*mm])
@@ -281,14 +333,25 @@ class StudentReportPDFView(APIView):
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN",         (0, 0), (0,  0),  "LEFT"),
             ("ALIGN",         (2, 0), (2,  0),  "RIGHT"),
-            ("BACKGROUND",    (0, 0), (-1, -1), colors.HexColor("#eff6ff")),
-            ("BOX",           (0, 0), (-1, -1), 0.8, BLUE),
-            ("TOPPADDING",    (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("LEFTPADDING",   (0, 0), (0,  0),  4),
-            ("RIGHTPADDING",  (2, 0), (2,  0),  4),
+            ("BACKGROUND",    (0, 0), (-1, -1), BLUE),
+            ("BOX",           (0, 0), (-1, -1), 0, WHITE),
+            ("TOPPADDING",    (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING",   (0, 0), (0,  0),  6),
+            ("RIGHTPADDING",  (2, 0), (2,  0),  6),
         ]))
         elements.append(header_table)
+
+        # Gold accent stripe
+        accent = Table([[""]],  colWidths=[FULL_W])
+        accent.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), GOLD),
+            ("TOPPADDING",    (0, 0), (-1, -1), 1.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(accent)
         elements.append(Spacer(1, 4*mm))
 
         # ── Student Info ──────────────────────────────────────────────────
@@ -297,14 +360,18 @@ class StudentReportPDFView(APIView):
             f"<b>POSITION:</b>  {fmt_pos(position)} out of {len(ranked)}"
             if show_position else "<b>POSITION:</b>  N/A"
         )
+
+        # Score colour for average
+        avg_color = GREEN if average >= 60 else (GOLD if average >= 45 else RED)
+
         info_rows = [
             [
                 para(f"<b>NAME:</b>  {student.full_name}", 9),
-                para(f"<b>TOTAL MARKS:</b>  {round(total_score, 1)}", 9, color=BLUE),
+                para(f"<b>TOTAL MARKS:</b>  {round(total_score, 1)}", 9, color=BLUE2),
             ],
             [
                 para(f"<b>STAGE:</b>  {class_name}", 9),
-                para(f"<b>AVERAGE MARK:</b>  {average}  |  <b>GRADE:</b>  {overall_grade}", 9, color=BLUE),
+                para(f"<b>AVERAGE:</b>  {average}  |  <b>GRADE:</b>  {overall_grade}", 9, color=avg_color),
             ],
             [
                 para(f"<b>PUPILS ON ROLL:</b>  {len(ranked)}", 9),
@@ -312,50 +379,57 @@ class StudentReportPDFView(APIView):
             ],
             [
                 para(f"<b>ADMISSION NO:</b>  {student.admission_number}", 9),
-                para(position_text, 9, color=BLUE),
+                para(position_text, 9, color=BLUE2),
             ],
         ]
         info_table = Table(info_rows, colWidths=[93*mm, 93*mm])
         info_table.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, -1), GRAY),
-            ("TOPPADDING",    (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-            ("BOX",  (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#e5e7eb")),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ("BOX",           (0, 0), (-1, -1), 0.8, DIVIDER),
+            ("GRID",          (0, 0), (-1, -1), 0.4, DIVIDER),
+            ("ROWBACKGROUNDS",(0, 0), (-1, -1), [WHITE, GRAY]),
+            # Blue left accent
+            ("LINEBEFORE",    (0, 0), (0, -1),  3, BLUE),
         ]))
         elements.append(info_table)
         elements.append(Spacer(1, 4*mm))
 
         # ── Subject Table ─────────────────────────────────────────────────
+        elements.append(section_label_row(para, "ACADEMIC PERFORMANCE", FULL_W))
+        elements.append(Spacer(1, 1*mm))
+
         subj_header = [
-            para("SUBJECT",            8, bold=True, color=BLUE),
-            para("RE-OPEN\n& RDA 20%", 7, bold=True, color=BLUE, align=TA_CENTER),
-            para("CA/MGT\n40%",        7, bold=True, color=BLUE, align=TA_CENTER),
-            para("EXAMS\n40%",         7, bold=True, color=BLUE, align=TA_CENTER),
-            para("TOTAL\n100%",        7, bold=True, color=BLUE, align=TA_CENTER),
-            para("GRADE",              7, bold=True, color=BLUE, align=TA_CENTER),
-            para("REMARK",             7, bold=True, color=BLUE, align=TA_CENTER),
+            para("  SUBJECT",        8, bold=True, color=WHITE),
+            para("RE-OPEN\n& RDA 20%", 7, bold=True, color=WHITE, align=TA_CENTER),
+            para("CA/MGT\n40%",        7, bold=True, color=WHITE, align=TA_CENTER),
+            para("EXAMS\n40%",         7, bold=True, color=WHITE, align=TA_CENTER),
+            para("TOTAL\n100%",        7, bold=True, color=WHITE, align=TA_CENTER),
+            para("GRADE",              7, bold=True, color=WHITE, align=TA_CENTER),
+            para("REMARK",             7, bold=True, color=WHITE, align=TA_CENTER),
         ]
         if show_position:
-            subj_header.insert(5, para("POSITION", 7, bold=True, color=BLUE, align=TA_CENTER))
+            subj_header.insert(5, para("POS.", 7, bold=True, color=WHITE, align=TA_CENTER))
 
         col_widths = (
-            [48*mm, 18*mm, 18*mm, 18*mm, 18*mm, 14*mm, 14*mm, 34*mm]
+            [50*mm, 17*mm, 17*mm, 17*mm, 17*mm, 13*mm, 13*mm, 30*mm]
             if show_position else
-            [52*mm, 20*mm, 20*mm, 20*mm, 20*mm, 16*mm, 38*mm]
+            [54*mm, 19*mm, 19*mm, 19*mm, 19*mm, 14*mm, 36*mm]
         )
 
         subj_rows = [subj_header]
-        for sub in subjects:
+        for i, sub in enumerate(subjects):
+            score_color = GREEN if sub["score"] >= 60 else (GOLD if sub["score"] >= 45 else RED)
             row = [
-                para(sub["name"],                8),
-                para(str(sub["reopen"]),         8, align=TA_CENTER),
-                para(str(sub["ca"]),             8, align=TA_CENTER),
-                para(str(sub["exams"]),          8, align=TA_CENTER),
-                para(f'<b>{sub["score"]}</b>',   8, color=BLUE, align=TA_CENTER),
-                para(f'<b>{sub["grade"]}</b>',   8, color=BLUE, align=TA_CENTER),
-                para(sub["remark"],              7, align=TA_CENTER),
+                para(f"  {sub['name']}",              8),
+                para(str(sub["reopen"]),               8, align=TA_CENTER),
+                para(str(sub["ca"]),                   8, align=TA_CENTER),
+                para(str(sub["exams"]),                8, align=TA_CENTER),
+                para(f'<b>{sub["score"]}</b>',         8, color=score_color, align=TA_CENTER),
+                para(f'<b>{sub["grade"]}</b>',         8, color=BLUE2, align=TA_CENTER),
+                para(sub["remark"],                    7, align=TA_CENTER),
             ]
             if show_position:
                 row.insert(5, para(str(sub["position"] or "-"), 8, align=TA_CENTER))
@@ -363,100 +437,142 @@ class StudentReportPDFView(APIView):
 
         subj_table = Table(subj_rows, colWidths=col_widths)
         subj_table.setStyle(TableStyle([
-            ("BACKGROUND",     (0, 0), (-1, 0), LBLUE),
-            ("GRID",           (0, 0), (-1, -1), 0.3, colors.HexColor("#e5e7eb")),
-            ("BOX",            (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
-            ("TOPPADDING",     (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
-            ("LEFTPADDING",    (0, 0), (-1, -1), 4),
-            ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, GRAY]),
+            ("BACKGROUND",     (0, 0),  (-1, 0),  BLUE),
+            ("TOPPADDING",     (0, 0),  (-1, 0),  6),
+            ("BOTTOMPADDING",  (0, 0),  (-1, 0),  6),
+            ("GRID",           (0, 0),  (-1, -1), 0.4, DIVIDER),
+            ("BOX",            (0, 0),  (-1, -1), 0.8, DIVIDER),
+            ("TOPPADDING",     (0, 1),  (-1, -1), 5),
+            ("BOTTOMPADDING",  (0, 1),  (-1, -1), 5),
+            ("LEFTPADDING",    (0, 0),  (-1, -1), 4),
+            ("VALIGN",         (0, 0),  (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS", (0, 1),  (-1, -1), [WHITE, MGRAY]),
+            # Highlight score column
+            ("BACKGROUND",     (4, 1),  (4, -1),  colors.HexColor("#f0f9ff")),
         ]))
         elements.append(subj_table)
         elements.append(Spacer(1, 4*mm))
 
         # ── Attendance + Remarks ──────────────────────────────────────────
-        att_rows = [[para("Attendance", 9, bold=True, color=BLUE)]]
+        # Attendance section
+        att_label = section_label_row(para, "ATTENDANCE & CONDUCT", 90*mm)
+        rem_label = section_label_row(para, "CLASS TEACHER REMARKS", 90*mm)
+
+        att_rows = []
         if total_days > 0:
-            att_rows.append([para(f"Days Present:  <b>{present_days}</b> out of <b>{total_days}</b>  ({att_percent}%)", 9)])
-            att_rows.append([para(f"Days Absent:  <b>{total_days - present_days}</b>", 9, color=colors.HexColor("#dc2626"))])
+            att_rows.append([para(f"Days Present:", 8, bold=True, color=BLUE2),
+                             para(f"{present_days} / {total_days}  ({att_percent}%)", 8)])
+            att_rows.append([para("Days Absent:", 8, bold=True, color=BLUE2),
+                             para(f"{total_days - present_days}", 8, color=RED if (total_days - present_days) > 3 else DGRAY)])
         else:
-            att_rows.append([para("No attendance data recorded.", 9, color=colors.HexColor("#9ca3af"))])
+            att_rows.append([para("Attendance:", 8, bold=True, color=BLUE2),
+                             para("No data recorded.", 8, color=LGRAY)])
 
         if report:
             if report.conduct:
-                att_rows.append([para(f"<b>ATTITUDE:</b>  {report.conduct}", 9, color=BLUE)])
+                att_rows.append([para("Attitude:", 8, bold=True, color=BLUE2),
+                                 para(report.conduct, 8)])
             if report.interest:
-                att_rows.append([para(f"<b>INTEREST:</b>  {report.interest}", 9, color=BLUE)])
+                att_rows.append([para("Interest:", 8, bold=True, color=BLUE2),
+                                 para(report.interest, 8)])
 
-        # Vacation & Resumption dates
         if vacation_date:
-            att_rows.append([para(
-                f"<b>VACATION DATE:</b>  {fmt_date(vacation_date)}", 9, color=GREEN
-            )])
+            att_rows.append([para("Vacation:", 8, bold=True, color=GREEN),
+                             para(fmt_date(vacation_date), 8, color=GREEN)])
         if resumption_date:
-            att_rows.append([para(
-                f"<b>RESUMPTION DATE:</b>  {fmt_date(resumption_date)}", 9, color=GREEN
-            )])
+            att_rows.append([para("Resumes:", 8, bold=True, color=GREEN),
+                             para(fmt_date(resumption_date), 8, color=GREEN)])
 
-        rem_rows = [[para("Class Teacher Remarks", 9, bold=True, color=BLUE)]]
+        att_inner = Table(att_rows, colWidths=[28*mm, 58*mm])
+        att_inner.setStyle(TableStyle([
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+            ("LINEBELOW",     (0, 0), (-1, -2), 0.3, DIVIDER),
+        ]))
+
+        rem_rows = []
         if report and report.teacher_remark:
             rem_rows.append([para(f'"{report.teacher_remark}"', 9, color=DGRAY)])
         else:
-            rem_rows.append([para("No remarks recorded.", 9, color=colors.HexColor("#9ca3af"))])
+            rem_rows.append([para("No remarks recorded.", 9, color=LGRAY)])
 
-        att_inner = Table(att_rows, colWidths=[88*mm])
-        rem_inner = Table(rem_rows, colWidths=[88*mm])
-        for t in (att_inner, rem_inner):
-            t.setStyle(TableStyle([
-                ("TOPPADDING",    (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 4),
-            ]))
+        rem_inner = Table(rem_rows, colWidths=[86*mm])
+        rem_inner.setStyle(TableStyle([
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+        ]))
 
-        bottom_table = Table([[att_inner, rem_inner]], colWidths=[93*mm, 93*mm])
+        att_block = Table(
+            [[att_label], [att_inner]],
+            colWidths=[90*mm],
+        )
+        att_block.setStyle(TableStyle([
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+            ("BOX",           (0, 0), (-1, -1), 0.8, DIVIDER),
+            ("BACKGROUND",    (0, 1), (-1, -1), GRAY),
+        ]))
+
+        rem_block = Table(
+            [[rem_label], [rem_inner]],
+            colWidths=[90*mm],
+        )
+        rem_block.setStyle(TableStyle([
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+            ("BOX",           (0, 0), (-1, -1), 0.8, DIVIDER),
+            ("BACKGROUND",    (0, 1), (-1, -1), GRAY),
+        ]))
+
+        bottom_table = Table([[att_block, rem_block]], colWidths=[93*mm, 93*mm])
         bottom_table.setStyle(TableStyle([
-            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
-            ("BOX",  (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#e5e7eb")),
-            ("BACKGROUND",    (0, 0), (-1, -1), GRAY),
-            ("TOPPADDING",    (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING",   (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
         ]))
         elements.append(bottom_table)
         elements.append(Spacer(1, 4*mm))
 
         # ── Result Interpretation ─────────────────────────────────────────
-        interp_data = [[
-            para("RESULT INTERPRETATION", 8, bold=True, color=BLUE),
-            para(""), para(""), para(""), para(""), para(""),
-        ]]
+        elements.append(section_label_row(para, "RESULT INTERPRETATION KEY", FULL_W))
+        elements.append(Spacer(1, 1*mm))
+
+        interp_data = []
         for row in interp_rows:
             interp_data.append([
-                para(row[0], 7), para(row[1], 7), para(row[2], 7),
-                para(""), para(""), para(""),
+                para(f"  {row[0]}", 7, color=DGRAY),
+                para(row[1],        7, color=DGRAY, align=TA_CENTER),
+                para(row[2],        7, color=DGRAY, align=TA_RIGHT),
             ])
 
-        interp_table = Table(interp_data, colWidths=[31*mm]*6)
+        interp_table = Table(interp_data, colWidths=[62*mm, 62*mm, 62*mm])
         interp_table.setStyle(TableStyle([
-            ("SPAN",          (0, 0), (-1, 0)),
-            ("BACKGROUND",    (0, 0), (-1, 0), LBLUE),
-            ("BACKGROUND",    (0, 1), (-1, -1), GRAY),
-            ("BOX",  (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#e5e7eb")),
-            ("TOPPADDING",    (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("BACKGROUND",    (0, 0), (-1, -1), MGRAY),
+            ("BOX",           (0, 0), (-1, -1), 0.8, DIVIDER),
+            ("GRID",          (0, 0), (-1, -1), 0.3, DIVIDER),
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING",   (0, 0), (-1, -1), 4),
+            ("ROWBACKGROUNDS",(0, 0), (-1, -1), [WHITE, MGRAY]),
         ]))
         elements.append(interp_table)
 
         # ── Footer ────────────────────────────────────────────────────────
         elements.append(Spacer(1, 4*mm))
-        elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#d1d5db")))
+        elements.append(HRFlowable(width="100%", thickness=0.6, color=DIVIDER))
         elements.append(Spacer(1, 2*mm))
         elements.append(para(
-            "This report was generated automatically by the School Management System.",
-            7, color=colors.HexColor("#9ca3af"), align=TA_CENTER,
+            "This report was generated automatically by the School Management System.  "
+            "Please contact the school for any queries.",
+            7, color=LGRAY, align=TA_CENTER,
         ))
 
         pdf.build(elements)
