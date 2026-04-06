@@ -53,26 +53,36 @@ W = A4[0] - 40*mm  # usable width for single-student view
 # Helpers  (identical pattern to the working report PDF view)
 # ---------------------------------------------------------------------------
 
+
 def load_image_flowable(path_or_url, width, height):
-    """
-    Load an image from a local path or a remote URL (e.g. Cloudinary).
-    Uses requests + BytesIO — the same approach used in the report PDF view
-    where the photo is confirmed to work.
-    """
     try:
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
             resp = requests.get(path_or_url, timeout=5)
             resp.raise_for_status()
-            return Image(BytesIO(resp.content), width=width, height=height)
-        if os.path.exists(path_or_url):
-            return Image(path_or_url, width=width, height=height)
+            img_bytes = BytesIO(resp.content)
+        elif os.path.exists(path_or_url):
+            with open(path_or_url, "rb") as f:
+                img_bytes = BytesIO(f.read())
+        else:
+            return None
+
+        # Fix EXIF orientation (phones save images rotated)
+        pil_img = PilImage.open(img_bytes)
+        pil_img = ImageOps.exif_transpose(pil_img)
+
+        # Convert to RGB so ReportLab can embed it as JPEG
+        if pil_img.mode in ("RGBA", "P", "CMYK", "LA"):
+            pil_img = pil_img.convert("RGB")
+
+        corrected = BytesIO()
+        pil_img.save(corrected, format="JPEG")
+        corrected.seek(0)
+
+        return Image(corrected, width=width, height=height)
+
     except Exception:
         pass
     return None
-
-
-def load_logo():
-    return load_image_flowable(LOGO_PATH, width=18*mm, height=18*mm)
 
 
 def load_student_photo(student, width=24*mm, height=26*mm):
