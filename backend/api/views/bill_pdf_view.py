@@ -1,6 +1,6 @@
 from io import BytesIO
 import os
-
+from PIL import Image as PilImage, ImageOps
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.conf import settings
