@@ -1,10 +1,12 @@
 from io import BytesIO
 import os
-from PIL import Image as PilImage, ImageOps
+
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.utils import timezone
+
+from PIL import Image as PilImage, ImageOps
 
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph,
@@ -28,36 +30,43 @@ from apps.students.models import Student
 # Colours
 # ---------------------------------------------------------------------------
 
-BLUE   = colors.HexColor("#1e40af")
-LBLUE  = colors.HexColor("#dbeafe")
-MBLUE  = colors.HexColor("#bfdbfe")
-GRAY   = colors.HexColor("#f9fafb")
-MGRAY  = colors.HexColor("#f3f4f6")
-DGRAY  = colors.HexColor("#374151")
-LGRAY  = colors.HexColor("#9ca3af")
-WHITE  = colors.white
-GOLD   = colors.HexColor("#d97706")
-RED    = colors.HexColor("#dc2626")
-LRED   = colors.HexColor("#fee2e2")
-GREEN  = colors.HexColor("#16a34a")
-LGREEN = colors.HexColor("#dcfce7")
-BLACK  = colors.HexColor("#111827")
+BLUE    = colors.HexColor("#1e3a5f")
+BLUE2   = colors.HexColor("#1e40af")
+LBLUE   = colors.HexColor("#dbeafe")
+MBLUE   = colors.HexColor("#bfdbfe")
+GRAY    = colors.HexColor("#f9fafb")
+MGRAY   = colors.HexColor("#f3f4f6")
+DGRAY   = colors.HexColor("#374151")
+LGRAY   = colors.HexColor("#9ca3af")
+WHITE   = colors.white
+GOLD    = colors.HexColor("#b45309")
+GOLD2   = colors.HexColor("#fef3c7")
+RED     = colors.HexColor("#dc2626")
+LRED    = colors.HexColor("#fee2e2")
+GREEN   = colors.HexColor("#15803d")
+LGREEN  = colors.HexColor("#dcfce7")
+BLACK   = colors.HexColor("#111827")
+DIVIDER = colors.HexColor("#e2e8f0")
+ACCENT  = colors.HexColor("#0ea5e9")
 
 TERM_LABELS = {"term1": "Term 1", "term2": "Term 2", "term3": "Term 3"}
 LOGO_PATH   = os.path.join(settings.BASE_DIR, "static", "images", "logo.jpeg")
 
-W = A4[0] - 40*mm  # usable width for single-student view
+W = A4[0] - 40*mm  # usable width
 
 
 # ---------------------------------------------------------------------------
-# Helpers  (identical pattern to the working report PDF view)
+# Image loading — with EXIF orientation fix
 # ---------------------------------------------------------------------------
-
 
 def load_image_flowable(path_or_url, width, height):
+    """
+    Load an image from a local path or remote URL.
+    Applies EXIF orientation correction so phone photos appear upright in PDFs.
+    """
     try:
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-            resp = requests.get(path_or_url, timeout=5)
+            resp = requests.get(path_or_url, timeout=10)
             resp.raise_for_status()
             img_bytes = BytesIO(resp.content)
         elif os.path.exists(path_or_url):
@@ -66,16 +75,16 @@ def load_image_flowable(path_or_url, width, height):
         else:
             return None
 
-        # Fix EXIF orientation (phones save images rotated)
+        # Fix EXIF rotation (phones save images sideways with metadata for rotation)
         pil_img = PilImage.open(img_bytes)
         pil_img = ImageOps.exif_transpose(pil_img)
 
-        # Convert to RGB so ReportLab can embed it as JPEG
-        if pil_img.mode in ("RGBA", "P", "CMYK", "LA"):
+        # Convert to RGB — required for JPEG embedding in ReportLab
+        if pil_img.mode in ("RGBA", "P", "CMYK", "LA", "L"):
             pil_img = pil_img.convert("RGB")
 
         corrected = BytesIO()
-        pil_img.save(corrected, format="JPEG")
+        pil_img.save(corrected, format="JPEG", quality=90)
         corrected.seek(0)
 
         return Image(corrected, width=width, height=height)
@@ -85,8 +94,11 @@ def load_image_flowable(path_or_url, width, height):
     return None
 
 
-def load_student_photo(student, width=24*mm, height=26*mm):
-    """Resolve photo URL/path and load — mirrors report_pdf_view exactly."""
+def load_logo():
+    return load_image_flowable(LOGO_PATH, width=20*mm, height=20*mm)
+
+
+def load_student_photo(student, width=26*mm, height=28*mm):
     try:
         if not student.photo:
             return None
@@ -99,6 +111,10 @@ def load_student_photo(student, width=24*mm, height=26*mm):
         pass
     return None
 
+
+# ---------------------------------------------------------------------------
+# Paragraph helper
+# ---------------------------------------------------------------------------
 
 def para(text, size=9, bold=False, color=DGRAY, align=TA_LEFT):
     return Paragraph(str(text), ParagraphStyle(
@@ -114,35 +130,58 @@ def para(text, size=9, bold=False, color=DGRAY, align=TA_LEFT):
 
 
 # ---------------------------------------------------------------------------
-# Shared header
+# Header  — two-tone with logo + school name + term badge
 # ---------------------------------------------------------------------------
 
 def build_header(term, year):
     logo_cell = load_logo() or para("", 9)
     year_str  = str(year) if year else str(timezone.now().year)
+    term_str  = TERM_LABELS.get(term, term)
 
+    # School name block (centre column)
     school_block = [
-        para("LEADING STARS ACADEMY",  13, bold=True,  color=WHITE, align=TA_CENTER),
-        para("WHERE LEADERS ARE BORN",  7, bold=False, color=colors.HexColor("#bfdbfe"), align=TA_CENTER),
-        Spacer(1, 1*mm),
-        para("FEE STATEMENT",          11, bold=True,  color=GOLD,  align=TA_CENTER),
-        para(f"{TERM_LABELS.get(term, term)}  ·  {year_str}", 8,
-             color=colors.HexColor("#e0e7ff"), align=TA_CENTER),
+        para("LEADING STARS ACADEMY", 14, bold=True, color=WHITE, align=TA_CENTER),
+        para("WHERE LEADERS ARE BORN",  7, color=colors.HexColor("#93c5fd"), align=TA_CENTER),
+        Spacer(1, 2*mm),
+        para("FEE STATEMENT",          11, bold=True, color=GOLD, align=TA_CENTER),
+        para(f"{term_str}  ·  {year_str}", 8, color=colors.HexColor("#e0f2fe"), align=TA_CENTER),
     ]
 
-    tbl = Table([[logo_cell, school_block, para("", 9)]], colWidths=[22*mm, 142*mm, 22*mm])
+    # Right column: small accent box
+    right_block = [
+        para("OFFICIAL", 6, bold=True, color=colors.HexColor("#93c5fd"), align=TA_CENTER),
+        para("DOCUMENT", 6, bold=True, color=colors.HexColor("#93c5fd"), align=TA_CENTER),
+    ]
+
+    tbl = Table(
+        [[logo_cell, school_block, right_block]],
+        colWidths=[24*mm, 138*mm, 24*mm],
+    )
     tbl.setStyle(TableStyle([
         ("BACKGROUND",    (0, 0), (-1, -1), BLUE),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",    (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING",   (0, 0), (0,  0),  6),
+        ("ALIGN",         (2, 0), (2,  0),  "CENTER"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 9),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING",   (0, 0), (0,  0),  8),
+        ("RIGHTPADDING",  (2, 0), (2,  0),  8),
     ]))
-    return tbl
+
+    # Thin gold accent bar below header
+    accent = Table([[""]],  colWidths=[W + 40*mm])
+    accent.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), GOLD),
+        ("TOPPADDING",    (0, 0), (-1, -1), 1.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+    ]))
+
+    return [tbl, accent]
 
 
 # ---------------------------------------------------------------------------
-# Student info card  (photo loaded same way as report PDF)
+# Student info card  — photo right, info grid left
 # ---------------------------------------------------------------------------
 
 def build_student_card(student, term, year):
@@ -150,49 +189,68 @@ def build_student_card(student, term, year):
     year_str   = str(year) if year else str(timezone.now().year)
 
     photo      = load_student_photo(student)
-    photo_cell = photo if photo else para("No\nPhoto", 7, color=LGRAY, align=TA_CENTER)
+    photo_cell = photo if photo else para("No Photo", 7, color=LGRAY, align=TA_CENTER)
 
-    def info_row(label, value):
-        return [
-            para(label, 8, bold=True, color=BLUE),
-            para(value,  8, color=BLACK),
-        ]
+    def lbl(text):
+        return para(text, 7, bold=True, color=LGRAY)
 
-    info = Table([
-        info_row("Student",      student.full_name),
-        info_row("Admission No", student.admission_number),
-        info_row("Class",        class_name),
-        info_row("Term",         TERM_LABELS.get(term, term)),
-        info_row("Year",         year_str),
-    ], colWidths=[32*mm, 100*mm])
+    def val(text):
+        return para(str(text), 9, bold=False, color=BLACK)
+
+    info_data = [
+        [lbl("STUDENT NAME"),   val(student.full_name)],
+        [lbl("ADMISSION NO"),   val(student.admission_number)],
+        [lbl("CLASS"),          val(class_name)],
+        [lbl("TERM"),           val(TERM_LABELS.get(term, term))],
+        [lbl("ACADEMIC YEAR"),  val(year_str)],
+    ]
+
+    info = Table(info_data, colWidths=[30*mm, 96*mm])
     info.setStyle(TableStyle([
-        ("TOPPADDING",    (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-        ("LINEBELOW",     (0, 0), (-1, -2), 0.3, colors.HexColor("#e5e7eb")),
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+        ("LINEBELOW",     (0, 0), (-1, -2), 0.4, DIVIDER),
     ]))
 
-    photo_wrapper = Table([[photo_cell]], colWidths=[30*mm])
+    photo_wrapper = Table([[photo_cell]], colWidths=[32*mm])
     photo_wrapper.setStyle(TableStyle([
-        ("BOX",           (0, 0), (-1, -1), 1.5, BLUE),
+        ("BOX",           (0, 0), (-1, -1), 2, BLUE),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",    (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("BACKGROUND",    (0, 0), (-1, -1), LBLUE),
     ]))
 
-    card = Table([[info, photo_wrapper]], colWidths=[136*mm, 32*mm])
-    card.setStyle(TableStyle([
-        ("BOX",           (0, 0), (-1, -1), 0.8, colors.HexColor("#d1d5db")),
-        ("BACKGROUND",    (0, 0), (-1, -1), GRAY),
+    outer = Table([[info, photo_wrapper]], colWidths=[132*mm, 36*mm])
+    outer.setStyle(TableStyle([
+        ("BOX",           (0, 0), (-1, -1), 1, DIVIDER),
+        ("BACKGROUND",    (0, 0), (-1, -1), WHITE),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
         ("TOPPADDING",    (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+        # Left blue accent stripe via a thin left border highlight
+        ("LINEAFTER",     (0, 0), (0, -1), 3, BLUE),
     ]))
-    return card
+    return outer
+
+
+# ---------------------------------------------------------------------------
+# Section label
+# ---------------------------------------------------------------------------
+
+def section_label(text):
+    tbl = Table([[para(f"  {text}", 8, bold=True, color=WHITE)]], colWidths=[W])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), BLUE2),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+    ]))
+    return tbl
 
 
 # ---------------------------------------------------------------------------
@@ -200,49 +258,66 @@ def build_student_card(student, term, year):
 # ---------------------------------------------------------------------------
 
 def build_fee_table(fee):
-    def row(label, value, highlight=False, value_color=None):
-        vc = value_color or (BLUE if highlight else BLACK)
-        return [
-            para(label, 9, bold=highlight, color=BLUE if highlight else BLACK),
-            para(f"GHS {float(value):,.2f}", 9, bold=highlight, color=vc, align=TA_RIGHT),
+    def row(label, value, highlight=False, value_color=None, bg=None):
+        vc  = value_color or (BLUE2 if highlight else DGRAY)
+        fs  = 10 if highlight else 9
+        row = [
+            para(label, fs, bold=highlight, color=BLUE if highlight else DGRAY),
+            para(f"GHS {float(value):,.2f}", fs, bold=highlight, color=vc, align=TA_RIGHT),
         ]
+        return row
 
-    rows        = []
-    divider_idx = 0
+    rows       = []
+    alt_rows   = []   # track which rows get alternating bg
 
     rows.append(row("School Fees", fee.amount))
+    alt_rows.append(len(rows) - 1)
+
     if fee.book_user_fee and float(fee.book_user_fee) > 0:
         rows.append(row("Book User Fee", fee.book_user_fee))
+        alt_rows.append(len(rows) - 1)
+
     if fee.workbook_fee and float(fee.workbook_fee) > 0:
         rows.append(row("Workbook Fee", fee.workbook_fee))
+        alt_rows.append(len(rows) - 1)
+
     if fee.arrears and float(fee.arrears) > 0:
-        rows.append(row("Arrears", fee.arrears, value_color=RED))
+        rows.append(row("Arrears Carried Forward", fee.arrears, value_color=RED))
+        alt_rows.append(len(rows) - 1)
 
-    divider_idx = len(rows)
-    rows.append([para("", 3), para("", 3)])   # spacer row
+    # Divider
+    rows.append([para("", 2), para("", 2)])
+    divider_idx = len(rows) - 1
 
-    rows.append(row("TOTAL DUE",   fee.total_amount, highlight=True))
-    rows.append(row("Amount Paid", fee.paid, value_color=GREEN))
+    rows.append(row("TOTAL DUE",    fee.total_amount, highlight=True))
+    rows.append(row("Amount Paid",  fee.paid, value_color=GREEN))
 
     balance   = float(fee.balance)
     bal_color = GREEN if balance <= 0 else RED
+    bal_bg    = LGREEN if balance <= 0 else LRED
     rows.append([
-        para("BALANCE", 9, bold=True, color=BLACK),
-        para(f"GHS {balance:,.2f}", 9, bold=True, color=bal_color, align=TA_RIGHT),
+        para("OUTSTANDING BALANCE", 10, bold=True, color=BLACK),
+        para(f"GHS {balance:,.2f}", 10, bold=True, color=bal_color, align=TA_RIGHT),
     ])
 
     tbl   = Table(rows, colWidths=[120*mm, 48*mm])
     style = [
-        ("TOPPADDING",    (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-        ("LINEBELOW",     (0, 0), (-1, divider_idx - 1), 0.3, colors.HexColor("#e5e7eb")),
-        ("BOX",           (0, 0), (-1, -1), 0.8, colors.HexColor("#d1d5db")),
-        ("BACKGROUND",    (0, divider_idx + 1), (-1, -1), LBLUE),
-        ("LINEABOVE",     (0, divider_idx + 1), (-1, divider_idx + 1), 1, BLUE),
-        ("BACKGROUND",    (0, -1), (-1, -1), LGREEN if balance <= 0 else LRED),
+        ("TOPPADDING",    (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+        ("BOX",           (0, 0), (-1, -1), 1, DIVIDER),
+        # alternating rows
+        ("LINEBELOW",     (0, 0), (-1, divider_idx - 1), 0.4, DIVIDER),
+        # total row bg
+        ("BACKGROUND",    (0, divider_idx + 1), (-1, divider_idx + 1), LBLUE),
+        ("LINEABOVE",     (0, divider_idx + 1), (-1, divider_idx + 1), 1.5, BLUE),
+        # balance row bg
+        ("BACKGROUND",    (0, -1), (-1, -1), bal_bg),
+        ("LINEABOVE",     (0, -1), (-1, -1), 1, bal_color),
+        ("LINEBELOW",     (0, -1), (-1, -1), 1, bal_color),
     ]
+    # Alternating grey on data rows
     for i in range(divider_idx):
         if i % 2 == 1:
             style.append(("BACKGROUND", (0, i), (-1, i), MGRAY))
@@ -251,7 +326,53 @@ def build_fee_table(fee):
 
 
 # ---------------------------------------------------------------------------
-# Single-student view
+# Status badge
+# ---------------------------------------------------------------------------
+
+def build_status_badge(fee):
+    balance    = float(fee.balance)
+    paid       = balance <= 0
+    badge_text = "✓   FULLY PAID — Thank you!" if paid else f"⚠   OUTSTANDING BALANCE:  GHS {balance:,.2f}"
+    badge_bg   = LGREEN if paid else LRED
+    badge_col  = GREEN  if paid else RED
+
+    badge = Table(
+        [[para(badge_text, 11, bold=True, color=badge_col, align=TA_CENTER)]],
+        colWidths=[W],
+    )
+    badge.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), badge_bg),
+        ("BOX",           (0, 0), (-1, -1), 1.5, badge_col),
+        ("TOPPADDING",    (0, 0), (-1, -1), 9),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+    ]))
+    return badge
+
+
+# ---------------------------------------------------------------------------
+# Footer note
+# ---------------------------------------------------------------------------
+
+def build_footer():
+    return [
+        HRFlowable(width="100%", thickness=0.6, color=DIVIDER),
+        Spacer(1, 2*mm),
+        para(
+            "Please ensure all fees are settled before the end of term.  "
+            "Thank you for choosing Leading Stars Academy.",
+            8, color=LGRAY, align=TA_CENTER,
+        ),
+        Spacer(1, 1*mm),
+        para(
+            "For enquiries, contact the school bursar.",
+            7, color=LGRAY, align=TA_CENTER,
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Single-student bill
 # ---------------------------------------------------------------------------
 
 class StudentFeeBillPDFView(APIView):
@@ -277,43 +398,23 @@ class StudentFeeBillPDFView(APIView):
             leftMargin=20*mm, rightMargin=20*mm,
             topMargin=15*mm, bottomMargin=15*mm,
         )
+
         elements = []
 
-        elements.append(build_header(term, year))
+        for item in build_header(term, year):
+            elements.append(item)
+
         elements.append(Spacer(1, 5*mm))
         elements.append(build_student_card(student, term, year))
         elements.append(Spacer(1, 5*mm))
-        elements.append(para("Fee Breakdown", 10, bold=True, color=BLUE))
-        elements.append(Spacer(1, 2*mm))
+        elements.append(section_label("FEE BREAKDOWN"))
+        elements.append(Spacer(1, 1*mm))
         elements.append(build_fee_table(fee))
-        elements.append(Spacer(1, 7*mm))
-
-        # Status badge
-        paid       = float(fee.balance) <= 0
-        badge_text = "✓  FULLY PAID" if paid else "⚠  PAYMENT PENDING"
-        badge_bg   = LGREEN if paid else LRED
-        badge_col  = GREEN  if paid else RED
-
-        badge = Table(
-            [[para(badge_text, 12, bold=True, color=badge_col, align=TA_CENTER)]],
-            colWidths=[W],
-        )
-        badge.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1, -1), badge_bg),
-            ("BOX",           (0, 0), (-1, -1), 1.2, badge_col),
-            ("TOPPADDING",    (0, 0), (-1, -1), 7),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-        ]))
-        elements.append(badge)
-        elements.append(Spacer(1, 7*mm))
-
-        elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb")))
-        elements.append(Spacer(1, 2*mm))
-        elements.append(para(
-            "Please ensure all fees are settled before the end of term.  "
-            "Thank you for choosing Leading Stars Academy.",
-            8, color=LGRAY, align=TA_CENTER,
-        ))
+        elements.append(Spacer(1, 5*mm))
+        elements.append(build_status_badge(fee))
+        elements.append(Spacer(1, 6*mm))
+        for item in build_footer():
+            elements.append(item)
 
         pdf.build(elements)
         buffer.seek(0)
@@ -326,7 +427,7 @@ class StudentFeeBillPDFView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# Class-wide view
+# Class-wide bill
 # ---------------------------------------------------------------------------
 
 class ClassFeeBillPDFView(APIView):
@@ -359,19 +460,24 @@ class ClassFeeBillPDFView(APIView):
             leftMargin=12*mm, rightMargin=12*mm,
             topMargin=12*mm, bottomMargin=12*mm,
         )
+
         elements = []
 
-        elements.append(build_header(term, year))
+        for item in build_header(term, year):
+            elements.append(item)
+
         elements.append(Spacer(1, 4*mm))
 
+        # Class + year subtitle
         sub = Table([[
-            para(f"Class: {class_name}", 10, bold=True, color=BLUE),
-            para(f"Academic Year: {year}", 10, bold=True, color=DGRAY, align=TA_RIGHT),
-        ]], colWidths=[90*mm, 84*mm])
+            para(f"  CLASS:  {class_name}", 10, bold=True, color=BLUE),
+            para(f"ACADEMIC YEAR:  {year}  ", 10, bold=True, color=DGRAY, align=TA_RIGHT),
+        ]], colWidths=[93*mm, 81*mm])
         sub.setStyle(TableStyle([
-            ("TOPPADDING",    (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+            ("BACKGROUND",    (0, 0), (-1, -1), MGRAY),
+            ("BOX",           (0, 0), (-1, -1), 0.8, DIVIDER),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ]))
         elements.append(sub)
         elements.append(Spacer(1, 3*mm))
@@ -379,12 +485,12 @@ class ClassFeeBillPDFView(APIView):
         CW = [44*mm, 20*mm, 20*mm, 20*mm, 16*mm, 22*mm, 20*mm, 16*mm]
 
         def hdr(text):
-            return para(text, 8, bold=True, color=WHITE, align=TA_CENTER)
+            return para(text, 7, bold=True, color=WHITE, align=TA_CENTER)
 
         header_row = [
-            para("Student", 8, bold=True, color=WHITE),
-            hdr("Fees"), hdr("Books"), hdr("Workbook"),
-            hdr("Arrears"), hdr("Total"), hdr("Paid"), hdr("Balance"),
+            para("  STUDENT", 8, bold=True, color=WHITE),
+            hdr("FEES"), hdr("BOOKS"), hdr("WORKBOOK"),
+            hdr("ARREARS"), hdr("TOTAL"), hdr("PAID"), hdr("BALANCE"),
         ]
 
         rows = [header_row]
@@ -394,70 +500,72 @@ class ClassFeeBillPDFView(APIView):
             bal       = float(fee.balance)
             bal_color = GREEN if bal <= 0 else RED
             rows.append([
-                para(fee.student.full_name,               8),
-                para(f"{float(fee.amount):,.0f}",         8, align=TA_CENTER),
-                para(f"{float(fee.book_user_fee):,.0f}",  8, align=TA_CENTER),
-                para(f"{float(fee.workbook_fee):,.0f}",   8, align=TA_CENTER),
-                para(f"{float(fee.arrears):,.0f}",        8, align=TA_CENTER),
-                para(f"{float(fee.total_amount):,.0f}",   8, bold=True, color=BLUE,      align=TA_CENTER),
-                para(f"{float(fee.paid):,.0f}",           8, color=GREEN,                align=TA_CENTER),
-                para(f"{bal:,.0f}",                       8, bold=True, color=bal_color, align=TA_CENTER),
+                para(f"  {fee.student.full_name}",           8),
+                para(f"{float(fee.amount):,.0f}",            8, align=TA_CENTER),
+                para(f"{float(fee.book_user_fee):,.0f}",     8, align=TA_CENTER),
+                para(f"{float(fee.workbook_fee):,.0f}",      8, align=TA_CENTER),
+                para(f"{float(fee.arrears):,.0f}",           8, align=TA_CENTER),
+                para(f"{float(fee.total_amount):,.0f}",      8, bold=True, color=BLUE2,    align=TA_CENTER),
+                para(f"{float(fee.paid):,.0f}",              8, color=GREEN,               align=TA_CENTER),
+                para(f"{bal:,.0f}",                          8, bold=True, color=bal_color, align=TA_CENTER),
             ])
             total_expected += float(fee.total_amount)
             total_paid     += float(fee.paid)
             total_balance  += float(fee.balance)
 
         rows.append([
-            para("TOTALS", 8, bold=True, color=WHITE),
+            para("  TOTALS", 8, bold=True, color=WHITE),
             para("", 8), para("", 8), para("", 8), para("", 8),
             para(f"{total_expected:,.0f}", 8, bold=True, color=WHITE, align=TA_CENTER),
             para(f"{total_paid:,.0f}",     8, bold=True, color=WHITE, align=TA_CENTER),
-            para(f"{total_balance:,.0f}",  8, bold=True, color=WHITE, align=TA_CENTER),
+            para(f"{total_balance:,.0f}",  8, bold=True,
+                 color=colors.HexColor("#fca5a5") if total_balance > 0 else colors.HexColor("#86efac"),
+                 align=TA_CENTER),
         ])
 
         tbl = Table(rows, colWidths=CW)
         tbl.setStyle(TableStyle([
             ("BACKGROUND",     (0, 0),  (-1, 0),  BLUE),
-            ("TOPPADDING",     (0, 0),  (-1, 0),  6),
-            ("BOTTOMPADDING",  (0, 0),  (-1, 0),  6),
+            ("TOPPADDING",     (0, 0),  (-1, 0),  7),
+            ("BOTTOMPADDING",  (0, 0),  (-1, 0),  7),
             ("BACKGROUND",     (0, -1), (-1, -1), DGRAY),
-            ("LINEABOVE",      (0, -1), (-1, -1), 1.2, BLUE),
+            ("LINEABOVE",      (0, -1), (-1, -1), 1.5, BLUE),
             ("ROWBACKGROUNDS", (0, 1),  (-1, -2), [WHITE, MGRAY]),
-            ("GRID",           (0, 0),  (-1, -1), 0.3, colors.HexColor("#e5e7eb")),
-            ("BOX",            (0, 0),  (-1, -1), 0.8, colors.HexColor("#d1d5db")),
-            ("TOPPADDING",     (0, 1),  (-1, -1), 4),
-            ("BOTTOMPADDING",  (0, 1),  (-1, -1), 4),
+            ("GRID",           (0, 0),  (-1, -1), 0.3, DIVIDER),
+            ("BOX",            (0, 0),  (-1, -1), 1,   DIVIDER),
+            ("TOPPADDING",     (0, 1),  (-1, -1), 5),
+            ("BOTTOMPADDING",  (0, 1),  (-1, -1), 5),
             ("LEFTPADDING",    (0, 0),  (-1, -1), 4),
             ("VALIGN",         (0, 0),  (-1, -1), "MIDDLE"),
+            # Highlight total column
+            ("BACKGROUND",     (5, 1),  (5, -2),  LBLUE),
         ]))
         elements.append(tbl)
-        elements.append(Spacer(1, 6*mm))
+        elements.append(Spacer(1, 5*mm))
 
         # Summary strip
+        out_color = RED if total_balance > 0 else GREEN
+        out_bg    = LRED if total_balance > 0 else LGREEN
         summary = Table([[
-            para(f"Students: {len(fees)}", 9, bold=True, color=DGRAY, align=TA_CENTER),
-            para(f"Expected: GHS {total_expected:,.2f}", 9, bold=True, color=BLUE, align=TA_CENTER),
-            para(f"Collected: GHS {total_paid:,.2f}",   9, bold=True, color=GREEN, align=TA_CENTER),
-            para(f"Outstanding: GHS {total_balance:,.2f}", 9, bold=True,
-                 color=RED if total_balance > 0 else GREEN, align=TA_CENTER),
-        ]], colWidths=[43*mm, 50*mm, 50*mm, 50*mm])
+            para(f"  Students Billed: {len(fees)}", 9, bold=True, color=DGRAY),
+            para(f"Expected: GHS {total_expected:,.2f}", 9, bold=True, color=BLUE2, align=TA_CENTER),
+            para(f"Collected: GHS {total_paid:,.2f}",   9, bold=True, color=GREEN,  align=TA_CENTER),
+            para(f"Outstanding: GHS {total_balance:,.2f}  ", 9, bold=True, color=out_color, align=TA_RIGHT),
+        ]], colWidths=[46*mm, 52*mm, 52*mm, 50*mm - 0.01*mm])
         summary.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1, -1), LBLUE),
-            ("BOX",           (0, 0), (-1, -1), 0.8, BLUE),
-            ("GRID",          (0, 0), (-1, -1), 0.3, MBLUE),
-            ("TOPPADDING",    (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("BACKGROUND",    (0, 0), (-1, -1), MGRAY),
+            ("BACKGROUND",    (3, 0), (3,  0),  out_bg),
+            ("BOX",           (0, 0), (-1, -1), 1, DIVIDER),
+            ("LINEAFTER",     (0, 0), (2,  0),  0.4, DIVIDER),
+            ("TOPPADDING",    (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
         ]))
         elements.append(summary)
         elements.append(Spacer(1, 5*mm))
 
-        elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb")))
-        elements.append(Spacer(1, 2*mm))
-        elements.append(para(
-            "Please ensure all fees are settled before the end of term.  "
-            "Thank you for choosing Leading Stars Academy.",
-            8, color=LGRAY, align=TA_CENTER,
-        ))
+        for item in build_footer():
+            elements.append(item)
 
         pdf.build(elements)
         buffer.seek(0)
