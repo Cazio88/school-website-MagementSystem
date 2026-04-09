@@ -37,31 +37,37 @@ class IsAdminRole(IsAuthenticated):
 class LoginView(APIView):
 
     def post(self, request):
-        username = request.data.get("username")
-        password = request.data.get("password")
+        identifier = request.data.get("username")
+        password   = request.data.get("password")
 
-        if not username or not password:
+        if not identifier or not password:
             return Response(
                 {"error": "Username and password are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Resolve admission number → username (students)
-        # Resolve teacher_id       → username (teachers)
-        if not User.objects.filter(username=username).exists():
+        # Start with the original input
+        username = identifier
+
+        # Only attempt resolution if no direct username match exists
+        if not User.objects.filter(username=identifier).exists():
+
+            # 1. Try student admission number
             try:
-                student  = Student.objects.get(admission_number__iexact=username)
+                student  = Student.objects.get(admission_number__iexact=identifier)
                 username = student.user.username
             except Student.DoesNotExist:
                 pass
 
-            try:
-                teacher  = Teacher.objects.get(teacher_id__iexact=username)
-                username = teacher.user.username
-            except Teacher.DoesNotExist:
-                pass
+            # 2. Try teacher ID — only if student lookup didn't resolve it
+            if username == identifier:
+                try:
+                    teacher  = Teacher.objects.get(teacher_id__iexact=identifier)
+                    username = teacher.user.username
+                except Teacher.DoesNotExist:
+                    pass
 
-        user = authenticate(username=username, password=password)
+        user = authenticate(request=request, username=username, password=password)
 
         if user is None:
             return Response(
@@ -73,8 +79,10 @@ class LoginView(APIView):
         # (account is inactive while pending, so we need the friendly message first)
         if user.role == "admin" and not user.is_approved:
             return Response(
-                {"error": "pending_approval",
-                 "message": "Your admin account is awaiting approval by an existing administrator."},
+                {
+                    "error":   "pending_approval",
+                    "message": "Your admin account is awaiting approval by an existing administrator.",
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -88,6 +96,7 @@ class LoginView(APIView):
 
         # Build role-specific profile data
         profile = {}
+
         if user.role == "student":
             try:
                 student = Student.objects.select_related("school_class").get(user=user)
@@ -107,10 +116,12 @@ class LoginView(APIView):
                 teacher = Teacher.objects.select_related("school_class", "subject").get(user=user)
                 profile = {
                     "teacher_id": teacher.teacher_id,
+                    "full_name":  teacher.full_name,
                     "class":      teacher.school_class.name if teacher.school_class else None,
                     "class_id":   teacher.school_class.id   if teacher.school_class else None,
                     "subject":    teacher.subject.name      if teacher.subject       else None,
                     "subject_id": teacher.subject.id        if teacher.subject       else None,
+                    "photo":      teacher.photo.url         if hasattr(teacher, "photo") and teacher.photo else None,
                 }
             except Teacher.DoesNotExist:
                 pass
@@ -215,10 +226,12 @@ class MeView(APIView):
                 teacher = Teacher.objects.select_related("school_class", "subject").get(user=user)
                 profile = {
                     "teacher_id": teacher.teacher_id,
+                    "full_name":  teacher.full_name,
                     "class":      teacher.school_class.name if teacher.school_class else None,
                     "class_id":   teacher.school_class.id   if teacher.school_class else None,
                     "subject":    teacher.subject.name      if teacher.subject       else None,
                     "subject_id": teacher.subject.id        if teacher.subject       else None,
+                    "photo":      teacher.photo.url         if hasattr(teacher, "photo") and teacher.photo else None,
                 }
             except Teacher.DoesNotExist:
                 pass
@@ -242,8 +255,8 @@ class AdminApprovalViewSet(viewsets.ViewSet):
     Endpoints for managing pending admin account approvals.
     Only accessible by approved admins.
 
-    GET  /api/admin-approvals/          → list pending admins
-    GET  /api/admin-approvals/all/      → list all admins with status
+    GET  /api/admin-approvals/              → list pending admins
+    GET  /api/admin-approvals/all/          → list all admins with status
     POST /api/admin-approvals/{id}/approve/ → approve
     POST /api/admin-approvals/{id}/reject/  → reject (delete account)
     """
