@@ -419,9 +419,11 @@ class StudentFeeBillPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
+        # Include student name in the downloaded filename
+        safe_name = student.full_name.replace(" ", "_")
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
-            f'attachment; filename="bill_{student.admission_number}_{term}.pdf"'
+            f'attachment; filename="bill_{safe_name}_{student.admission_number}_{term}.pdf"'
         )
         return response
 
