@@ -1,5 +1,6 @@
 from io import BytesIO
 import os
+from urllib.parse import quote
 
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -419,11 +420,13 @@ class StudentFeeBillPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
-        # Include student name in the downloaded filename
-        safe_name = student.full_name.replace(" ", "_")
+        # Build a clean, properly encoded filename with the student name
+        safe_name = student.full_name.strip().replace(" ", "_")
+        filename  = f"bill_{safe_name}_{student.admission_number}_{term}.pdf"
+
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
-            f'attachment; filename="bill_{safe_name}_{student.admission_number}_{term}.pdf"'
+            f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
         )
         return response
 
@@ -572,8 +575,12 @@ class ClassFeeBillPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
+        # Build a clean, properly encoded filename with the class name
+        safe_class = class_name.strip().replace(" ", "_")
+        filename   = f"class_bill_{safe_class}_{term}.pdf"
+
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
-            f'attachment; filename="class_bill_{class_name}_{term}.pdf"'
+            f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
         )
         return response
