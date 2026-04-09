@@ -88,8 +88,6 @@ const Login = () => {
     <span>Back to Home</span>
   </Link>
 </div>
-
-<h2 className="text-2xl font-bold text-gray-800 text-center mb-1">Welcome Back</h2>
           <h2 className="text-2xl font-bold text-gray-800 text-center mb-1">Welcome Back</h2>
           <p className="text-sm text-gray-400 text-center mb-6">Sign in to your portal</p>
 
