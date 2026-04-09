@@ -82,6 +82,14 @@ const Login = () => {
       <div className="flex w-full md:w-1/2 items-center justify-center bg-gray-50 p-6">
         <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
 
+          <div className="flex justify-start mb-4">
+  <Link to="/" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-600 transition-colors">
+    <span>←</span>
+    <span>Back to Home</span>
+  </Link>
+</div>
+
+<h2 className="text-2xl font-bold text-gray-800 text-center mb-1">Welcome Back</h2>
           <h2 className="text-2xl font-bold text-gray-800 text-center mb-1">Welcome Back</h2>
           <p className="text-sm text-gray-400 text-center mb-6">Sign in to your portal</p>
 
