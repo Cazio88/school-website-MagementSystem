@@ -431,13 +431,8 @@ class StudentFeeBillPDFView(APIView):
         buffer.seek(0)
 
        # Name lives on the related User model
-       raw = (student.student_name or "").strip()
-        if not raw:
-            raw = (student.user.get_full_name() or "").strip()
-        if not raw:
-            raw = student.user.username.strip()
-
-        parts = raw.split()
+      full_name = student.full_name.strip()
+        parts = full_name.split()
         if len(parts) >= 2:
             name = f"{parts[0]}_{parts[-1]}"
         elif parts:
@@ -447,6 +442,12 @@ class StudentFeeBillPDFView(APIView):
 
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
         filename  = f"bill_{safe_name}_{term}.pdf"
+
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+        )
+        return response
 
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
