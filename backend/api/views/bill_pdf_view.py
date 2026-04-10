@@ -431,18 +431,19 @@ class StudentFeeBillPDFView(APIView):
         buffer.seek(0)
 
        # Name lives on the related User model
-        first = (student.user.first_name or "").strip()
-        last  = (student.user.last_name  or "").strip()
+       raw = (student.student_name or "").strip()
+        if not raw:
+            raw = (student.user.get_full_name() or "").strip()
+        if not raw:
+            raw = student.user.username.strip()
 
-        if first and last:
-            name = f"{first}_{last}"
-        elif first or last:
-            name = first or last
+        parts = raw.split()
+        if len(parts) >= 2:
+            name = f"{parts[0]}_{parts[-1]}"
+        elif parts:
+            name = parts[0]
         else:
-            # final fallback: use username or full_name property
-            raw   = (student.student_name or student.user.username or "").strip()
-            parts = raw.split()
-            name  = f"{parts[0]}_{parts[-1]}" if len(parts) >= 2 else (parts[0] if parts else student.admission_number)
+            name = student.admission_number
 
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
         filename  = f"bill_{safe_name}_{term}.pdf"
