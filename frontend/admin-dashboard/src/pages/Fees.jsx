@@ -155,13 +155,24 @@ const Fees = () => {
     finally { setLoadingHistory(false); }
   };
 
-  const downloadFile = async (url, filename) => {
-    const r = await API.get(url, { responseType: "blob" });
-    const link = document.createElement("a");
-    link.href = window.URL.createObjectURL(new Blob([r.data]));
-    link.setAttribute("download", filename);
-    document.body.appendChild(link); link.click(); link.remove();
-  };
+  const downloadFile = async (url, fallbackFilename) => {
+  const r = await API.get(url, { responseType: "blob" });
+  
+  // Extract filename from Content-Disposition header
+  const disposition = r.headers["content-disposition"];
+  let filename = fallbackFilename;
+  if (disposition) {
+    const match = disposition.match(/filename\*=UTF-8''(.+)|filename="?([^"]+)"?/);
+    if (match) filename = decodeURIComponent(match[1] || match[2]);
+  }
+
+  const link = document.createElement("a");
+  link.href = window.URL.createObjectURL(new Blob([r.data]));
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
 
   const downloadBill = async (url, filename) => {
     try { await downloadFile(url, filename); }
