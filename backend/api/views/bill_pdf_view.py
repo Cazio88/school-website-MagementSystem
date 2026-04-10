@@ -436,8 +436,7 @@ class StudentFeeBillPDFView(APIView):
         name  = f"{first}_{last}" if first and last else (first or last)
 
         if not name:
-            # Fallback: split full_name if individual fields are absent
-            full = (getattr(student, "full_name", "") or "").strip()
+            full  = (getattr(student, "full_name", "") or "").strip()
             parts = full.split()
             if len(parts) >= 2:
                 name = f"{parts[0]}_{parts[-1]}"
@@ -449,6 +448,10 @@ class StudentFeeBillPDFView(APIView):
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
         filename  = f"bill_{safe_name}_{term}.pdf"
 
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+        )
         return response
 
 # ---------------------------------------------------------------------------
