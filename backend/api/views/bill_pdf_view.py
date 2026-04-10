@@ -417,29 +417,23 @@ class StudentFeeBillPDFView(APIView):
         for item in build_footer():
             elements.append(item)
 
-        pdf.build(elements)
-        buffer.seek(0)
+       pdf.build(elements)
+buffer.seek(0)
 
-              # Build name safely
         name = (
-        getattr(student, "full_name", None)
-        or f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip()
-        or student.admission_number
-        )   
-
-safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name.strip()).strip("_")
-
-filename = f"bill_{safe_name}_{student.admission_number}_{term}.pdf"
-
+            getattr(student, "full_name", None)
+            or f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip()
+            or student.admission_number
+        )
+        
+        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name.strip()).strip("_")
         filename = f"bill_{safe_name}_{student.admission_number}_{term}.pdf"
-
+        
         response = HttpResponse(buffer, content_type="application/pdf")
-
-        # Set BOTH headers properly for all browsers
         response["Content-Disposition"] = (
             f"attachment; filename={filename}; filename*=UTF-8''{quote(filename)}"
         )
-
+        
         return response
 
 
