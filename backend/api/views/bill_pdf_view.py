@@ -428,16 +428,11 @@ class StudentFeeBillPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
-        full_name = student.full_name.strip()
-        parts = full_name.split()
-        if len(parts) >= 2:
-            name = f"{parts[0]}_{parts[-1]}"
-        elif parts:
-            name = parts[0]
-        else:
-            name = student.admission_number
+        name_slug = student.student_name.strip().replace(" ", "_")
+        if not name_slug:
+            name_slug = student.admission_number
 
-        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
+        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
         filename  = f"bill_{safe_name}_{term}.pdf"
 
         response = HttpResponse(buffer, content_type="application/pdf")
