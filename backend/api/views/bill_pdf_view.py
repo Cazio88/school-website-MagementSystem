@@ -420,15 +420,18 @@ class StudentFeeBillPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
-        # Build a clean, properly encoded filename with the student name
-        safe_name = student.full_name.strip().replace(" ", "_")
-        filename  = f"bill_{safe_name}_{student.admission_number}_{term}.pdf"
+      safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', student.full_name.strip())
 
-        response = HttpResponse(buffer, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
-        )
-        return response
+filename = f"bill_{safe_name}_{student.admission_number}_{term}.pdf"
+
+response = HttpResponse(buffer, content_type="application/pdf")
+
+# Set BOTH headers properly for all browsers
+response["Content-Disposition"] = (
+    f"attachment; filename={filename}; filename*=UTF-8''{quote(filename)}"
+)
+
+return response
 
 
 # ---------------------------------------------------------------------------
