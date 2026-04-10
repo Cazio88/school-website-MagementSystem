@@ -39,7 +39,6 @@ BLACK  = colors.HexColor("#111827")
 TERM_LABELS = {"term1": "Term 1", "term2": "Term 2", "term3": "Term 3"}
 LOGO_PATH   = os.path.join(settings.BASE_DIR, "static", "images", "logo.jpeg")
 
-# A5 usable width
 W = A5[0] - 24 * mm
 
 
@@ -70,7 +69,6 @@ def load_logo():
 
 
 def load_student_photo(student, size=18 * mm):
-    """Same approach as the working report PDF view."""
     try:
         if not student.photo:
             return None
@@ -93,10 +91,6 @@ def load_student_photo(student, size=18 * mm):
 # ---------------------------------------------------------------------------
 
 class PaymentReceiptPDFView(APIView):
-    """
-    GET /fees/receipt/{transaction_id}/
-    Generates a payment receipt PDF for a single PaymentTransaction.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, transaction_id):
@@ -104,21 +98,16 @@ class PaymentReceiptPDFView(APIView):
         fee     = txn.fee
         student = fee.student
 
-        pdf.build(elements)
-        buffer.seek(0)
-
-        name_slug = student.student_name.strip().replace(" ", "_")
-        if not name_slug:
-            name_slug = student.admission_number
-
-        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
-        filename  = f"receipt_{receipt_no}_{safe_name}.pdf"
-
-        response = HttpResponse(buffer, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}'
+        buffer = BytesIO()
+        pdf    = SimpleDocTemplate(
+            buffer,
+            pagesize=A5,
+            leftMargin=12 * mm,
+            rightMargin=12 * mm,
+            topMargin=12 * mm,
+            bottomMargin=12 * mm,
         )
-        return response
+        elements = []
 
         # ── Header ────────────────────────────────────────────────────────
         logo      = load_logo()
@@ -143,7 +132,7 @@ class PaymentReceiptPDFView(APIView):
         elements.append(header)
         elements.append(Spacer(1, 4 * mm))
 
-        # ── Receipt meta (receipt no + date) ─────────────────────────────
+        # ── Receipt meta ──────────────────────────────────────────────────
         receipt_no   = f"RCP-{txn.id:06d}"
         receipt_date = txn.created_at.strftime("%d %b %Y  %I:%M %p")
 
@@ -213,16 +202,16 @@ class PaymentReceiptPDFView(APIView):
 
         breakdown_rows = [
             [para("Description", 8, bold=True, color=BLUE), para("Amount (GHS)", 8, bold=True, color=BLUE, align=TA_RIGHT)],
-            [para("School Fees",    8), para(f"{float(fee.amount):,.2f}",        8, align=TA_RIGHT)],
+            [para("School Fees", 8), para(f"{float(fee.amount):,.2f}", 8, align=TA_RIGHT)],
         ]
         if float(fee.book_user_fee) > 0:
             breakdown_rows.append([para("Book User Fee", 8), para(f"{float(fee.book_user_fee):,.2f}", 8, align=TA_RIGHT)])
         if float(fee.workbook_fee) > 0:
             breakdown_rows.append([para("Workbook Fee",  8), para(f"{float(fee.workbook_fee):,.2f}",  8, align=TA_RIGHT)])
         if float(fee.arrears) > 0:
-            breakdown_rows.append([para("Arrears",       8, color=RED), para(f"{float(fee.arrears):,.2f}", 8, color=RED, align=TA_RIGHT)])
+            breakdown_rows.append([para("Arrears", 8, color=RED), para(f"{float(fee.arrears):,.2f}", 8, color=RED, align=TA_RIGHT)])
 
-        breakdown_rows.append([para("", 3), para("", 3)])  # spacer
+        breakdown_rows.append([para("", 3), para("", 3)])
 
         breakdown_rows.append([
             para("Total Fee Due", 9, bold=True, color=BLACK),
@@ -240,27 +229,22 @@ class PaymentReceiptPDFView(APIView):
             para(f"{balance:,.2f}", 9, bold=True, color=balance_color, align=TA_RIGHT),
         ])
 
-        n_data   = len(breakdown_rows)
-        divider  = n_data - 4  # row index of the spacer
+        n_data  = len(breakdown_rows)
+        divider = n_data - 4
 
         btbl = Table(breakdown_rows, colWidths=[W - 40 * mm, 40 * mm])
         btbl.setStyle(TableStyle([
-            # Header row
-            ("BACKGROUND",    (0, 0), (-1, 0),  LBLUE),
-            # Alternating rows for breakdown
-            ("ROWBACKGROUNDS",(0, 1), (-1, divider - 1), [WHITE, colors.HexColor("#f9fafb")]),
-            # Summary rows
-            ("BACKGROUND",    (0, divider + 1), (-1, -1), colors.HexColor("#f0fdf4")),
+            ("BACKGROUND",    (0, 0),  (-1, 0),              LBLUE),
+            ("ROWBACKGROUNDS",(0, 1),  (-1, divider - 1),    [WHITE, colors.HexColor("#f9fafb")]),
+            ("BACKGROUND",    (0, divider + 1), (-1, -1),    colors.HexColor("#f0fdf4")),
             ("LINEABOVE",     (0, divider + 1), (-1, divider + 1), 0.8, BLUE),
-            # Balance row background
-            ("BACKGROUND",    (0, -1), (-1, -1), LGREEN if balance <= 0 else colors.HexColor("#fef2f2")),
-            # Padding
-            ("TOPPADDING",    (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
-            ("BOX",           (0, 0), (-1, -1), 0.6, colors.HexColor("#d1d5db")),
-            ("GRID",          (0, 0), (-1, divider - 1), 0.3, colors.HexColor("#e5e7eb")),
+            ("BACKGROUND",    (0, -1), (-1, -1),              LGREEN if balance <= 0 else colors.HexColor("#fef2f2")),
+            ("TOPPADDING",    (0, 0),  (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0),  (-1, -1), 4),
+            ("LEFTPADDING",   (0, 0),  (-1, -1), 6),
+            ("RIGHTPADDING",  (0, 0),  (-1, -1), 6),
+            ("BOX",           (0, 0),  (-1, -1), 0.6, colors.HexColor("#d1d5db")),
+            ("GRID",          (0, 0),  (-1, divider - 1), 0.3, colors.HexColor("#e5e7eb")),
         ]))
         elements.append(btbl)
         elements.append(Spacer(1, 5 * mm))
@@ -310,8 +294,15 @@ class PaymentReceiptPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
+        name_slug = student.student_name.strip().replace(" ", "_")
+        if not name_slug:
+            name_slug = student.admission_number
+
+        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
+        filename  = f"receipt_{receipt_no}_{safe_name}.pdf"
+
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
-            f'attachment; filename="receipt_{receipt_no}_{student.admission_number}.pdf"'
+            f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}'
         )
         return response
