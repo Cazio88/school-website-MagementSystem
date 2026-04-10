@@ -409,7 +409,6 @@ class StudentFeeBillPDFView(APIView):
 
         elements = []
 
-        # Build PDF content
         for item in build_header(term, year):
             elements.append(item)
 
@@ -426,12 +425,10 @@ class StudentFeeBillPDFView(APIView):
         for item in build_footer():
             elements.append(item)
 
-        # ✅ FIXED INDENTATION HERE
         pdf.build(elements)
         buffer.seek(0)
 
-       # Name lives on the related User model
-      full_name = student.full_name.strip()
+        full_name = student.full_name.strip()
         parts = full_name.split()
         if len(parts) >= 2:
             name = f"{parts[0]}_{parts[-1]}"
@@ -442,12 +439,6 @@ class StudentFeeBillPDFView(APIView):
 
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
         filename  = f"bill_{safe_name}_{term}.pdf"
-
-        response = HttpResponse(buffer, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
-        )
-        return response
 
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
