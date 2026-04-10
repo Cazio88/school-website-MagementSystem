@@ -170,7 +170,8 @@ TERMII_SENDER_ID = os.environ.get("TERMII_SENDER_ID", "LEADSTARS")
 
 
 # ── Auth & CORS ────────────────────────────────────────────────
-
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 CORS_ALLOW_ALL_ORIGINS = True
 
 AUTH_USER_MODEL = 'accounts.User'
