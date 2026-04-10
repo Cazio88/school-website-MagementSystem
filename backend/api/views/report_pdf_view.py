@@ -1,5 +1,12 @@
 from io import BytesIO
+from urllib.parse import quote
+import re
+import os
+
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.conf import settings
+
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle,
     Paragraph, Spacer, HRFlowable, Image
@@ -15,11 +22,7 @@ from PIL import Image as PilImage, ImageOps
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
-from django.shortcuts import get_object_or_404
-from django.conf import settings
-
 import requests
-import os
 
 from apps.students.models import Student
 from apps.results.models import Result, Report
@@ -155,10 +158,6 @@ def fmt_date(date_val):
 # ---------------------------------------------------------------------------
 
 def load_image_flowable(path_or_url, width, height):
-    """
-    Load an image from a local path or remote URL.
-    Applies EXIF orientation correction so phone photos appear upright in PDFs.
-    """
     try:
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
             resp = requests.get(path_or_url, timeout=10)
@@ -170,11 +169,9 @@ def load_image_flowable(path_or_url, width, height):
         else:
             return None
 
-        # Fix EXIF rotation (phones save images sideways with metadata for rotation)
         pil_img = PilImage.open(img_bytes)
         pil_img = ImageOps.exif_transpose(pil_img)
 
-        # Convert to RGB — required for JPEG embedding in ReportLab
         if pil_img.mode in ("RGBA", "P", "CMYK", "LA", "L"):
             pil_img = pil_img.convert("RGB")
 
@@ -238,7 +235,6 @@ class StudentReportPDFView(APIView):
         results = Result.objects.filter(student=student, term=term).select_related("subject")
         report  = Report.objects.filter(student=student, term=term).first()
 
-        # Level-aware config
         level         = getattr(student.school_class, "level", "basic_7_9") if student.school_class else "basic_7_9"
         thresholds    = get_thresholds(level)
         show_position = level != "nursery_kg"
@@ -246,13 +242,11 @@ class StudentReportPDFView(APIView):
         school_motto  = SCHOOL_MOTTOS.get(level, "WHERE LEADERS ARE BORN")
         interp_rows   = INTERP_ROWS_B79 if level == "basic_7_9" else INTERP_ROWS_B16
 
-        # Attendance
         term_attendance = Attendance.objects.filter(student=student, term=term)
         total_days      = term_attendance.count()
         present_days    = term_attendance.filter(status__in=["present", "late"]).count()
         att_percent     = round((present_days / total_days) * 100) if total_days else 0
 
-        # Results
         subjects    = []
         total_score = 0
 
@@ -275,7 +269,6 @@ class StudentReportPDFView(APIView):
         average       = round(total_score / subject_count, 1) if subject_count else 0
         overall_grade = get_overall_grade(average, thresholds)
 
-        # Class ranking
         class_students = Student.objects.filter(school_class=student.school_class)
         student_totals = []
         for s in class_students:
@@ -304,7 +297,7 @@ class StudentReportPDFView(APIView):
         elements = []
         para     = make_para(styles)
 
-        FULL_W = A4[0] - 24*mm  # 186mm usable
+        FULL_W = A4[0] - 24*mm
 
         # ── Header ────────────────────────────────────────────────────────
         logo_img  = load_image_flowable(LOGO_PATH, width=22*mm, height=22*mm)
@@ -342,7 +335,6 @@ class StudentReportPDFView(APIView):
         ]))
         elements.append(header_table)
 
-        # Gold accent stripe
         accent = Table([[""]],  colWidths=[FULL_W])
         accent.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, -1), GOLD),
@@ -361,7 +353,6 @@ class StudentReportPDFView(APIView):
             if show_position else "<b>POSITION:</b>  N/A"
         )
 
-        # Score colour for average
         avg_color = GREEN if average >= 60 else (GOLD if average >= 45 else RED)
 
         info_rows = [
@@ -391,7 +382,6 @@ class StudentReportPDFView(APIView):
             ("BOX",           (0, 0), (-1, -1), 0.8, DIVIDER),
             ("GRID",          (0, 0), (-1, -1), 0.4, DIVIDER),
             ("ROWBACKGROUNDS",(0, 0), (-1, -1), [WHITE, GRAY]),
-            # Blue left accent
             ("LINEBEFORE",    (0, 0), (0, -1),  3, BLUE),
         ]))
         elements.append(info_table)
@@ -447,14 +437,12 @@ class StudentReportPDFView(APIView):
             ("LEFTPADDING",    (0, 0),  (-1, -1), 4),
             ("VALIGN",         (0, 0),  (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS", (0, 1),  (-1, -1), [WHITE, MGRAY]),
-            # Highlight score column
             ("BACKGROUND",     (4, 1),  (4, -1),  colors.HexColor("#f0f9ff")),
         ]))
         elements.append(subj_table)
         elements.append(Spacer(1, 4*mm))
 
         # ── Attendance + Remarks ──────────────────────────────────────────
-        # Attendance section
         att_label = section_label_row(para, "ATTENDANCE & CONDUCT", 90*mm)
         rem_label = section_label_row(para, "CLASS TEACHER REMARKS", 90*mm)
 
@@ -504,10 +492,7 @@ class StudentReportPDFView(APIView):
             ("LEFTPADDING",   (0, 0), (-1, -1), 8),
         ]))
 
-        att_block = Table(
-            [[att_label], [att_inner]],
-            colWidths=[90*mm],
-        )
+        att_block = Table([[att_label], [att_inner]], colWidths=[90*mm])
         att_block.setStyle(TableStyle([
             ("TOPPADDING",    (0, 0), (-1, -1), 0),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
@@ -517,10 +502,7 @@ class StudentReportPDFView(APIView):
             ("BACKGROUND",    (0, 1), (-1, -1), GRAY),
         ]))
 
-        rem_block = Table(
-            [[rem_label], [rem_inner]],
-            colWidths=[90*mm],
-        )
+        rem_block = Table([[rem_label], [rem_inner]], colWidths=[90*mm])
         rem_block.setStyle(TableStyle([
             ("TOPPADDING",    (0, 0), (-1, -1), 0),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
@@ -532,11 +514,11 @@ class StudentReportPDFView(APIView):
 
         bottom_table = Table([[att_block, rem_block]], colWidths=[93*mm, 93*mm])
         bottom_table.setStyle(TableStyle([
-            ("VALIGN",       (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING",  (0, 0), (-1, -1), 0),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ("TOPPADDING",   (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
         elements.append(bottom_table)
         elements.append(Spacer(1, 4*mm))
@@ -578,8 +560,15 @@ class StudentReportPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
+        name_slug = student.student_name.strip().replace(" ", "_")
+        if not name_slug:
+            name_slug = student.admission_number
+
+        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
+        filename  = f"report_{safe_name}_{term}.pdf"
+
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
-            f'attachment; filename="report_{student.admission_number}_{term}.pdf"'
+            f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}'
         )
         return response
