@@ -151,7 +151,6 @@ const DetailPanel = ({ student, onClose, onEdit }) => {
 // ─────────────────────────────────────────────
 
 const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
-  // Derive initial first/last from whichever name fields the API returns
   const initialFirst = student.first_name || (student.student_name ? student.student_name.split(" ")[0] : "") || "";
   const initialLast  = student.last_name  || (student.student_name ? student.student_name.split(" ").slice(1).join(" ") : "") || "";
 
@@ -194,10 +193,10 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
     setPreviewUrl(URL.createObjectURL(file));
   };
 
+  // FIX 3: Send JSON when no photo, FormData only when photo is attached
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic name validation
     if (!form.first_name.trim()) {
       setNameError("First name is required.");
       return;
@@ -205,19 +204,31 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
 
     setSaving(true);
     try {
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => {
-        if (v !== "" && v !== null && v !== undefined) {
-          fd.append(k, v);
-        }
-      });
-      if (photoFile) fd.append("photo", photoFile);
+      if (photoFile) {
+        // Only use FormData when a new photo is being uploaded
+        const fd = new FormData();
+        Object.entries(form).forEach(([k, v]) => {
+          if (v !== "" && v !== null && v !== undefined) {
+            fd.append(k, v);
+          }
+        });
+        fd.append("photo", photoFile);
+        await API.patch(`/students/${student.id}/`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        // Send plain JSON — more reliable with Django REST Framework PATCH
+        const payload = {};
+        Object.entries(form).forEach(([k, v]) => {
+          if (v !== "" && v !== null && v !== undefined) {
+            payload[k] = v;
+          }
+        });
+        await API.patch(`/students/${student.id}/`, payload);
+      }
 
-      await API.patch(`/students/${student.id}/`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      onSaved();
+      // FIX 1: await onSaved so loadStudents() fully completes before closing
+      await onSaved();
       onClose();
     } catch (err) {
       const detail =
@@ -232,8 +243,6 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
   };
 
   const currentPhoto = previewUrl || student.photo;
-
-  // Live preview name as user types
   const previewName = [form.first_name, form.last_name].filter(Boolean).join(" ") || "—";
 
   return (
@@ -270,7 +279,6 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
               </button>
             </div>
             <div className="flex-1 min-w-0">
-              {/* Live name preview */}
               <p className="text-sm font-semibold text-gray-800 truncate">{previewName}</p>
               <p className="text-xs text-gray-400 mb-2">
                 {photoFile ? `New photo: ${photoFile.name}` : "Click the camera icon to change"}
@@ -430,12 +438,18 @@ const Students = () => {
   const [error, setError]                     = useState("");
   const [success, setSuccess]                 = useState("");
 
+  // FIX 2: Sync selectedStudent with freshly fetched data so detail panel updates
   const loadStudents = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const res = await API.get("/students/");
-      setStudents(res.data.results ?? res.data);
+      const fresh = res.data.results ?? res.data;
+      setStudents(fresh);
+      // Keep the detail panel in sync — find the updated record in the fresh list
+      setSelectedStudent((prev) =>
+        prev ? (fresh.find((s) => s.id === prev.id) ?? null) : null
+      );
     } catch {
       setError("Failed to load students. Please try again.");
     } finally {
@@ -469,6 +483,7 @@ const Students = () => {
     }
   };
 
+  // FIX 1: handleSaved is now properly awaited inside EditModal
   const handleSaved = async () => {
     await loadStudents();
     setSuccess("Student updated successfully.");
