@@ -431,16 +431,16 @@ class StudentFeeBillPDFView(APIView):
         buffer.seek(0)
 
         # ✅ Use student NAME instead of ID
-        name = (
-            getattr(student, "full_name", None)
-            or f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip()
-            or student.admission_number
-        )
-
-        # Clean filename
-        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name.strip()).strip("_")
-
-        filename = f"bill_{safe_name}_{student.admission_number}_{term}.pdf"
+        name = " ".join(filter(None, [
+            getattr(student, "first_name", ""),
+            getattr(student, "last_name", "")
+        ])).strip()
+        
+        if not name:
+            name = getattr(student, "full_name", "") or student.admission_number
+        
+        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
+        filename = f"bill_{safe_name}_{term}.pdf"
 
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
