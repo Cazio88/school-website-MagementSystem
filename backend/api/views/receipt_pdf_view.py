@@ -1,6 +1,7 @@
 from io import BytesIO
 import os
-
+from urllib.parse import quote
+import re
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.conf import settings
@@ -103,16 +104,21 @@ class PaymentReceiptPDFView(APIView):
         fee     = txn.fee
         student = fee.student
 
-        buffer = BytesIO()
-        pdf    = SimpleDocTemplate(
-            buffer,
-            pagesize=A5,
-            leftMargin=12 * mm,
-            rightMargin=12 * mm,
-            topMargin=12 * mm,
-            bottomMargin=12 * mm,
+        pdf.build(elements)
+        buffer.seek(0)
+
+        name_slug = student.student_name.strip().replace(" ", "_")
+        if not name_slug:
+            name_slug = student.admission_number
+
+        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
+        filename  = f"receipt_{receipt_no}_{safe_name}.pdf"
+
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}'
         )
-        elements = []
+        return response
 
         # ── Header ────────────────────────────────────────────────────────
         logo      = load_logo()
