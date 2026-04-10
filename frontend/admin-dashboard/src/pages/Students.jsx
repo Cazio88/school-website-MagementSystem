@@ -55,9 +55,11 @@ const StatCard = ({ label, value, color = "text-blue-700" }) => (
   </div>
 );
 
-const Field = ({ label, children }) => (
+const Field = ({ label, children, required }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-xs font-medium text-gray-400">{label}</label>
+    <label className="text-xs font-medium text-gray-400">
+      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
     {children}
   </div>
 );
@@ -149,7 +151,13 @@ const DetailPanel = ({ student, onClose, onEdit }) => {
 // ─────────────────────────────────────────────
 
 const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
+  // Derive initial first/last from whichever name fields the API returns
+  const initialFirst = student.first_name || (student.student_name ? student.student_name.split(" ")[0] : "") || "";
+  const initialLast  = student.last_name  || (student.student_name ? student.student_name.split(" ").slice(1).join(" ") : "") || "";
+
   const [form, setForm] = useState({
+    first_name:      initialFirst,
+    last_name:       initialLast,
     school_class:    student.school_class    || "",
     parent_name:     student.parent_name     || "",
     parent_phone:    student.parent_phone    || "",
@@ -165,14 +173,18 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
   const [photoFile, setPhotoFile]   = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [saving, setSaving]         = useState(false);
+  const [nameError, setNameError]   = useState("");
   const fileInputRef                = useRef(null);
 
   useEffect(() => {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
   }, [previewUrl]);
 
-  const handleChange = (e) =>
-    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+    if (name === "first_name" || name === "last_name") setNameError("");
+  };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -182,20 +194,26 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
     setPreviewUrl(URL.createObjectURL(file));
   };
 
- const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Basic name validation
+    if (!form.first_name.trim()) {
+      setNameError("First name is required.");
+      return;
+    }
+
     setSaving(true);
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => {
-        // Only append fields that have a value
         if (v !== "" && v !== null && v !== undefined) {
           fd.append(k, v);
         }
       });
       if (photoFile) fd.append("photo", photoFile);
 
-      await API.patch(`/students/${student.id}/`, fd, {   // ← PATCH not PUT
+      await API.patch(`/students/${student.id}/`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -214,6 +232,9 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
   };
 
   const currentPhoto = previewUrl || student.photo;
+
+  // Live preview name as user types
+  const previewName = [form.first_name, form.last_name].filter(Boolean).join(" ") || "—";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -240,7 +261,7 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
                   className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm" />
               ) : (
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-xl shadow-sm">
-                  {getInitials(getStudentName(student))}
+                  {getInitials(previewName)}
                 </div>
               )}
               <button type="button" onClick={() => fileInputRef.current?.click()}
@@ -249,7 +270,8 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
               </button>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-700 mb-1">Student Photo</p>
+              {/* Live name preview */}
+              <p className="text-sm font-semibold text-gray-800 truncate">{previewName}</p>
               <p className="text-xs text-gray-400 mb-2">
                 {photoFile ? `New photo: ${photoFile.name}` : "Click the camera icon to change"}
               </p>
@@ -270,6 +292,36 @@ const EditModal = ({ student, classes = [], onClose, onSaved, setError }) => {
             </div>
             <input ref={fileInputRef} type="file" accept="image/*"
               onChange={handlePhotoChange} className="hidden" />
+          </div>
+
+          {/* ── Name section ── */}
+          <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Student Name</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="First Name" required>
+                <input
+                  name="first_name"
+                  value={form.first_name}
+                  onChange={handleChange}
+                  placeholder="e.g. Kwame"
+                  className={`${inputCls} ${nameError ? "border-red-300 focus:ring-red-400" : ""}`}
+                />
+              </Field>
+              <Field label="Last Name">
+                <input
+                  name="last_name"
+                  value={form.last_name}
+                  onChange={handleChange}
+                  placeholder="e.g. Mensah"
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+            {nameError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <span>⚠</span> {nameError}
+              </p>
+            )}
           </div>
 
           {/* ── Fields grid ── */}
@@ -417,7 +469,6 @@ const Students = () => {
     }
   };
 
-  // Re-fetch everything so class_name is always fresh from the serializer
   const handleSaved = async () => {
     await loadStudents();
     setSuccess("Student updated successfully.");
