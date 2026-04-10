@@ -430,22 +430,24 @@ class StudentFeeBillPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
-        # ✅ Use student NAME instead of ID
-        name = " ".join(filter(None, [
-            getattr(student, "first_name", ""),
-            getattr(student, "last_name", "")
-        ])).strip()
-        
-        if not name:
-            name = getattr(student, "full_name", "") or student.admission_number
-        
-        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
-        filename = f"bill_{safe_name}_{term}.pdf"
+        # Build filename from first and last name
+        first = (getattr(student, "first_name", "") or "").strip()
+        last  = (getattr(student, "last_name",  "") or "").strip()
+        name  = f"{first}_{last}" if first and last else (first or last)
 
-        response = HttpResponse(buffer, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f"attachment; filename={filename}; filename*=UTF-8''{quote(filename)}"
-        )
+        if not name:
+            # Fallback: split full_name if individual fields are absent
+            full = (getattr(student, "full_name", "") or "").strip()
+            parts = full.split()
+            if len(parts) >= 2:
+                name = f"{parts[0]}_{parts[-1]}"
+            elif parts:
+                name = parts[0]
+            else:
+                name = student.admission_number
+
+        safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
+        filename  = f"bill_{safe_name}_{term}.pdf"
 
         return response
 
