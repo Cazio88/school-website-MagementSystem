@@ -3,7 +3,7 @@ from apps.students.models import Student
 
 class StudentSerializer(serializers.ModelSerializer):
     username     = serializers.CharField(source="user.username", read_only=True)
-    student_name = serializers.CharField(max_length=255, required=False, allow_blank=True)  # ← writable now
+    student_name = serializers.SerializerMethodField()
     email        = serializers.EmailField(source="user.email", read_only=True)
     class_name   = serializers.CharField(source="school_class.name", read_only=True, allow_null=True)
     photo_url    = serializers.SerializerMethodField()
@@ -20,10 +20,8 @@ class StudentSerializer(serializers.ModelSerializer):
             "school_class": {"required": False, "allow_null": True},
         }
 
-    def update(self, instance, validated_data):
-        instance.student_name = validated_data.get("student_name", instance.student_name)
-        instance.save()
-        return super().update(instance, validated_data)
+    def get_student_name(self, obj):
+        return obj.full_name
 
     def get_photo_url(self, obj):
         if not obj.photo:
