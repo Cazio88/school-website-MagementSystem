@@ -386,56 +386,68 @@ class StudentFeeBillPDFView(APIView):
             return Response({"error": "term is required"}, status=400)
 
         student = get_object_or_404(Student, id=student_id)
-        fee     = Fee.objects.filter(student=student, term=term).first()
+        fee = Fee.objects.filter(student=student, term=term).first()
+
         if not fee:
             from rest_framework.response import Response
-            return Response({"error": "No fee record found for this student and term."}, status=404)
+            return Response(
+                {"error": "No fee record found for this student and term."},
+                status=404
+            )
 
         year = getattr(fee, "year", None) or timezone.now().year
 
         buffer = BytesIO()
-        pdf    = SimpleDocTemplate(
-            buffer, pagesize=A4,
-            leftMargin=20*mm, rightMargin=20*mm,
-            topMargin=15*mm, bottomMargin=15*mm,
+        pdf = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=20 * mm,
+            rightMargin=20 * mm,
+            topMargin=15 * mm,
+            bottomMargin=15 * mm,
         )
 
         elements = []
 
+        # Build PDF content
         for item in build_header(term, year):
             elements.append(item)
 
-        elements.append(Spacer(1, 5*mm))
+        elements.append(Spacer(1, 5 * mm))
         elements.append(build_student_card(student, term, year))
-        elements.append(Spacer(1, 5*mm))
+        elements.append(Spacer(1, 5 * mm))
         elements.append(section_label("FEE BREAKDOWN"))
-        elements.append(Spacer(1, 1*mm))
+        elements.append(Spacer(1, 1 * mm))
         elements.append(build_fee_table(fee))
-        elements.append(Spacer(1, 5*mm))
+        elements.append(Spacer(1, 5 * mm))
         elements.append(build_status_badge(fee))
-        elements.append(Spacer(1, 6*mm))
+        elements.append(Spacer(1, 6 * mm))
+
         for item in build_footer():
             elements.append(item)
 
-       pdf.build(elements)
-buffer.seek(0)
+        # ✅ FIXED INDENTATION HERE
+        pdf.build(elements)
+        buffer.seek(0)
 
+        # ✅ Use student NAME instead of ID
         name = (
             getattr(student, "full_name", None)
             or f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip()
             or student.admission_number
         )
-        
+
+        # Clean filename
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name.strip()).strip("_")
+
         filename = f"bill_{safe_name}_{student.admission_number}_{term}.pdf"
-        
+
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
             f"attachment; filename={filename}; filename*=UTF-8''{quote(filename)}"
         )
-        
-        return response
 
+        return response
 
 # ---------------------------------------------------------------------------
 # Class-wide bill
