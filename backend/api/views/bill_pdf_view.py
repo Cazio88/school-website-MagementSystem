@@ -430,20 +430,18 @@ class StudentFeeBillPDFView(APIView):
         pdf.build(elements)
         buffer.seek(0)
 
-        # Build filename from first and last name
-        first = (getattr(student, "first_name", "") or "").strip()
-        last  = (getattr(student, "last_name",  "") or "").strip()
-        name  = f"{first}_{last}" if first and last else (first or last)
+        # student_name is a single field e.g. "Kwame Mensah"
+        raw   = (student.student_name or "").strip()
+        if not raw:
+            raw = (student.user.get_full_name() or student.user.username or "").strip()
 
-        if not name:
-            full  = (getattr(student, "full_name", "") or "").strip()
-            parts = full.split()
-            if len(parts) >= 2:
-                name = f"{parts[0]}_{parts[-1]}"
-            elif parts:
-                name = parts[0]
-            else:
-                name = student.admission_number
+        parts = raw.split()
+        if len(parts) >= 2:
+            name = f"{parts[0]}_{parts[-1]}"   # e.g. "Kwame_Mensah"
+        elif parts:
+            name = parts[0]
+        else:
+            name = student.admission_number
 
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip("_")
         filename  = f"bill_{safe_name}_{term}.pdf"
