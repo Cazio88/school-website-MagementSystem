@@ -27,6 +27,7 @@ const PORTAL_STYLES = `
     --amber-l:  #fffbeb;
     --red:      #dc2626;
     --red-l:    #fef2f2;
+    --paystack: #00c3f7;
   }
 
   .sp-root * { box-sizing: border-box; }
@@ -141,15 +142,10 @@ const PORTAL_STYLES = `
   @media (max-width: 540px) { .sp-chart-grid { grid-template-columns: 1fr; } }
   .sp-chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
 
-  /* Fee card */
-  .sp-fee-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px; }
-  .sp-fee-row  { display: flex; justify-content: space-between; font-size: 13.5px; padding: 4px 0; color: var(--muted); }
-  .sp-fee-total { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; font-weight: 700; color: var(--navy-2); }
-
   /* Password modal */
   .sp-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; animation: sp-fade-in .15s ease; }
   @keyframes sp-fade-in { from { opacity: 0; } to { opacity: 1; } }
-  .sp-modal { background: #fff; border-radius: 18px; width: 100%; max-width: 420px; padding: 28px; box-shadow: 0 24px 64px rgba(0,0,0,.18); animation: sp-slide-up .2s ease; }
+  .sp-modal { background: #fff; border-radius: 18px; width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 24px 64px rgba(0,0,0,.18); animation: sp-slide-up .2s ease; }
   @keyframes sp-slide-up { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
   .sp-modal-title { font-size: 18px; font-weight: 800; color: var(--navy); margin: 0 0 4px; }
   .sp-modal-sub { font-size: 13px; color: var(--dim); margin: 0 0 22px; }
@@ -179,15 +175,281 @@ const PORTAL_STYLES = `
   .sp-status-paid    { background: #dcfce7; color: #166534; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
   .sp-status-partial { background: #fef9c3; color: #854d0e; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
   .sp-status-unpaid  { background: #fee2e2; color: #991b1b; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
+
+  /* ── Fee Overview Banner ── */
+  .sp-fee-overview {
+    background: linear-gradient(135deg, #0a0f1e 0%, #1e293b 100%);
+    border-radius: 18px;
+    padding: 24px 24px 20px;
+    margin-bottom: 16px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .sp-fee-overview::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: rgba(37,99,235,.18);
+    pointer-events: none;
+  }
+  .sp-fee-overview::after {
+    content: '';
+    position: absolute;
+    bottom: -30px; left: 60px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: rgba(22,163,74,.12);
+    pointer-events: none;
+  }
+  .sp-fee-overview-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: rgba(255,255,255,.45); margin-bottom: 6px; }
+  .sp-fee-overview-total { font-size: 36px; font-weight: 900; letter-spacing: -2px; line-height: 1; font-family: 'DM Mono', monospace; color: #fff; }
+  .sp-fee-overview-sub { font-size: 13px; color: rgba(255,255,255,.45); margin-top: 4px; }
+  .sp-fee-overview-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+  @media(max-width:500px){ .sp-fee-overview-stats { grid-template-columns: repeat(3,1fr); gap:8px; } }
+  .sp-fee-overview-stat { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 10px 12px; }
+  .sp-fee-overview-stat-val { font-size: 17px; font-weight: 800; font-family: 'DM Mono', monospace; color: #fff; line-height: 1; }
+  .sp-fee-overview-stat-lbl { font-size: 10px; font-weight: 600; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+
+  /* ── Fee term card ── */
+  .sp-fee-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: box-shadow .2s;
+  }
+  .sp-fee-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.07); }
+  .sp-fee-card-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .sp-fee-card-header:hover { background: #fafbfc; }
+  .sp-fee-card-left { display: flex; align-items: center; gap: 12px; }
+  .sp-fee-term-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .sp-fee-term-name { font-weight: 700; font-size: 14px; color: var(--navy-2); }
+  .sp-fee-term-meta { font-size: 12px; color: var(--dim); margin-top: 1px; }
+  .sp-fee-card-right { display: flex; align-items: center; gap: 10px; }
+  .sp-fee-chevron { color: var(--dim); transition: transform .25s; font-size: 16px; line-height: 1; }
+  .sp-fee-chevron.open { transform: rotate(180deg); }
+
+  .sp-fee-card-body {
+    border-top: 1px solid var(--line);
+    overflow: hidden;
+    transition: max-height .3s ease, opacity .3s ease;
+    max-height: 0;
+    opacity: 0;
+  }
+  .sp-fee-card-body.open {
+    max-height: 1200px;
+    opacity: 1;
+  }
+  .sp-fee-body-inner { padding: 16px 20px 20px; }
+
+  /* Progress bar inside fee card */
+  .sp-fee-progress-wrap { margin-bottom: 16px; }
+  .sp-fee-progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-bottom: 5px; }
+  .sp-fee-progress-bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .sp-fee-progress-fill { height: 100%; border-radius: 99px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+  /* Fee line items */
+  .sp-fee-lines { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  .sp-fee-line { display: flex; justify-content: space-between; padding: 9px 14px; font-size: 13.5px; border-bottom: 1px solid #f8fafc; }
+  .sp-fee-line:last-child { border-bottom: none; }
+  .sp-fee-line-label { color: var(--muted); }
+  .sp-fee-line-val { font-weight: 600; color: var(--navy-3); font-family: 'DM Mono', monospace; font-size: 13px; }
+  .sp-fee-line-total { background: #f8fafc; font-weight: 700; }
+  .sp-fee-line-paid { color: var(--green); }
+  .sp-fee-line-balance { color: var(--red); font-weight: 800; font-size: 14px; }
+
+  /* Pay button */
+  .sp-pay-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #00b8e6 0%, #0070f3 100%);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    transition: all .2s;
+    letter-spacing: .2px;
+  }
+  .sp-pay-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,112,243,.3);
+  }
+  .sp-pay-btn:active { transform: translateY(0); }
+  .sp-pay-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .sp-pay-btn-paid {
+    width: 100%;
+    background: var(--green-l);
+    color: var(--green);
+    border: 1.5px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: default;
+  }
+  .sp-paystack-badge {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    font-size: 11px; color: var(--dim); margin-top: 8px;
+  }
+
+  /* ── Payment modal ── */
+  .sp-pay-modal { max-width: 400px; }
+  .sp-pay-modal-header {
+    background: linear-gradient(135deg, #0a0f1e, #1e3a5f);
+    margin: -28px -28px 20px;
+    padding: 24px 28px 20px;
+    border-radius: 18px 18px 0 0;
+    color: #fff;
+  }
+  .sp-pay-modal-term { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: rgba(255,255,255,.45); margin-bottom: 4px; }
+  .sp-pay-modal-balance { font-size: 32px; font-weight: 900; font-family: 'DM Mono', monospace; letter-spacing: -1.5px; }
+  .sp-pay-modal-balance-lbl { font-size: 12px; color: rgba(255,255,255,.45); margin-top: 2px; }
+
+  .sp-amount-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .sp-amount-option {
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all .15s;
+    background: #fff;
+    text-align: left;
+  }
+  .sp-amount-option:hover { border-color: var(--blue); background: var(--blue-l); }
+  .sp-amount-option.selected { border-color: var(--blue); background: var(--blue-l); }
+  .sp-amount-option-label { font-size: 10.5px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+  .sp-amount-option-val { font-size: 16px; font-weight: 800; color: var(--navy-2); font-family: 'DM Mono', monospace; }
+
+  .sp-custom-amount-wrap { margin-bottom: 14px; }
+  .sp-custom-amount-input-row { display: flex; align-items: center; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; transition: border-color .15s; background: #fff; }
+  .sp-custom-amount-input-row:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .sp-custom-amount-prefix { padding: 10px 14px; font-size: 14px; font-weight: 700; color: var(--muted); background: #f8fafc; border-right: 1.5px solid var(--line); font-family: 'DM Mono', monospace; }
+  .sp-custom-amount-input { flex: 1; border: none; outline: none; padding: 10px 14px; font-size: 16px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--navy-2); background: transparent; }
+  .sp-amount-error { font-size: 12px; color: var(--red); margin-top: 5px; }
+
+  .sp-pay-confirm-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #00b8e6 0%, #0070f3 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all .2s;
+    margin-top: 4px;
+  }
+  .sp-pay-confirm-btn:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(0,112,243,.3); }
+  .sp-pay-confirm-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Transaction history ── */
+  .sp-txn-section { margin-top: 16px; }
+  .sp-txn-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--dim); margin-bottom: 10px; }
+  .sp-txn-empty { text-align: center; padding: 20px; font-size: 13px; color: var(--dim); background: #f8fafc; border-radius: 10px; }
+  .sp-txn-list { display: flex; flex-direction: column; gap: 6px; }
+  .sp-txn-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    transition: background .15s;
+  }
+  .sp-txn-item:hover { background: var(--blue-l); border-color: #bfdbfe; }
+  .sp-txn-icon { width: 34px; height: 34px; border-radius: 8px; background: #dcfce7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
+  .sp-txn-info { flex: 1; min-width: 0; }
+  .sp-txn-amount { font-size: 14px; font-weight: 800; color: var(--green); font-family: 'DM Mono', monospace; white-space: nowrap; }
+  .sp-txn-date { font-size: 11.5px; color: var(--dim); margin-top: 1px; }
+  .sp-txn-note { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sp-txn-by { font-size: 11px; color: var(--dim); white-space: nowrap; }
+
+  /* ── Success flash ── */
+  .sp-pay-success-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    animation: sp-fade-in .2s ease;
+  }
+  .sp-pay-success-box {
+    background: #fff;
+    border-radius: 24px;
+    padding: 40px 36px;
+    text-align: center;
+    max-width: 340px;
+    width: 90%;
+    animation: sp-slide-up .25s ease;
+  }
+  .sp-pay-success-icon {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--green-l);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+    font-size: 32px;
+  }
+  .sp-pay-success-title { font-size: 22px; font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+  .sp-pay-success-amount { font-size: 32px; font-weight: 900; font-family: 'DM Mono', monospace; color: var(--green); letter-spacing: -1px; margin-bottom: 8px; }
+  .sp-pay-success-sub { font-size: 13px; color: var(--dim); margin-bottom: 24px; line-height: 1.6; }
+  .sp-pay-success-btn { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer; }
+
+  /* Paystack lock icon */
+  .sp-lock-icon { display: inline-flex; align-items: center; gap: 4px; }
 `;
+
+/* ─────────────────────────────────────────────
+   Paystack loader (injects SDK once)
+───────────────────────────────────────────── */
+const loadPaystack = () =>
+  new Promise((resolve) => {
+    if (window.PaystackPop) return resolve(window.PaystackPop);
+    const script = document.createElement("script");
+    script.src = "https://js.paystack.co/v1/inline.js";
+    script.onload = () => resolve(window.PaystackPop);
+    document.head.appendChild(script);
+  });
 
 /* ─────────────────────────────────────────────
    Constants
 ───────────────────────────────────────────── */
 const TERMS = [
-  { value: "term1", label: "Term 1" },
-  { value: "term2", label: "Term 2" },
-  { value: "term3", label: "Term 3" },
+  { value: "term1", label: "Term 1", icon: "📘" },
+  { value: "term2", label: "Term 2", icon: "📗" },
+  { value: "term3", label: "Term 3", icon: "📙" },
 ];
 
 const GRADE_COLORS = {
@@ -225,8 +487,10 @@ const TABS = [
 ];
 
 /* ─────────────────────────────────────────────
-   Password strength
+   Helpers
 ───────────────────────────────────────────── */
+const fmt = (v) => Number(v || 0).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 function pwStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "transparent" };
   let s = 0;
@@ -282,23 +546,13 @@ const ChangePasswordModal = ({ onClose }) => {
     if (next !== confirm)       return setError("New passwords do not match.");
     setSaving(true);
     try {
-      await API.post("/auth/change-password/", {
-        old_password: current,
-        new_password: next,
-      });
+      await API.post("/auth/change-password/", { old_password: current, new_password: next });
       setSuccess(true);
       setTimeout(onClose, 2200);
     } catch (e) {
       const data = e.response?.data;
-      setError(
-        data?.old_password?.[0] ||
-        data?.new_password?.[0] ||
-        data?.detail ||
-        "Failed to change password. Please try again."
-      );
-    } finally {
-      setSaving(false);
-    }
+      setError(data?.old_password?.[0] || data?.new_password?.[0] || data?.detail || "Failed to change password.");
+    } finally { setSaving(false); }
   };
 
   return (
@@ -311,7 +565,6 @@ const ChangePasswordModal = ({ onClose }) => {
           </div>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"#94a3b8", fontSize:"20px", padding:"2px", lineHeight:1 }}>×</button>
         </div>
-
         {success ? (
           <div className="sp-pw-success">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -319,29 +572,22 @@ const ChangePasswordModal = ({ onClose }) => {
           </div>
         ) : (
           <>
-            {/* Current password */}
             <div className="sp-modal-field">
               <label className="sp-field-label">Current Password</label>
               <div className="sp-modal-input-wrap">
                 <input type={showCur ? "text" : "password"} className="sp-modal-input"
                   placeholder="Enter current password" value={current}
                   onChange={e => { setCurrent(e.target.value); setError(""); }} />
-                <button className="sp-modal-eye" onClick={() => setShowCur(v => !v)}>
-                  <EyeIcon open={showCur} />
-                </button>
+                <button className="sp-modal-eye" onClick={() => setShowCur(v => !v)}><EyeIcon open={showCur} /></button>
               </div>
             </div>
-
-            {/* New password */}
             <div className="sp-modal-field">
               <label className="sp-field-label">New Password</label>
               <div className="sp-modal-input-wrap">
                 <input type={showNew ? "text" : "password"} className="sp-modal-input"
                   placeholder="Min. 8 characters" value={next}
                   onChange={e => { setNext(e.target.value); setError(""); }} />
-                <button className="sp-modal-eye" onClick={() => setShowNew(v => !v)}>
-                  <EyeIcon open={showNew} />
-                </button>
+                <button className="sp-modal-eye" onClick={() => setShowNew(v => !v)}><EyeIcon open={showNew} /></button>
               </div>
               {next && (
                 <>
@@ -350,33 +596,440 @@ const ChangePasswordModal = ({ onClose }) => {
                 </>
               )}
             </div>
-
-            {/* Confirm */}
             <div className="sp-modal-field">
               <label className="sp-field-label">Confirm New Password</label>
               <div className="sp-modal-input-wrap">
-                <input type={showCon ? "text" : "password"}
-                  className="sp-modal-input"
-                  style={ mismatch ? { borderColor:"#f87171" } : confirm && !mismatch ? { borderColor:"#34d399" } : {} }
+                <input type={showCon ? "text" : "password"} className="sp-modal-input"
+                  style={mismatch ? { borderColor:"#f87171" } : confirm && !mismatch ? { borderColor:"#34d399" } : {}}
                   placeholder="Repeat new password" value={confirm}
                   onChange={e => { setConfirm(e.target.value); setError(""); }} />
-                <button className="sp-modal-eye" onClick={() => setShowCon(v => !v)}>
-                  <EyeIcon open={showCon} />
-                </button>
+                <button className="sp-modal-eye" onClick={() => setShowCon(v => !v)}><EyeIcon open={showCon} /></button>
               </div>
               {mismatch && <p className="sp-pw-hint" style={{ color:"#f87171" }}>Passwords don't match</p>}
             </div>
-
             {error && <div className="sp-pw-error">{error}</div>}
-
             <div className="sp-modal-actions">
               <button className="sp-btn-secondary" onClick={onClose}>Cancel</button>
               <button className="sp-btn-primary" onClick={handleSubmit} disabled={saving || mismatch}>
-                {saving ? <><div style={{ width:"15px",height:"15px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"sp-spin .6s linear infinite" }}/> Saving…</> : "Update Password"}
+                {saving
+                  ? <><div style={{ width:"15px",height:"15px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"sp-spin .6s linear infinite" }}/> Saving…</>
+                  : "Update Password"}
               </button>
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Payment Modal
+───────────────────────────────────────────── */
+const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
+  const termInfo   = TERMS.find(t => t.value === fee.term) || { label: fee.term, icon: "💳" };
+  const balance    = Number(fee.balance);
+  const [mode, setMode]         = useState("full"); // "full" | "partial"
+  const [custom, setCustom]     = useState("");
+  const [customErr, setCustomErr] = useState("");
+  const [paying, setPaying]     = useState(false);
+  const [backendErr, setBackendErr] = useState("");
+
+  const payAmount = mode === "full"
+    ? balance
+    : parseFloat(custom) || 0;
+
+  const validate = () => {
+    if (mode === "partial") {
+      const v = parseFloat(custom);
+      if (!v || v <= 0)       return "Enter a valid amount.";
+      if (v > balance)        return `Amount cannot exceed balance of GHS ${fmt(balance)}.`;
+      if (v < 1)              return "Minimum payment is GHS 1.00.";
+    }
+    return null;
+  };
+
+  const handlePay = async () => {
+    const err = validate();
+    if (err) { setCustomErr(err); return; }
+    setCustomErr(""); setBackendErr("");
+    setPaying(true);
+
+    try {
+      const PaystackPop = await loadPaystack();
+
+      // Admission number as reference + fake school email (Paystack requires email)
+      const admissionNumber = user.admission_number || user.username || "student";
+      const email = `${admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.school.gh`;
+      const amountKobo = Math.round(payAmount * 100); // Paystack uses kobo (GHS × 100)
+
+      const handler = PaystackPop.setup({
+        key: process.env.REACT_APP_PAYSTACK_PUBLIC_KEY,
+        email,
+        amount:    amountKobo,
+        currency:  "GHS",
+        ref:       `FEE-${fee.id}-${Date.now()}`,
+        metadata: {
+          custom_fields: [
+            { display_name: "Student",        variable_name: "student_name",     value: user.full_name || admissionNumber },
+            { display_name: "Admission No.",  variable_name: "admission_number", value: admissionNumber },
+            { display_name: "Term",           variable_name: "term",             value: termInfo.label },
+            { display_name: "Fee ID",         variable_name: "fee_id",           value: String(fee.id) },
+          ],
+        },
+        onClose: () => {
+          setPaying(false);
+        },
+        callback: async (response) => {
+          // Paystack succeeded — now record against our backend
+          try {
+            await API.post(`/fees/${fee.id}/pay/`, {
+              amount: payAmount,
+              note:   `Paystack ref: ${response.reference}`,
+            });
+            onSuccess(payAmount, response.reference);
+          } catch (e) {
+            const data = e.response?.data;
+            setBackendErr(data?.error || data?.detail || "Payment recorded by Paystack but failed to save. Contact the school office.");
+            setPaying(false);
+          }
+        },
+      });
+
+      handler.openIframe();
+    } catch {
+      setBackendErr("Could not load payment gateway. Check your internet connection.");
+      setPaying(false);
+    }
+  };
+
+  return (
+    <div className="sp-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="sp-modal sp-pay-modal">
+        {/* Header */}
+        <div className="sp-pay-modal-header">
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+            <div>
+              <div className="sp-pay-modal-term">{termInfo.icon} {termInfo.label} — Fee Payment</div>
+              <div className="sp-pay-modal-balance">GHS {fmt(balance)}</div>
+              <div className="sp-pay-modal-balance-lbl">Outstanding balance</div>
+            </div>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,.1)", border:"none", cursor:"pointer", color:"rgba(255,255,255,.7)", fontSize:"18px", padding:"4px 8px", borderRadius:"6px", lineHeight:1 }}>×</button>
+          </div>
+        </div>
+
+        {/* Amount options */}
+        <div className="sp-modal-field">
+          <label className="sp-field-label">Payment amount</label>
+          <div className="sp-amount-options">
+            <button className={`sp-amount-option ${mode === "full" ? "selected" : ""}`} onClick={() => { setMode("full"); setCustomErr(""); }}>
+              <div className="sp-amount-option-label">Full balance</div>
+              <div className="sp-amount-option-val">GHS {fmt(balance)}</div>
+            </button>
+            <button className={`sp-amount-option ${mode === "partial" ? "selected" : ""}`} onClick={() => { setMode("partial"); setCustomErr(""); }}>
+              <div className="sp-amount-option-label">Partial amount</div>
+              <div className="sp-amount-option-val" style={{ color: mode === "partial" && custom ? "#2563eb" : "#94a3b8" }}>
+                {mode === "partial" && custom ? `GHS ${fmt(custom)}` : "Enter amount"}
+              </div>
+            </button>
+          </div>
+
+          {mode === "partial" && (
+            <div className="sp-custom-amount-wrap">
+              <div className="sp-custom-amount-input-row">
+                <span className="sp-custom-amount-prefix">GHS</span>
+                <input
+                  className="sp-custom-amount-input"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  max={balance}
+                  placeholder="0.00"
+                  value={custom}
+                  onChange={e => { setCustom(e.target.value); setCustomErr(""); }}
+                  autoFocus
+                />
+              </div>
+              {customErr && <div className="sp-amount-error">{customErr}</div>}
+            </div>
+          )}
+        </div>
+
+        {backendErr && <div className="sp-pw-error">{backendErr}</div>}
+
+        {/* Pay button */}
+        <button
+          className="sp-pay-confirm-btn"
+          onClick={handlePay}
+          disabled={paying || (mode === "partial" && !custom)}
+        >
+          {paying ? (
+            <><div style={{ width:"16px",height:"16px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"sp-spin .6s linear infinite" }}/> Opening Paystack…</>
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+              </svg>
+              Pay GHS {fmt(payAmount)}
+            </>
+          )}
+        </button>
+        <div className="sp-paystack-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          Secured by Paystack
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Payment Success overlay
+───────────────────────────────────────────── */
+const PaySuccessOverlay = ({ amount, reference, onClose }) => (
+  <div className="sp-pay-success-overlay">
+    <div className="sp-pay-success-box">
+      <div className="sp-pay-success-icon">✅</div>
+      <div className="sp-pay-success-title">Payment Successful!</div>
+      <div className="sp-pay-success-amount">GHS {fmt(amount)}</div>
+      <div className="sp-pay-success-sub">
+        Your payment has been recorded.<br/>
+        <span style={{ fontFamily:"'DM Mono',monospace", fontSize:"11px", color:"#94a3b8" }}>Ref: {reference}</span>
+      </div>
+      <button className="sp-pay-success-btn" onClick={onClose}>Done</button>
+    </div>
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   Transaction history list
+───────────────────────────────────────────── */
+const TransactionHistory = ({ transactions }) => (
+  <div className="sp-txn-section">
+    <div className="sp-txn-title">Payment history</div>
+    {!transactions || transactions.length === 0 ? (
+      <div className="sp-txn-empty">No payments recorded yet</div>
+    ) : (
+      <div className="sp-txn-list">
+        {transactions.map(txn => (
+          <div key={txn.id} className="sp-txn-item">
+            <div className="sp-txn-icon">💸</div>
+            <div className="sp-txn-info">
+              <div className="sp-txn-note">{txn.note || "Fee payment"}</div>
+              <div className="sp-txn-date">{txn.created_at
+                ? new Date(txn.created_at).toLocaleDateString("en-GH", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })
+                : "—"}
+              </div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div className="sp-txn-amount">+GHS {fmt(txn.amount)}</div>
+              {txn.recorded_by_name && <div className="sp-txn-by">{txn.recorded_by_name}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   Fee Term Card (collapsible)
+───────────────────────────────────────────── */
+const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
+  const [open, setOpen]       = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [localFee, setLocalFee] = useState(fee);
+
+  // Sync if parent refreshes
+  useEffect(() => { setLocalFee(fee); }, [fee]);
+
+  const balance    = Number(localFee.balance);
+  const paid       = Number(localFee.paid);
+  const total      = Number(localFee.total_amount);
+  const isPaid     = balance <= 0;
+  const isPartial  = !isPaid && paid > 0;
+  const pct        = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+  const termInfo   = TERMS.find(t => t.value === localFee.term) || { label: localFee.term, icon: "💳" };
+
+  const progressColor = isPaid ? "#16a34a" : isPartial ? "#d97706" : "#dc2626";
+
+  const lineItems = [
+    { label: "School Fees",    value: localFee.amount },
+    { label: "Book User Fee",  value: localFee.book_user_fee },
+    { label: "Workbook Fee",   value: localFee.workbook_fee },
+    { label: "Arrears",        value: localFee.arrears },
+  ].filter(r => Number(r.value) > 0);
+
+  const handleSuccess = (amount, reference) => {
+    setShowPayModal(false);
+    // Optimistically update local state
+    setLocalFee(prev => {
+      const newPaid    = Number(prev.paid) + amount;
+      const newBalance = Number(prev.total_amount) - newPaid;
+      return {
+        ...prev,
+        paid:    newPaid,
+        balance: newBalance,
+        transactions: [
+          {
+            id:               Date.now(),
+            amount,
+            note:             `Paystack ref: ${reference}`,
+            recorded_by_name: "Online payment",
+            created_at:       new Date().toISOString(),
+          },
+          ...(prev.transactions || []),
+        ],
+      };
+    });
+    onPaymentSuccess(amount, reference);
+  };
+
+  return (
+    <>
+      {showPayModal && (
+        <PaymentModal
+          fee={localFee}
+          user={user}
+          onClose={() => setShowPayModal(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
+
+      <div className="sp-fee-card">
+        {/* Clickable header */}
+        <div className="sp-fee-card-header" onClick={() => setOpen(o => !o)}>
+          <div className="sp-fee-card-left">
+            <div className="sp-fee-term-icon" style={{
+              background: isPaid ? "#dcfce7" : isPartial ? "#fef9c3" : "#fee2e2"
+            }}>
+              {termInfo.icon}
+            </div>
+            <div>
+              <div className="sp-fee-term-name">{termInfo.label}</div>
+              <div className="sp-fee-term-meta">
+                {isPaid ? "Fully paid" : `GHS ${fmt(balance)} remaining`}
+              </div>
+            </div>
+          </div>
+          <div className="sp-fee-card-right">
+            {isPaid
+              ? <span className="sp-status-paid">✓ PAID</span>
+              : isPartial
+              ? <span className="sp-status-partial">◑ PARTIAL</span>
+              : <span className="sp-status-unpaid">✕ UNPAID</span>
+            }
+            <span className={`sp-fee-chevron ${open ? "open" : ""}`}>▾</span>
+          </div>
+        </div>
+
+        {/* Expandable body */}
+        <div className={`sp-fee-card-body ${open ? "open" : ""}`}>
+          <div className="sp-fee-body-inner">
+
+            {/* Progress */}
+            {total > 0 && (
+              <div className="sp-fee-progress-wrap">
+                <div className="sp-fee-progress-label">
+                  <span>{pct}% paid</span>
+                  <span>GHS {fmt(paid)} of GHS {fmt(total)}</span>
+                </div>
+                <div className="sp-fee-progress-bar">
+                  <div className="sp-fee-progress-fill" style={{ width:`${pct}%`, background: progressColor }} />
+                </div>
+              </div>
+            )}
+
+            {/* Line items */}
+            <div className="sp-fee-lines">
+              {lineItems.map(r => (
+                <div key={r.label} className="sp-fee-line">
+                  <span className="sp-fee-line-label">{r.label}</span>
+                  <span className="sp-fee-line-val">GHS {fmt(r.value)}</span>
+                </div>
+              ))}
+              <div className="sp-fee-line sp-fee-line-total">
+                <span>Total</span>
+                <span className="sp-fee-line-val">GHS {fmt(total)}</span>
+              </div>
+              <div className="sp-fee-line">
+                <span className="sp-fee-line-label sp-fee-line-paid">Amount Paid</span>
+                <span className="sp-fee-line-val sp-fee-line-paid">GHS {fmt(paid)}</span>
+              </div>
+              <div className="sp-fee-line">
+                <span className="sp-fee-line-label sp-fee-line-balance">Balance Due</span>
+                <span className="sp-fee-line-val sp-fee-line-balance">GHS {fmt(balance)}</span>
+              </div>
+            </div>
+
+            {/* Pay button */}
+            {isPaid ? (
+              <div className="sp-pay-btn-paid">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                All fees paid — Thank you!
+              </div>
+            ) : (
+              <>
+                <button className="sp-pay-btn" onClick={() => setShowPayModal(true)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                  </svg>
+                  Pay Now — GHS {fmt(balance)}
+                </button>
+                <div className="sp-paystack-badge">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                  </svg>
+                  Secured by Paystack · Mobile Money, Cards accepted
+                </div>
+              </>
+            )}
+
+            {/* Transaction history */}
+            <TransactionHistory transactions={localFee.transactions} />
+
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   Fees Overview Banner
+───────────────────────────────────────────── */
+const FeesOverview = ({ fees }) => {
+  const totalBilled  = fees.reduce((s, f) => s + Number(f.total_amount || 0), 0);
+  const totalPaid    = fees.reduce((s, f) => s + Number(f.paid || 0), 0);
+  const totalBalance = fees.reduce((s, f) => s + Number(f.balance || 0), 0);
+  const fullyPaid    = fees.filter(f => Number(f.balance) <= 0).length;
+  const pct          = totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : 0;
+
+  return (
+    <div className="sp-fee-overview">
+      <div className="sp-fee-overview-label">Total outstanding balance</div>
+      <div className="sp-fee-overview-total">GHS {fmt(totalBalance)}</div>
+      <div className="sp-fee-overview-sub">{pct}% of all fees paid · {fullyPaid}/{fees.length} terms cleared</div>
+      <div style={{ marginTop:"14px", height:"6px", borderRadius:"99px", background:"rgba(255,255,255,.12)", overflow:"hidden" }}>
+        <div style={{ height:"100%", borderRadius:"99px", width:`${pct}%`, background:"linear-gradient(90deg,#00c3f7,#00e676)", transition:"width .6s ease" }} />
+      </div>
+      <div className="sp-fee-overview-stats">
+        <div className="sp-fee-overview-stat">
+          <div className="sp-fee-overview-stat-val">GHS {fmt(totalBilled)}</div>
+          <div className="sp-fee-overview-stat-lbl">Total Billed</div>
+        </div>
+        <div className="sp-fee-overview-stat">
+          <div className="sp-fee-overview-stat-val" style={{ color:"#00e676" }}>GHS {fmt(totalPaid)}</div>
+          <div className="sp-fee-overview-stat-lbl">Total Paid</div>
+        </div>
+        <div className="sp-fee-overview-stat">
+          <div className="sp-fee-overview-stat-val" style={{ color: totalBalance > 0 ? "#ff6b6b" : "#00e676" }}>GHS {fmt(totalBalance)}</div>
+          <div className="sp-fee-overview-stat-lbl">Balance Due</div>
+        </div>
       </div>
     </div>
   );
@@ -388,7 +1041,7 @@ const ChangePasswordModal = ({ onClose }) => {
 const GradeBadge = ({ grade }) => {
   const c = GRADE_COLORS[grade];
   return (
-    <span className="sp-badge" style={ c ? { background: c.bg, color: c.color } : { background:"#f1f5f9", color:"#64748b" }}>
+    <span className="sp-badge" style={c ? { background: c.bg, color: c.color } : { background:"#f1f5f9", color:"#64748b" }}>
       {grade ?? "—"}
     </span>
   );
@@ -397,15 +1050,12 @@ const GradeBadge = ({ grade }) => {
 const RemarkBadge = ({ grade, remark }) => {
   const c = GRADE_COLORS[grade];
   return (
-    <span className="sp-badge" style={ c ? { background: c.bg, color: c.color, fontWeight:500, fontFamily:"'Outfit',sans-serif" } : { background:"#f1f5f9", color:"#94a3b8" }}>
+    <span className="sp-badge" style={c ? { background: c.bg, color: c.color, fontWeight:500, fontFamily:"'Outfit',sans-serif" } : { background:"#f1f5f9", color:"#94a3b8" }}>
       {remark ?? "—"}
     </span>
   );
 };
 
-/* ─────────────────────────────────────────────
-   KPI Card
-───────────────────────────────────────────── */
 const KpiCard = ({ label, value, sub }) => (
   <div className="sp-kpi">
     <div className="sp-kpi-value">{value ?? "—"}</div>
@@ -414,9 +1064,6 @@ const KpiCard = ({ label, value, sub }) => (
   </div>
 );
 
-/* ─────────────────────────────────────────────
-   Subject table (shared between Results & Report)
-───────────────────────────────────────────── */
 const SubjectTable = ({ report }) => (
   <div className="sp-card">
     <div className="sp-table-wrap">
@@ -452,9 +1099,6 @@ const SubjectTable = ({ report }) => (
   </div>
 );
 
-/* ─────────────────────────────────────────────
-   SVG Line Chart for subject trends
-───────────────────────────────────────────── */
 const SubjectLineChart = ({ subject, data, color }) => {
   const W = 280, H = 90, PAD = 18;
   const scores = data.map(d => d.score);
@@ -467,9 +1111,7 @@ const SubjectLineChart = ({ subject, data, color }) => {
     score: d.score, term: d.term,
   }));
   const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const areaD = pts.length > 0
-    ? `${pathD} L ${pts[pts.length-1].x} ${H-PAD} L ${pts[0].x} ${H-PAD} Z`
-    : "";
+  const areaD = pts.length > 0 ? `${pathD} L ${pts[pts.length-1].x} ${H-PAD} L ${pts[0].x} ${H-PAD} Z` : "";
   const latest   = scores[scores.length - 1];
   const previous = scores.length > 1 ? scores[scores.length - 2] : null;
   const diff     = previous != null ? latest - previous : null;
@@ -507,9 +1149,6 @@ const SubjectLineChart = ({ subject, data, color }) => {
   );
 };
 
-/* ─────────────────────────────────────────────
-   Overall Trend Chart
-───────────────────────────────────────────── */
 const OverallTrendChart = ({ termData }) => {
   const W = 480, H = 110, PAD = 24;
   const avgs  = termData.map(d => parseFloat(d.average) || 0);
@@ -522,9 +1161,7 @@ const OverallTrendChart = ({ termData }) => {
     ...d,
   }));
   const pathD = pts.map((p, i) => `${i===0?"M":"L"} ${p.x} ${p.y}`).join(" ");
-  const areaD = pts.length > 0
-    ? `${pathD} L ${pts[pts.length-1].x} ${H-PAD} L ${pts[0].x} ${H-PAD} Z`
-    : "";
+  const areaD = pts.length > 0 ? `${pathD} L ${pts[pts.length-1].x} ${H-PAD} L ${pts[0].x} ${H-PAD} Z` : "";
 
   return (
     <div className="sp-card">
@@ -565,9 +1202,6 @@ const OverallTrendChart = ({ termData }) => {
   );
 };
 
-/* ─────────────────────────────────────────────
-   Empty / Loading
-───────────────────────────────────────────── */
 const Empty = ({ icon, title, sub }) => (
   <div className="sp-empty">
     <div className="sp-empty-icon">{icon}</div>
@@ -587,7 +1221,6 @@ const Loading = ({ text = "Loading…" }) => (
    Main
 ───────────────────────────────────────────── */
 const StudentPortal = () => {
-  // Inject styles once
   useEffect(() => {
     if (document.getElementById("sp-styles")) return;
     const el = document.createElement("style");
@@ -609,6 +1242,7 @@ const StudentPortal = () => {
   const [loadingFees, setLoadingFees]         = useState(false);
   const [error, setError]                     = useState("");
   const [showPwModal, setShowPwModal]         = useState(false);
+  const [successPayment, setSuccessPayment]   = useState(null); // { amount, reference }
 
   const fetchReport = useCallback(async (term) => {
     setLoading(true); setError(""); setReport(null);
@@ -656,7 +1290,13 @@ const StudentPortal = () => {
     } catch { setError("Failed to download report."); }
   };
 
-  /* ── Progress derived data ── */
+  const handlePaymentSuccess = (amount, reference) => {
+    setSuccessPayment({ amount, reference });
+    // Silently refresh fees in background after a moment
+    setTimeout(fetchFees, 3000);
+  };
+
+  /* Progress derived data */
   const subjectTrends = (() => {
     const map = {};
     TERMS.forEach(({ value: term }) => {
@@ -701,11 +1341,17 @@ const StudentPortal = () => {
     return worst && worstDelta < 0 ? worst : null;
   })();
 
-  /* ────────────────────────────────────────────
-     Render
-  ──────────────────────────────────────────── */
   return (
     <div className="sp-root">
+
+      {/* Global success overlay */}
+      {successPayment && (
+        <PaySuccessOverlay
+          amount={successPayment.amount}
+          reference={successPayment.reference}
+          onClose={() => setSuccessPayment(null)}
+        />
+      )}
 
       {showPwModal && <ChangePasswordModal onClose={() => setShowPwModal(false)} />}
 
@@ -720,28 +1366,20 @@ const StudentPortal = () => {
             <div className="sp-header-name">{user.full_name}</div>
             <div className="sp-header-sub">{user.admission_number} · {user.class}</div>
           </div>
-
-          {/* Desktop nav */}
           <nav className="sp-nav" style={{ marginLeft:"auto", marginRight:"12px" }}>
             {TABS.map(({ key, icon, label }) => (
               <button key={key} onClick={() => setTab(key)}
                 className={`sp-nav-btn ${tab === key ? "sp-nav-btn-active" : ""}`}>
                 <span>{icon}</span>
-                <span style={{ display:"none" }} className="md-inline">{label}</span>
                 <span>{label}</span>
               </button>
             ))}
           </nav>
-
           <div className="sp-header-actions">
-            <button className="sp-btn-ghost" onClick={() => setShowPwModal(true)}>
-              🔑 Password
-            </button>
+            <button className="sp-btn-ghost" onClick={() => setShowPwModal(true)}>🔑 Password</button>
             <button className="sp-btn-danger" onClick={logout}>Sign out</button>
           </div>
         </div>
-
-        {/* Mobile nav */}
         <div className="sp-mobile-nav">
           <div className="sp-mobile-nav-inner">
             {TABS.map(({ key, icon, label }) => (
@@ -757,13 +1395,12 @@ const StudentPortal = () => {
 
       <div className="sp-body">
 
-        {/* Term bar */}
-        {tab !== "Progress" && tab !== "Announcements" && (
+        {/* Term bar — not shown on Fees, Progress, Announcements */}
+        {tab !== "Progress" && tab !== "Announcements" && tab !== "Fees" && (
           <div className="sp-term-bar">
             <div>
               <label className="sp-field-label">Term</label>
-              <select className="sp-select" value={selectedTerm}
-                onChange={e => setSelectedTerm(e.target.value)}>
+              <select className="sp-select" value={selectedTerm} onChange={e => setSelectedTerm(e.target.value)}>
                 {TERMS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
@@ -778,7 +1415,6 @@ const StudentPortal = () => {
           </div>
         )}
 
-        {/* Error */}
         {error && (
           <div className="sp-alert">
             <span>⚠ {error}</span>
@@ -794,7 +1430,7 @@ const StudentPortal = () => {
             {!loading && report && (
               <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
                 <div className="sp-kpi-grid">
-                  <KpiCard label="Total Marks"  value={report.total_score}   />
+                  <KpiCard label="Total Marks"  value={report.total_score} />
                   <KpiCard label="Average"       value={report.average_score} />
                   <KpiCard label="Position"
                     value={report.show_position ? report.position_formatted : "N/A"}
@@ -804,9 +1440,7 @@ const StudentPortal = () => {
                 </div>
                 <div className="sp-card">
                   <div className="sp-card-head">
-                    <span className="sp-card-title">
-                      {TERMS.find(t => t.value === selectedTerm)?.label} — Subject Results
-                    </span>
+                    <span className="sp-card-title">{TERMS.find(t => t.value === selectedTerm)?.label} — Subject Results</span>
                     <span style={{ fontSize:"12px",color:"#94a3b8" }}>{report.subjects?.length ?? 0} subjects</span>
                   </div>
                 </div>
@@ -825,8 +1459,6 @@ const StudentPortal = () => {
             )}
             {!loadingProgress && progressLoaded && subjectNames.length > 0 && (
               <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
-
-                {/* Highlights */}
                 <div className="sp-hl-grid">
                   {mostImproved && (
                     <div className="sp-hl sp-hl-green">
@@ -843,10 +1475,7 @@ const StudentPortal = () => {
                     </div>
                   )}
                 </div>
-
                 {termSummary.length > 0 && <OverallTrendChart termData={termSummary}/>}
-
-                {/* Comparison table */}
                 <div className="sp-card">
                   <div className="sp-card-head">
                     <span className="sp-card-title">Subject Comparison — All Terms</span>
@@ -902,8 +1531,6 @@ const StudentPortal = () => {
                     </table>
                   </div>
                 </div>
-
-                {/* Per-subject charts */}
                 <div>
                   <p style={{ fontWeight:"700",color:"#1e293b",fontSize:"13.5px",marginBottom:"12px" }}>Subject Trends</p>
                   <div className="sp-chart-grid">
@@ -913,7 +1540,6 @@ const StudentPortal = () => {
                     ))}
                   </div>
                 </div>
-
               </div>
             )}
           </>
@@ -927,7 +1553,7 @@ const StudentPortal = () => {
             {!loading && report && (
               <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
                 <div className="sp-kpi-grid">
-                  <KpiCard label="Total Marks"  value={report.total_score}   />
+                  <KpiCard label="Total Marks"  value={report.total_score} />
                   <KpiCard label="Average"       value={report.average_score} />
                   <KpiCard label="Position"
                     value={report.show_position ? report.position_formatted : "N/A"}
@@ -935,8 +1561,6 @@ const StudentPortal = () => {
                   />
                   <KpiCard label="Overall Grade" value={report.overall_grade} />
                 </div>
-
-                {/* Attendance */}
                 {(report.attendance_total ?? 0) > 0 && (
                   <div className="sp-card">
                     <div className="sp-card-head"><span className="sp-card-title">Attendance</span></div>
@@ -949,19 +1573,14 @@ const StudentPortal = () => {
                       </div>
                       <div className="sp-progress-bar">
                         <div className="sp-progress-fill" style={{
-                          width: `${report.attendance_percent ?? 0}%`,
-                          background: (report.attendance_percent ?? 0) >= 80 ? "#16a34a"
-                            : (report.attendance_percent ?? 0) >= 60 ? "#d97706" : "#dc2626"
+                          width:`${report.attendance_percent ?? 0}%`,
+                          background: (report.attendance_percent ?? 0) >= 80 ? "#16a34a" : (report.attendance_percent ?? 0) >= 60 ? "#d97706" : "#dc2626"
                         }}/>
                       </div>
-                      <p style={{ fontSize:"11.5px",color:"#94a3b8",textAlign:"right",marginTop:"5px" }}>
-                        {report.attendance_percent}% attendance
-                      </p>
+                      <p style={{ fontSize:"11.5px",color:"#94a3b8",textAlign:"right",marginTop:"5px" }}>{report.attendance_percent}% attendance</p>
                     </div>
                   </div>
                 )}
-
-                {/* Teacher's Remarks */}
                 {(report.conduct || report.interest || report.teacher_remark) && (
                   <div className="sp-card">
                     <div className="sp-card-head"><span className="sp-card-title">Teacher's Remarks</span></div>
@@ -978,13 +1597,10 @@ const StudentPortal = () => {
                           <span style={{ fontWeight:"600",color:"#2563eb",fontSize:"13.5px" }}>{report.interest}</span>
                         </div>
                       )}
-                      {report.teacher_remark && (
-                        <div className="sp-remark-quote">"{report.teacher_remark}"</div>
-                      )}
+                      {report.teacher_remark && <div className="sp-remark-quote">"{report.teacher_remark}"</div>}
                     </div>
                   </div>
                 )}
-
                 <div className="sp-card">
                   <div className="sp-card-head"><span className="sp-card-title">Subject Breakdown</span></div>
                 </div>
@@ -998,58 +1614,22 @@ const StudentPortal = () => {
         {tab === "Fees" && (
           <>
             {loadingFees && <Loading text="Loading fee records…"/>}
-            {!loadingFees && fees.length === 0 && <Empty icon="💳" title="No fee records found"/>}
-            {!loadingFees && fees.length > 0 && fees.map(fee => {
-              const isPaid    = fee.balance <= 0;
-              const isPartial = !isPaid && fee.paid > 0;
-              const pct       = fee.total_amount > 0 ? Math.min(100, Math.round((fee.paid / fee.total_amount) * 100)) : 0;
-              return (
-                <div key={fee.id} className="sp-fee-card">
-                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px" }}>
-                    <p style={{ fontWeight:"700",fontSize:"15px",color:"#1e293b",margin:0 }}>
-                      {TERMS.find(t => t.value === fee.term)?.label ?? fee.term}
-                    </p>
-                    {isPaid
-                      ? <span className="sp-status-paid">✓ PAID</span>
-                      : isPartial
-                      ? <span className="sp-status-partial">◑ PARTIAL</span>
-                      : <span className="sp-status-unpaid">✕ UNPAID</span>
-                    }
-                  </div>
-                  {fee.total_amount > 0 && (
-                    <div style={{ marginBottom:"14px" }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:"12px",color:"#94a3b8",marginBottom:"5px" }}>
-                        <span>{pct}% paid</span>
-                        <span>GHS {Number(fee.paid).toLocaleString()} of {Number(fee.total_amount).toLocaleString()}</span>
-                      </div>
-                      <div className="sp-progress-bar">
-                        <div className="sp-progress-fill" style={{ width:`${pct}%`, background: isPaid?"#16a34a":isPartial?"#d97706":"#dc2626" }}/>
-                      </div>
-                    </div>
-                  )}
-                  {[
-                    { label:"School Fees",   value:fee.amount        },
-                    { label:"Book User Fee", value:fee.book_user_fee },
-                    { label:"Workbook Fee",  value:fee.workbook_fee  },
-                    { label:"Arrears",       value:fee.arrears       },
-                  ].filter(r => Number(r.value) > 0).map(r => (
-                    <div key={r.label} className="sp-fee-row">
-                      <span>{r.label}</span>
-                      <span>GHS {Number(r.value).toLocaleString()}</span>
-                    </div>
-                  ))}
-                  <div className="sp-fee-row sp-fee-total">
-                    <span>Total</span><span>GHS {Number(fee.total_amount).toLocaleString()}</span>
-                  </div>
-                  <div className="sp-fee-row" style={{ color:"#16a34a",fontWeight:"600" }}>
-                    <span>Paid</span><span>GHS {Number(fee.paid).toLocaleString()}</span>
-                  </div>
-                  <div className="sp-fee-row" style={{ color:"#dc2626",fontWeight:"800",fontSize:"14px" }}>
-                    <span>Balance</span><span>GHS {Number(fee.balance).toLocaleString()}</span>
-                  </div>
-                </div>
-              );
-            })}
+            {!loadingFees && fees.length === 0 && (
+              <Empty icon="💳" title="No fee records found" sub="Your fee records will appear here once assigned by the school."/>
+            )}
+            {!loadingFees && fees.length > 0 && (
+              <>
+                <FeesOverview fees={fees} />
+                {fees.map(fee => (
+                  <FeeTermCard
+                    key={fee.id}
+                    fee={fee}
+                    user={user}
+                    onPaymentSuccess={handlePaymentSuccess}
+                  />
+                ))}
+              </>
+            )}
           </>
         )}
 
