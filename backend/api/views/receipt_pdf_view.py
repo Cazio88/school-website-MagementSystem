@@ -14,6 +14,8 @@ from reportlab.lib.pagesizes import A5
 from reportlab.lib.units import mm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
+from PIL import Image as PilImage, ImageOps
+
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
@@ -76,11 +78,35 @@ def load_student_photo(student, size=18 * mm):
         if not photo_url.startswith("http"):
             path = os.path.join(settings.MEDIA_ROOT, str(student.photo))
             if os.path.exists(path):
-                return Image(path, width=size, height=size)
+                with open(path, "rb") as f:
+                    img_bytes = BytesIO(f.read())
+            else:
+                return None
         else:
-            resp = requests.get(photo_url, timeout=5)
+            resp = requests.get(photo_url, timeout=5, stream=True)
             resp.raise_for_status()
-            return Image(BytesIO(resp.content), width=size, height=size)
+            img_bytes = BytesIO()
+            for chunk in resp.iter_content(chunk_size=8192):
+                img_bytes.write(chunk)
+            img_bytes.seek(0)
+
+        # Resize before loading into ReportLab — major memory saving
+        pil_img = PilImage.open(img_bytes)
+        pil_img = ImageOps.exif_transpose(pil_img)
+
+        target_px = int(size * 3.78)  # mm to pixels approx
+        pil_img.thumbnail((target_px, target_px), PilImage.LANCZOS)
+
+        if pil_img.mode in ("RGBA", "P", "CMYK", "LA", "L"):
+            pil_img = pil_img.convert("RGB")
+
+        corrected = BytesIO()
+        pil_img.save(corrected, format="JPEG", quality=75, optimize=True)
+        corrected.seek(0)
+        pil_img.close()
+
+        return Image(corrected, width=size, height=size)
+
     except Exception:
         pass
     return None
@@ -292,7 +318,8 @@ class PaymentReceiptPDFView(APIView):
         elements.append(para("Thank you for your payment. — Leading Stars Academy", 7, color=LGRAY, align=TA_CENTER))
 
         pdf.build(elements)
-        buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        buffer.close()  # ← free memory immediately
 
         name_slug = student.student_name.strip().replace(" ", "_")
         if not name_slug:
@@ -301,7 +328,7 @@ class PaymentReceiptPDFView(APIView):
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
         filename  = f"receipt_{receipt_no}_{safe_name}.pdf"
 
-        response = HttpResponse(buffer, content_type="application/pdf")
+        response = HttpResponse(pdf_data, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}'
         )
