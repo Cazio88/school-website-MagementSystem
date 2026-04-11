@@ -1,25 +1,62 @@
 from rest_framework import serializers
 from apps.students.models import Student
 
+
 class StudentSerializer(serializers.ModelSerializer):
+
+    # ── Read-only computed fields ──────────────────────────────
     username     = serializers.CharField(source="user.username", read_only=True)
+    email        = serializers.EmailField(source="user.email",   read_only=True)
     student_name = serializers.SerializerMethodField()
-    email        = serializers.EmailField(source="user.email", read_only=True)
-    class_name   = serializers.CharField(source="school_class.name", read_only=True, allow_null=True)
+    class_name   = serializers.CharField(
+        source="school_class.name", read_only=True, allow_null=True
+    )
     photo_url    = serializers.SerializerMethodField()
 
     class Meta:
         model  = Student
         fields = [
-            "id", "username", "student_name", "email",
-            "admission_number", "parent_name", "parent_phone", "date_of_birth",
-            "address", "photo", "photo_url", "school_class", "class_name", "admission_date",
+            # identity
+            "id", "username", "email",
+            "admission_number", "admission_date",
+
+            # names
+            "student_name", "first_name", "last_name",
+
+            # class
+            "school_class", "class_name",
+
+            # photo
+            "photo", "photo_url",
+
+            # personal
+            "gender", "date_of_birth", "phone", "address",
+            "nationality", "religion", "health_notes",
+
+            # parent
+            "parent_name", "parent_phone",
+
+            # academic history
+            "previous_school",
         ]
         extra_kwargs = {
-            "photo":        {"required": False},
-            "school_class": {"required": False, "allow_null": True},
+            "photo":           {"required": False, "allow_null": True},
+            "school_class":    {"required": False, "allow_null": True},
+            "first_name":      {"required": False},
+            "last_name":       {"required": False},
+            "gender":          {"required": False},
+            "date_of_birth":   {"required": False, "allow_null": True},
+            "phone":           {"required": False},
+            "address":         {"required": False},
+            "nationality":     {"required": False},
+            "religion":        {"required": False},
+            "health_notes":    {"required": False},
+            "parent_name":     {"required": False},
+            "parent_phone":    {"required": False},
+            "previous_school": {"required": False},
         }
 
+    # ── Custom field getters ───────────────────────────────────
     def get_student_name(self, obj):
         return obj.full_name
 
@@ -31,6 +68,7 @@ class StudentSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    # ── Always serve photo as URL, never raw Cloudinary ID ────
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["photo"] = self.get_photo_url(instance)
