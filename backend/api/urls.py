@@ -11,7 +11,7 @@ from api.views.announcement_view import AnnouncementViewSet
 from api.views.admission_view import AdmissionViewSet
 from rest_framework_simplejwt.views import TokenRefreshView
 from api.views.dashboard_view import DashboardView
-from api.views.auth_view import RegisterView, MeView, LoginView, AdminApprovalViewSet
+from api.views.auth_view import RegisterView, MeView, LoginView, AdminApprovalViewSet, ChangePasswordView
 from api.views.report_view import StudentReportView
 from api.views.report_pdf_view import StudentReportPDFView
 from api.views.bill_pdf_view import StudentFeeBillPDFView, ClassFeeBillPDFView
@@ -40,11 +40,12 @@ urlpatterns = [
     path("results/bulk/", ResultViewSet.as_view({"post": "bulk_save"})),
     path("admissions/<int:admission_id>/form/", AdmissionFormPDFView.as_view()),
     path("", include(router.urls)),
-    path("dashboard/", DashboardView.as_view()),
-    path("auth/login/",    LoginView.as_view()),
-    path("auth/refresh/",  TokenRefreshView.as_view()),
-    path("auth/register/", RegisterView.as_view()),
-    path("auth/me/",       MeView.as_view()),
+    path("dashboard/",          DashboardView.as_view()),
+    path("auth/login/",         LoginView.as_view()),
+    path("auth/refresh/",       TokenRefreshView.as_view()),
+    path("auth/register/",      RegisterView.as_view()),
+    path("auth/me/",            MeView.as_view()),
+    path("auth/change-password/", ChangePasswordView.as_view()),  # ← new
     path("report/student/<int:student_id>/",      StudentReportView.as_view()),
     path("report/student/<int:student_id>/pdf/",  StudentReportPDFView.as_view()),
     path("fees/bill/student/<int:student_id>/",   StudentFeeBillPDFView.as_view()),
