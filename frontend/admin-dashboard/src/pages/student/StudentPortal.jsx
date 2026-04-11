@@ -681,7 +681,7 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
   const [backendErr, setBackendErr] = useState("");
 
   // Validate env key on mount and warn immediately
-  const paystackKey = process.env.REACT_APP_PAYSTACK_PUBLIC_KEY;
+  const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
   const keyMissing  = !paystackKey || paystackKey.trim() === "";
 
   const payAmount = mode === "full"
