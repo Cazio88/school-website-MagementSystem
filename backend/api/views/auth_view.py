@@ -8,6 +8,7 @@ from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
 
 from django.contrib.auth import get_user_model, authenticate
+
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.students.models import Student
@@ -46,20 +47,15 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Start with the original input
         username = identifier
 
-        # Only attempt resolution if no direct username match exists
         if not User.objects.filter(username=identifier).exists():
-
-            # 1. Try student admission number
             try:
                 student  = Student.objects.get(admission_number__iexact=identifier)
                 username = student.user.username
             except Student.DoesNotExist:
                 pass
 
-            # 2. Try teacher ID — only if student lookup didn't resolve it
             if username == identifier:
                 try:
                     teacher  = Teacher.objects.get(teacher_id__iexact=identifier)
@@ -75,8 +71,6 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Admin-specific approval gate — check BEFORE is_active
-        # (account is inactive while pending, so we need the friendly message first)
         if user.role == "admin" and not user.is_approved:
             return Response(
                 {
@@ -93,8 +87,6 @@ class LoginView(APIView):
             )
 
         refresh = RefreshToken.for_user(user)
-
-        # Build role-specific profile data
         profile = {}
 
         if user.role == "student":
@@ -140,12 +132,6 @@ class LoginView(APIView):
 
 
 class RegisterView(APIView):
-    """
-    Admin self-registration.
-    New accounts are created inactive and unapproved.
-    An existing admin must approve them before they can log in.
-    """
-
     def post(self, request):
         username = request.data.get("username")
         email    = request.data.get("email")
@@ -180,7 +166,6 @@ class RegisterView(APIView):
             email=email,
             password=password,
             role="admin",
-            # Inactive + unapproved until an existing admin approves
             is_active=False,
             is_approved=False,
         )
@@ -200,7 +185,6 @@ class RegisterView(APIView):
 
 
 class MeView(APIView):
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -247,20 +231,48 @@ class MeView(APIView):
 
 
 # ─────────────────────────────────────────────
+# Change Password
+# ─────────────────────────────────────────────
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user         = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not old_password or not new_password:
+            return Response(
+                {"error": "Both old and new passwords are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.check_password(old_password):
+            return Response(
+                {"old_password": ["Incorrect password."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(new_password) < 8:
+            return Response(
+                {"new_password": ["Must be at least 8 characters."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        logger.info(f"Password changed for user: {user.username}")
+
+        return Response({"detail": "Password updated successfully."})
+
+
+# ─────────────────────────────────────────────
 # Admin approval management
 # ─────────────────────────────────────────────
 
 class AdminApprovalViewSet(viewsets.ViewSet):
-    """
-    Endpoints for managing pending admin account approvals.
-    Only accessible by approved admins.
-
-    GET  /api/admin-approvals/              → list pending admins
-    GET  /api/admin-approvals/all/          → list all admins with status
-    POST /api/admin-approvals/{id}/approve/ → approve
-    POST /api/admin-approvals/{id}/reject/  → reject (delete account)
-    """
-
     permission_classes = [IsAdminRole]
 
     def _serialize_user(self, user):
@@ -274,13 +286,11 @@ class AdminApprovalViewSet(viewsets.ViewSet):
         }
 
     def list(self, request):
-        """Return all pending (unapproved) admin accounts."""
         pending = User.objects.filter(role="admin", is_approved=False).order_by("date_joined")
         return Response([self._serialize_user(u) for u in pending])
 
     @action(detail=False, methods=["get"], url_path="all")
     def all_admins(self, request):
-        """Return all admin accounts with their approval status."""
         admins = User.objects.filter(role="admin").exclude(id=request.user.id).order_by("-date_joined")
         return Response([self._serialize_user(u) for u in admins])
 
