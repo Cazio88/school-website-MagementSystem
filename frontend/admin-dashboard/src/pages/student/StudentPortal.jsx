@@ -680,7 +680,6 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
   const [paying, setPaying]         = useState(false);
   const [backendErr, setBackendErr] = useState("");
 
-  // Validate env key on mount and warn immediately
   const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
   const keyMissing  = !paystackKey || paystackKey.trim() === "";
 
