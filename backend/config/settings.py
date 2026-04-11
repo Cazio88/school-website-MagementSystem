@@ -28,7 +28,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'drf_yasg',
-    'csp',                          # ← django-csp
 
     'cloudinary',
     'cloudinary_storage',
@@ -51,7 +50,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'csp.middleware.CSPMiddleware',             # ← CSP must be near top
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -193,67 +191,11 @@ SIMPLE_JWT = {
 
 # ── Security Headers ───────────────────────────────────────────
 
-# Allow Paystack to open its checkout iframe
+# Allow Paystack iframe checkout to open
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
-# Prevents browser from blocking Paystack popup/iframe
+# Prevents browser blocking cross-origin popups (Paystack needs this)
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-
-# ── Content Security Policy (django-csp) ───────────────────────
-# Allows Paystack scripts, iframe checkout, and API calls
-# Also allows Cloudinary images and Google Fonts
-
-CSP_DEFAULT_SRC = ("'self'",)
-
-CSP_SCRIPT_SRC = (
-    "'self'",
-    "'unsafe-inline'",               # Required by React build
-    "'unsafe-eval'",                 # Required by React dev mode
-    "https://js.paystack.co",
-    "https://checkout.paystack.com",
-    "https://standard.paystack.co",
-)
-
-CSP_FRAME_SRC = (
-    "'self'",
-    "https://checkout.paystack.com",
-    "https://standard.paystack.co",
-)
-
-CSP_CONNECT_SRC = (
-    "'self'",
-    "https://api.paystack.co",
-    "https://checkout.paystack.com",
-    "https://standard.paystack.co",
-)
-
-CSP_IMG_SRC = (
-    "'self'",
-    "data:",
-    "blob:",
-    "https://res.cloudinary.com",
-    "https://checkout.paystack.com",
-    "https://standard.paystack.co",
-)
-
-CSP_STYLE_SRC = (
-    "'self'",
-    "'unsafe-inline'",               # Required by React inline styles
-    "https://fonts.googleapis.com",
-    "https://checkout.paystack.com",
-)
-
-CSP_FONT_SRC = (
-    "'self'",
-    "https://fonts.gstatic.com",
-    "https://fonts.googleapis.com",
-)
-
-CSP_MEDIA_SRC = ("'self'",)
-
-CSP_OBJECT_SRC = ("'none'",)
-
-CSP_BASE_URI = ("'self'",)
 
 
 # ── Logging ────────────────────────────────────────────────────
