@@ -53,40 +53,43 @@ ACCENT  = colors.HexColor("#0ea5e9")
 TERM_LABELS = {"term1": "Term 1", "term2": "Term 2", "term3": "Term 3"}
 LOGO_PATH   = os.path.join(settings.BASE_DIR, "static", "images", "logo.jpeg")
 
-W = A4[0] - 40*mm  # usable width
+W = A4[0] - 40*mm
 
 
 # ---------------------------------------------------------------------------
-# Image loading — with EXIF orientation fix
+# Image loading — with EXIF orientation fix + memory-safe resize
 # ---------------------------------------------------------------------------
 
 def load_image_flowable(path_or_url, width, height):
-    """
-    Load an image from a local path or remote URL.
-    Applies EXIF orientation correction so phone photos appear upright in PDFs.
-    """
     try:
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-            resp = requests.get(path_or_url, timeout=10)
+            resp = requests.get(path_or_url, timeout=10, stream=True)
             resp.raise_for_status()
-            img_bytes = BytesIO(resp.content)
+            img_bytes = BytesIO()
+            for chunk in resp.iter_content(chunk_size=8192):
+                img_bytes.write(chunk)
+            img_bytes.seek(0)
         elif os.path.exists(path_or_url):
             with open(path_or_url, "rb") as f:
                 img_bytes = BytesIO(f.read())
         else:
             return None
 
-        # Fix EXIF rotation (phones save images sideways with metadata for rotation)
         pil_img = PilImage.open(img_bytes)
         pil_img = ImageOps.exif_transpose(pil_img)
 
-        # Convert to RGB — required for JPEG embedding in ReportLab
+        # Resize to target dimensions before saving — major memory saving
+        target_w = int(width * 3.78)   # mm to pixels approx
+        target_h = int(height * 3.78)
+        pil_img.thumbnail((target_w, target_h), PilImage.LANCZOS)
+
         if pil_img.mode in ("RGBA", "P", "CMYK", "LA", "L"):
             pil_img = pil_img.convert("RGB")
 
         corrected = BytesIO()
-        pil_img.save(corrected, format="JPEG", quality=90)
+        pil_img.save(corrected, format="JPEG", quality=75, optimize=True)
         corrected.seek(0)
+        pil_img.close()  # free Pillow memory immediately
 
         return Image(corrected, width=width, height=height)
 
@@ -131,7 +134,7 @@ def para(text, size=9, bold=False, color=DGRAY, align=TA_LEFT):
 
 
 # ---------------------------------------------------------------------------
-# Header  — two-tone with logo + school name + term badge
+# Header
 # ---------------------------------------------------------------------------
 
 def build_header(term, year):
@@ -139,7 +142,6 @@ def build_header(term, year):
     year_str  = str(year) if year else str(timezone.now().year)
     term_str  = TERM_LABELS.get(term, term)
 
-    # School name block (centre column)
     school_block = [
         para("LEADING STARS ACADEMY", 14, bold=True, color=WHITE, align=TA_CENTER),
         para("WHERE LEADERS ARE BORN",  7, color=colors.HexColor("#93c5fd"), align=TA_CENTER),
@@ -148,7 +150,6 @@ def build_header(term, year):
         para(f"{term_str}  ·  {year_str}", 8, color=colors.HexColor("#e0f2fe"), align=TA_CENTER),
     ]
 
-    # Right column: small accent box
     right_block = [
         para("OFFICIAL", 6, bold=True, color=colors.HexColor("#93c5fd"), align=TA_CENTER),
         para("DOCUMENT", 6, bold=True, color=colors.HexColor("#93c5fd"), align=TA_CENTER),
@@ -168,7 +169,6 @@ def build_header(term, year):
         ("RIGHTPADDING",  (2, 0), (2,  0),  8),
     ]))
 
-    # Thin gold accent bar below header
     accent = Table([[""]],  colWidths=[W + 40*mm])
     accent.setStyle(TableStyle([
         ("BACKGROUND",    (0, 0), (-1, -1), GOLD),
@@ -182,7 +182,7 @@ def build_header(term, year):
 
 
 # ---------------------------------------------------------------------------
-# Student info card  — photo right, info grid left
+# Student info card
 # ---------------------------------------------------------------------------
 
 def build_student_card(student, term, year):
@@ -233,7 +233,6 @@ def build_student_card(student, term, year):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ("LEFTPADDING",   (0, 0), (-1, -1), 0),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
-        # Left blue accent stripe via a thin left border highlight
         ("LINEAFTER",     (0, 0), (0, -1), 3, BLUE),
     ]))
     return outer
@@ -268,8 +267,8 @@ def build_fee_table(fee):
         ]
         return row
 
-    rows       = []
-    alt_rows   = []   # track which rows get alternating bg
+    rows     = []
+    alt_rows = []
 
     rows.append(row("School Fees", fee.amount))
     alt_rows.append(len(rows) - 1)
@@ -286,7 +285,6 @@ def build_fee_table(fee):
         rows.append(row("Arrears Carried Forward", fee.arrears, value_color=RED))
         alt_rows.append(len(rows) - 1)
 
-    # Divider
     rows.append([para("", 2), para("", 2)])
     divider_idx = len(rows) - 1
 
@@ -308,17 +306,13 @@ def build_fee_table(fee):
         ("LEFTPADDING",   (0, 0), (-1, -1), 10),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
         ("BOX",           (0, 0), (-1, -1), 1, DIVIDER),
-        # alternating rows
         ("LINEBELOW",     (0, 0), (-1, divider_idx - 1), 0.4, DIVIDER),
-        # total row bg
         ("BACKGROUND",    (0, divider_idx + 1), (-1, divider_idx + 1), LBLUE),
         ("LINEABOVE",     (0, divider_idx + 1), (-1, divider_idx + 1), 1.5, BLUE),
-        # balance row bg
         ("BACKGROUND",    (0, -1), (-1, -1), bal_bg),
         ("LINEABOVE",     (0, -1), (-1, -1), 1, bal_color),
         ("LINEBELOW",     (0, -1), (-1, -1), 1, bal_color),
     ]
-    # Alternating grey on data rows
     for i in range(divider_idx):
         if i % 2 == 1:
             style.append(("BACKGROUND", (0, i), (-1, i), MGRAY))
@@ -352,7 +346,7 @@ def build_status_badge(fee):
 
 
 # ---------------------------------------------------------------------------
-# Footer note
+# Footer
 # ---------------------------------------------------------------------------
 
 def build_footer():
@@ -401,32 +395,30 @@ class StudentFeeBillPDFView(APIView):
         pdf = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            leftMargin=20 * mm,
-            rightMargin=20 * mm,
-            topMargin=15 * mm,
-            bottomMargin=15 * mm,
+            leftMargin=20*mm,
+            rightMargin=20*mm,
+            topMargin=15*mm,
+            bottomMargin=15*mm,
         )
 
         elements = []
-
         for item in build_header(term, year):
             elements.append(item)
-
-        elements.append(Spacer(1, 5 * mm))
+        elements.append(Spacer(1, 5*mm))
         elements.append(build_student_card(student, term, year))
-        elements.append(Spacer(1, 5 * mm))
+        elements.append(Spacer(1, 5*mm))
         elements.append(section_label("FEE BREAKDOWN"))
-        elements.append(Spacer(1, 1 * mm))
+        elements.append(Spacer(1, 1*mm))
         elements.append(build_fee_table(fee))
-        elements.append(Spacer(1, 5 * mm))
+        elements.append(Spacer(1, 5*mm))
         elements.append(build_status_badge(fee))
-        elements.append(Spacer(1, 6 * mm))
-
+        elements.append(Spacer(1, 6*mm))
         for item in build_footer():
             elements.append(item)
 
         pdf.build(elements)
-        buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        buffer.close()  # ← free memory immediately
 
         name_slug = student.student_name.strip().replace(" ", "_")
         if not name_slug:
@@ -435,11 +427,12 @@ class StudentFeeBillPDFView(APIView):
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
         filename  = f"bill_{safe_name}_{term}.pdf"
 
-        response = HttpResponse(buffer, content_type="application/pdf")
+        response = HttpResponse(pdf_data, content_type="application/pdf")
         response["Content-Disposition"] = (
             f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
         )
         return response
+
 
 # ---------------------------------------------------------------------------
 # Class-wide bill
@@ -477,13 +470,10 @@ class ClassFeeBillPDFView(APIView):
         )
 
         elements = []
-
         for item in build_header(term, year):
             elements.append(item)
-
         elements.append(Spacer(1, 4*mm))
 
-        # Class + year subtitle
         sub = Table([[
             para(f"  CLASS:  {class_name}", 10, bold=True, color=BLUE),
             para(f"ACADEMIC YEAR:  {year}  ", 10, bold=True, color=DGRAY, align=TA_RIGHT),
@@ -520,9 +510,9 @@ class ClassFeeBillPDFView(APIView):
                 para(f"{float(fee.book_user_fee):,.0f}",     8, align=TA_CENTER),
                 para(f"{float(fee.workbook_fee):,.0f}",      8, align=TA_CENTER),
                 para(f"{float(fee.arrears):,.0f}",           8, align=TA_CENTER),
-                para(f"{float(fee.total_amount):,.0f}",      8, bold=True, color=BLUE2,    align=TA_CENTER),
-                para(f"{float(fee.paid):,.0f}",              8, color=GREEN,               align=TA_CENTER),
-                para(f"{bal:,.0f}",                          8, bold=True, color=bal_color, align=TA_CENTER),
+                para(f"{float(fee.total_amount):,.0f}",      8, bold=True, color=BLUE2,     align=TA_CENTER),
+                para(f"{float(fee.paid):,.0f}",              8, color=GREEN,                align=TA_CENTER),
+                para(f"{bal:,.0f}",                          8, bold=True, color=bal_color,  align=TA_CENTER),
             ])
             total_expected += float(fee.total_amount)
             total_paid     += float(fee.paid)
@@ -552,13 +542,11 @@ class ClassFeeBillPDFView(APIView):
             ("BOTTOMPADDING",  (0, 1),  (-1, -1), 5),
             ("LEFTPADDING",    (0, 0),  (-1, -1), 4),
             ("VALIGN",         (0, 0),  (-1, -1), "MIDDLE"),
-            # Highlight total column
             ("BACKGROUND",     (5, 1),  (5, -2),  LBLUE),
         ]))
         elements.append(tbl)
         elements.append(Spacer(1, 5*mm))
 
-        # Summary strip
         out_color = RED if total_balance > 0 else GREEN
         out_bg    = LRED if total_balance > 0 else LGREEN
         summary = Table([[
@@ -583,13 +571,13 @@ class ClassFeeBillPDFView(APIView):
             elements.append(item)
 
         pdf.build(elements)
-        buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        buffer.close()  # ← free memory immediately
 
-        # Build a clean, properly encoded filename with the class name
         safe_class = class_name.strip().replace(" ", "_")
         filename   = f"class_bill_{safe_class}_{term}.pdf"
 
-        response = HttpResponse(buffer, content_type="application/pdf")
+        response = HttpResponse(pdf_data, content_type="application/pdf")
         response["Content-Disposition"] = (
             f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
         )
