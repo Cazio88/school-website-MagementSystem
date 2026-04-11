@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'drf_yasg',
+    'csp',                          # ← django-csp
 
     'cloudinary',
     'cloudinary_storage',
@@ -39,7 +40,7 @@ INSTALLED_APPS = [
     'apps.subjects',
     'apps.attendance',
     'apps.results',
-    'apps.fees.apps.FeesConfig',  # ← updated to load FeesConfig
+    'apps.fees.apps.FeesConfig',
     'apps.announcements',
     'apps.admissions',
     'apps.ai',
@@ -50,11 +51,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'csp.middleware.CSPMiddleware',             # ← CSP must be near top
     'django.middleware.security.SecurityMiddleware',
-
-    # WhiteNoise for static files in production
     'whitenoise.middleware.WhiteNoiseMiddleware',
-
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -120,13 +119,10 @@ USE_TZ = True
 # ── Static Files ───────────────────────────────────────────────
 
 STATIC_URL = '/static/'
-
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
-
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
@@ -170,9 +166,9 @@ TERMII_SENDER_ID = os.environ.get("TERMII_SENDER_ID", "LEADSTARS")
 
 
 # ── Auth & CORS ────────────────────────────────────────────────
+
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_EXPOSE_HEADERS = ["Content-Disposition"]
-CORS_ALLOW_ALL_ORIGINS = True
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -193,6 +189,71 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES":      ("Bearer",),
 }
+
+
+# ── Security Headers ───────────────────────────────────────────
+
+# Allow Paystack to open its checkout iframe
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
+# Prevents browser from blocking Paystack popup/iframe
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
+# ── Content Security Policy (django-csp) ───────────────────────
+# Allows Paystack scripts, iframe checkout, and API calls
+# Also allows Cloudinary images and Google Fonts
+
+CSP_DEFAULT_SRC = ("'self'",)
+
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "'unsafe-inline'",               # Required by React build
+    "'unsafe-eval'",                 # Required by React dev mode
+    "https://js.paystack.co",
+    "https://checkout.paystack.com",
+    "https://standard.paystack.co",
+)
+
+CSP_FRAME_SRC = (
+    "'self'",
+    "https://checkout.paystack.com",
+    "https://standard.paystack.co",
+)
+
+CSP_CONNECT_SRC = (
+    "'self'",
+    "https://api.paystack.co",
+    "https://checkout.paystack.com",
+    "https://standard.paystack.co",
+)
+
+CSP_IMG_SRC = (
+    "'self'",
+    "data:",
+    "blob:",
+    "https://res.cloudinary.com",
+    "https://checkout.paystack.com",
+    "https://standard.paystack.co",
+)
+
+CSP_STYLE_SRC = (
+    "'self'",
+    "'unsafe-inline'",               # Required by React inline styles
+    "https://fonts.googleapis.com",
+    "https://checkout.paystack.com",
+)
+
+CSP_FONT_SRC = (
+    "'self'",
+    "https://fonts.gstatic.com",
+    "https://fonts.googleapis.com",
+)
+
+CSP_MEDIA_SRC = ("'self'",)
+
+CSP_OBJECT_SRC = ("'none'",)
+
+CSP_BASE_URI = ("'self'",)
 
 
 # ── Logging ────────────────────────────────────────────────────
