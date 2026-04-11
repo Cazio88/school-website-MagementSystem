@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-
 import { isAuthenticated, getUser } from "./services/auth";
+import { wakeUpServer } from "./services/api";  // ← ADD
 
 import LandingPage    from "./pages/LandingPage";
 import Layout         from "./components/Layout";
@@ -22,10 +23,9 @@ import AdminApprovals from "./pages/AdminApprovals";
 import StudentPortal  from "./pages/student/StudentPortal";
 import TeacherPortal  from "./pages/teacher/TeacherPortal";
 
-
+// ── Role-based route guard ─────────────────────────────────────
 const ProtectedRoute = ({ children, allowedRoles }) => {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
-
   const user = getUser();
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     if (user?.role === "student") return <Navigate to="/student" replace />;
@@ -33,12 +33,17 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (user?.role === "admin")   return <Navigate to="/admin"   replace />;
     return <Navigate to="/login" replace />;
   }
-
   return children;
 };
 
-
+// ── App ────────────────────────────────────────────────────────
 function App() {
+
+  // Wake up Render server on first load to prevent cold-start CORS errors
+  useEffect(() => {
+    wakeUpServer();
+  }, []);
+
   return (
     <Router>
       <Routes>
