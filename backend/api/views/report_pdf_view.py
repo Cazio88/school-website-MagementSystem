@@ -154,15 +154,18 @@ def fmt_date(date_val):
 
 
 # ---------------------------------------------------------------------------
-# Image loading — with EXIF orientation fix
+# Image loading — with EXIF orientation fix + memory-safe resize
 # ---------------------------------------------------------------------------
 
 def load_image_flowable(path_or_url, width, height):
     try:
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-            resp = requests.get(path_or_url, timeout=10)
+            resp = requests.get(path_or_url, timeout=10, stream=True)
             resp.raise_for_status()
-            img_bytes = BytesIO(resp.content)
+            img_bytes = BytesIO()
+            for chunk in resp.iter_content(chunk_size=8192):
+                img_bytes.write(chunk)
+            img_bytes.seek(0)
         elif os.path.exists(path_or_url):
             with open(path_or_url, "rb") as f:
                 img_bytes = BytesIO(f.read())
@@ -172,12 +175,18 @@ def load_image_flowable(path_or_url, width, height):
         pil_img = PilImage.open(img_bytes)
         pil_img = ImageOps.exif_transpose(pil_img)
 
+        # Resize to target dimensions before saving — major memory saving
+        target_w = int(width * 3.78)  # mm to pixels approx
+        target_h = int(height * 3.78)
+        pil_img.thumbnail((target_w, target_h), PilImage.LANCZOS)
+
         if pil_img.mode in ("RGBA", "P", "CMYK", "LA", "L"):
             pil_img = pil_img.convert("RGB")
 
         corrected = BytesIO()
-        pil_img.save(corrected, format="JPEG", quality=90)
+        pil_img.save(corrected, format="JPEG", quality=75, optimize=True)
         corrected.seek(0)
+        pil_img.close()  # free Pillow memory immediately
 
         return Image(corrected, width=width, height=height)
 
@@ -347,7 +356,7 @@ class StudentReportPDFView(APIView):
         elements.append(Spacer(1, 4*mm))
 
         # ── Student Info ──────────────────────────────────────────────────
-        class_name = student.school_class.name if student.school_class else "-"
+        class_name    = student.school_class.name if student.school_class else "-"
         position_text = (
             f"<b>POSITION:</b>  {fmt_pos(position)} out of {len(ranked)}"
             if show_position else "<b>POSITION:</b>  N/A"
@@ -558,7 +567,8 @@ class StudentReportPDFView(APIView):
         ))
 
         pdf.build(elements)
-        buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        buffer.close()  # ← free memory immediately
 
         name_slug = student.student_name.strip().replace(" ", "_")
         if not name_slug:
@@ -567,7 +577,7 @@ class StudentReportPDFView(APIView):
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '_', name_slug).strip("_")
         filename  = f"report_{safe_name}_{term}.pdf"
 
-        response = HttpResponse(buffer, content_type="application/pdf")
+        response = HttpResponse(pdf_data, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}'
         )
