@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getUser, logout } from "../../services/auth";
 import API from "../../services/api";
 import AnnouncementsFeed from "../AnnouncementsFeed";
@@ -429,17 +429,62 @@ const PORTAL_STYLES = `
 
   /* Paystack lock icon */
   .sp-lock-icon { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* Gateway error box */
+  .sp-gateway-err {
+    background: #fff8f0;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #9a3412;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
 `;
 
 /* ─────────────────────────────────────────────
-   Paystack loader (injects SDK once)
+   Paystack loader — fixed with proper error handling
 ───────────────────────────────────────────── */
 const loadPaystack = () =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
+    // Already loaded
     if (window.PaystackPop) return resolve(window.PaystackPop);
+
+    // Check if script tag already exists but PopstackPop not ready yet
+    const existing = document.querySelector('script[src*="paystack"]');
+    if (existing) {
+      // Wait up to 5s for it to become available
+      let attempts = 0;
+      const poll = setInterval(() => {
+        attempts++;
+        if (window.PaystackPop) {
+          clearInterval(poll);
+          resolve(window.PaystackPop);
+        } else if (attempts > 50) {
+          clearInterval(poll);
+          reject(new Error("Paystack SDK timed out. Please refresh and try again."));
+        }
+      }, 100);
+      return;
+    }
+
     const script = document.createElement("script");
     script.src = "https://js.paystack.co/v1/inline.js";
-    script.onload = () => resolve(window.PaystackPop);
+    script.async = true;
+
+    script.onload = () => {
+      if (window.PaystackPop) {
+        resolve(window.PaystackPop);
+      } else {
+        reject(new Error("Paystack loaded but PaystackPop is unavailable. Try disabling your ad-blocker."));
+      }
+    };
+
+    script.onerror = () => {
+      reject(new Error("Failed to load Paystack script. Check your internet connection or disable any ad-blocker."));
+    };
+
     document.head.appendChild(script);
   });
 
@@ -624,22 +669,27 @@ const ChangePasswordModal = ({ onClose }) => {
 };
 
 /* ─────────────────────────────────────────────
-   Payment Modal
+   Payment Modal — fixed Paystack integration
 ───────────────────────────────────────────── */
 const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
   const termInfo   = TERMS.find(t => t.value === fee.term) || { label: fee.term, icon: "💳" };
   const balance    = Number(fee.balance);
-  const [mode, setMode]         = useState("full"); // "full" | "partial"
-  const [custom, setCustom]     = useState("");
-  const [customErr, setCustomErr] = useState("");
-  const [paying, setPaying]     = useState(false);
+  const [mode, setMode]             = useState("full");
+  const [custom, setCustom]         = useState("");
+  const [customErr, setCustomErr]   = useState("");
+  const [paying, setPaying]         = useState(false);
   const [backendErr, setBackendErr] = useState("");
+
+  // Validate env key on mount and warn immediately
+  const paystackKey = process.env.REACT_APP_PAYSTACK_PUBLIC_KEY;
+  const keyMissing  = !paystackKey || paystackKey.trim() === "";
 
   const payAmount = mode === "full"
     ? balance
     : parseFloat(custom) || 0;
 
   const validate = () => {
+    if (payAmount <= 0)       return "Payment amount must be greater than zero.";
     if (mode === "partial") {
       const v = parseFloat(custom);
       if (!v || v <= 0)       return "Enter a valid amount.";
@@ -650,25 +700,33 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
   };
 
   const handlePay = async () => {
+    // Guard: missing key
+    if (keyMissing) {
+      setBackendErr("Payment gateway is not configured. Please contact the school administrator.");
+      return;
+    }
+
     const err = validate();
     if (err) { setCustomErr(err); return; }
-    setCustomErr(""); setBackendErr("");
+
+    setCustomErr("");
+    setBackendErr("");
     setPaying(true);
 
     try {
       const PaystackPop = await loadPaystack();
 
-      // Admission number as reference + fake school email (Paystack requires email)
       const admissionNumber = user.admission_number || user.username || "student";
-      const email = `${admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.school.gh`;
-      const amountKobo = Math.round(payAmount * 100); // Paystack uses kobo (GHS × 100)
+      // Use .com TLD — some Paystack integrations reject uncommon TLDs
+      const email = `${admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.school.com`;
+      const amountKobo = Math.round(payAmount * 100);
 
       const handler = PaystackPop.setup({
-        key: process.env.REACT_APP_PAYSTACK_PUBLIC_KEY,
+        key:      paystackKey,
         email,
-        amount:    amountKobo,
-        currency:  "GHS",
-        ref:       `FEE-${fee.id}-${Date.now()}`,
+        amount:   amountKobo,
+        currency: "GHS",
+        ref:      `FEE-${fee.id}-${Date.now()}`,
         metadata: {
           custom_fields: [
             { display_name: "Student",        variable_name: "student_name",     value: user.full_name || admissionNumber },
@@ -681,7 +739,6 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
           setPaying(false);
         },
         callback: async (response) => {
-          // Paystack succeeded — now record against our backend
           try {
             await API.post(`/fees/${fee.id}/pay/`, {
               amount: payAmount,
@@ -690,15 +747,20 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
             onSuccess(payAmount, response.reference);
           } catch (e) {
             const data = e.response?.data;
-            setBackendErr(data?.error || data?.detail || "Payment recorded by Paystack but failed to save. Contact the school office.");
+            setBackendErr(
+              data?.error || data?.detail ||
+              "Payment was received by Paystack but could not be saved. Please contact the school office with reference: " + response.reference
+            );
             setPaying(false);
           }
         },
       });
 
       handler.openIframe();
-    } catch {
-      setBackendErr("Could not load payment gateway. Check your internet connection.");
+
+    } catch (err) {
+      console.error("Paystack error:", err);
+      setBackendErr(err.message || "Could not load payment gateway. Please try again.");
       setPaying(false);
     }
   };
@@ -717,6 +779,13 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
             <button onClick={onClose} style={{ background:"rgba(255,255,255,.1)", border:"none", cursor:"pointer", color:"rgba(255,255,255,.7)", fontSize:"18px", padding:"4px 8px", borderRadius:"6px", lineHeight:1 }}>×</button>
           </div>
         </div>
+
+        {/* Key missing warning */}
+        {keyMissing && (
+          <div className="sp-gateway-err" style={{ marginBottom:"14px" }}>
+            ⚠️ Payment gateway is not configured. Contact the school administrator.
+          </div>
+        )}
 
         {/* Amount options */}
         <div className="sp-modal-field">
@@ -755,13 +824,15 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
           )}
         </div>
 
-        {backendErr && <div className="sp-pw-error">{backendErr}</div>}
+        {backendErr && (
+          <div className="sp-gateway-err">{backendErr}</div>
+        )}
 
         {/* Pay button */}
         <button
           className="sp-pay-confirm-btn"
           onClick={handlePay}
-          disabled={paying || (mode === "partial" && !custom)}
+          disabled={paying || keyMissing || (mode === "partial" && !custom)}
         >
           {paying ? (
             <><div style={{ width:"16px",height:"16px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"sp-spin .6s linear infinite" }}/> Opening Paystack…</>
@@ -778,7 +849,7 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
           </svg>
-          Secured by Paystack
+          Secured by Paystack · Mobile Money &amp; Cards accepted
         </div>
       </div>
     </div>
@@ -838,11 +909,10 @@ const TransactionHistory = ({ transactions }) => (
    Fee Term Card (collapsible)
 ───────────────────────────────────────────── */
 const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
-  const [open, setOpen]       = useState(false);
+  const [open, setOpen]             = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
-  const [localFee, setLocalFee] = useState(fee);
+  const [localFee, setLocalFee]     = useState(fee);
 
-  // Sync if parent refreshes
   useEffect(() => { setLocalFee(fee); }, [fee]);
 
   const balance    = Number(localFee.balance);
@@ -852,7 +922,6 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
   const isPartial  = !isPaid && paid > 0;
   const pct        = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
   const termInfo   = TERMS.find(t => t.value === localFee.term) || { label: localFee.term, icon: "💳" };
-
   const progressColor = isPaid ? "#16a34a" : isPartial ? "#d97706" : "#dc2626";
 
   const lineItems = [
@@ -864,7 +933,6 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
 
   const handleSuccess = (amount, reference) => {
     setShowPayModal(false);
-    // Optimistically update local state
     setLocalFee(prev => {
       const newPaid    = Number(prev.paid) + amount;
       const newBalance = Number(prev.total_amount) - newPaid;
@@ -899,7 +967,6 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
       )}
 
       <div className="sp-fee-card">
-        {/* Clickable header */}
         <div className="sp-fee-card-header" onClick={() => setOpen(o => !o)}>
           <div className="sp-fee-card-left">
             <div className="sp-fee-term-icon" style={{
@@ -925,11 +992,8 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
           </div>
         </div>
 
-        {/* Expandable body */}
         <div className={`sp-fee-card-body ${open ? "open" : ""}`}>
           <div className="sp-fee-body-inner">
-
-            {/* Progress */}
             {total > 0 && (
               <div className="sp-fee-progress-wrap">
                 <div className="sp-fee-progress-label">
@@ -942,7 +1006,6 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
               </div>
             )}
 
-            {/* Line items */}
             <div className="sp-fee-lines">
               {lineItems.map(r => (
                 <div key={r.label} className="sp-fee-line">
@@ -964,7 +1027,6 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
               </div>
             </div>
 
-            {/* Pay button */}
             {isPaid ? (
               <div className="sp-pay-btn-paid">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -989,9 +1051,7 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
               </>
             )}
 
-            {/* Transaction history */}
             <TransactionHistory transactions={localFee.transactions} />
-
           </div>
         </div>
       </div>
@@ -1229,6 +1289,13 @@ const StudentPortal = () => {
     document.head.appendChild(el);
   }, []);
 
+  // Preload Paystack SDK as soon as the portal mounts
+  useEffect(() => {
+    loadPaystack().catch(() => {
+      // Silent — will show error at payment time if it fails
+    });
+  }, []);
+
   const user = getUser();
 
   const [tab, setTab]                         = useState("Results");
@@ -1242,7 +1309,7 @@ const StudentPortal = () => {
   const [loadingFees, setLoadingFees]         = useState(false);
   const [error, setError]                     = useState("");
   const [showPwModal, setShowPwModal]         = useState(false);
-  const [successPayment, setSuccessPayment]   = useState(null); // { amount, reference }
+  const [successPayment, setSuccessPayment]   = useState(null);
 
   const fetchReport = useCallback(async (term) => {
     setLoading(true); setError(""); setReport(null);
@@ -1292,7 +1359,6 @@ const StudentPortal = () => {
 
   const handlePaymentSuccess = (amount, reference) => {
     setSuccessPayment({ amount, reference });
-    // Silently refresh fees in background after a moment
     setTimeout(fetchFees, 3000);
   };
 
@@ -1344,7 +1410,6 @@ const StudentPortal = () => {
   return (
     <div className="sp-root">
 
-      {/* Global success overlay */}
       {successPayment && (
         <PaySuccessOverlay
           amount={successPayment.amount}
@@ -1359,7 +1424,9 @@ const StudentPortal = () => {
       <header className="sp-header">
         <div className="sp-header-inner">
           {user.photo
-            ? <img src={user.photo} alt="avatar" className="sp-avatar"/>
+            ? <img src={user.photo} alt="avatar" className="sp-avatar"
+                onError={e => { e.target.style.display = "none"; }}
+              />
             : <div className="sp-avatar-fallback">{user.full_name?.[0] ?? "S"}</div>
           }
           <div>
@@ -1395,7 +1462,6 @@ const StudentPortal = () => {
 
       <div className="sp-body">
 
-        {/* Term bar — not shown on Fees, Progress, Announcements */}
         {tab !== "Progress" && tab !== "Announcements" && tab !== "Fees" && (
           <div className="sp-term-bar">
             <div>
