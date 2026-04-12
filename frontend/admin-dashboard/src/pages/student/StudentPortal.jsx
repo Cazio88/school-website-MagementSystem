@@ -698,64 +698,87 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
     return null;
   };
 
-  const handlePay = async () => {
-    // Guard: missing key
-    if (keyMissing) {
-      setBackendErr("Payment gateway is not configured. Please contact the school administrator.");
-      return;
-    }
+const handlePay = async () => {
+  // Guard: missing key
+  if (keyMissing) {
+    setBackendErr("Payment gateway is not configured. Please contact the school administrator.");
+    return;
+  }
 
-    const err = validate();
-    if (err) { setCustomErr(err); return; }
+  const err = validate();
+  if (err) { setCustomErr(err); return; }
 
-    setCustomErr("");
-    setBackendErr("");
-    setPaying(true);
+  setCustomErr("");
+  setBackendErr("");
+  setPaying(true);
 
-    try {
-      const PaystackPop = await loadPaystack();
+  // ── Load SDK first, THEN call setup() synchronously ──────────────────────
+  // Paystack's inline.js v1 validator checks typeof callback === 'function'
+  // but rejects async functions in some builds. Load the SDK up front so
+  // setup() is called synchronously with plain (non-async) function refs.
+  let PaystackPop;
+  try {
+    PaystackPop = await loadPaystack();
+  } catch (loadErr) {
+    console.error("Paystack error:", loadErr);
+    setBackendErr(loadErr.message || "Could not load payment gateway. Please try again.");
+    setPaying(false);
+    return;
+  }
 
-      const admissionNumber = user.admission_number || user.username || "student";
-      // Use .com TLD — some Paystack integrations reject uncommon TLDs
-      const email = `${admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.school.com`;
-      const amountKobo = Math.round(payAmount * 100);
+  const admissionNumber = user.admission_number || user.username || "student";
+  const email = `${admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.school.com`;
+  const amountKobo = Math.round(payAmount * 100);
 
-      const handler = PaystackPop.setup({
-        key:      paystackKey,
-        email,
-        amount:   amountKobo,
-        currency: "GHS",
-        ref:      `FEE-${fee.id}-${Date.now()}`,
-        metadata: {
-          custom_fields: [
-            { display_name: "Student",        variable_name: "student_name",     value: user.full_name || admissionNumber },
-            { display_name: "Admission No.",  variable_name: "admission_number", value: admissionNumber },
-            { display_name: "Term",           variable_name: "term",             value: termInfo.label },
-            { display_name: "Fee ID",         variable_name: "fee_id",           value: String(fee.id) },
-          ],
-        },
-        onClose: () => {
-          setPaying(false);
-        },
-        callback: async (response) => {
-          try {
-            await API.post(`/fees/${fee.id}/pay/`, {
-              amount: payAmount,
-              note:   `Paystack ref: ${response.reference}`,
-            });
-            onSuccess(payAmount, response.reference);
-          } catch (e) {
-            const data = e.response?.data;
-            setBackendErr(
-              data?.error || data?.detail ||
-              "Payment was received by Paystack but could not be saved. Please contact the school office with reference: " + response.reference
-            );
-            setPaying(false);
-          }
-        },
+  // ── Define as plain named functions (NOT async) ───────────────────────────
+  // Paystack's validator calls isValid() which runs validateInputTypes().
+  // async arrow functions can fail this check in some SDK versions.
+  // Use plain function declarations and handle promises internally.
+
+  function handleClose() {
+    setPaying(false);
+  }
+
+  function handleCallback(response) {
+    API.post(`/fees/${fee.id}/pay/`, {
+      amount: payAmount,
+      note:   `Paystack ref: ${response.reference}`,
+    })
+      .then(() => {
+        onSuccess(payAmount, response.reference);
+      })
+      .catch((e) => {
+        const data = e.response?.data;
+        setBackendErr(
+          data?.error || data?.detail ||
+          "Payment was received by Paystack but could not be saved. " +
+          "Please contact the school office with reference: " + response.reference
+        );
+        setPaying(false);
       });
+  }
 
-      handler.openIframe();
+  // ── Call setup() synchronously after SDK is ready ────────────────────────
+  const handler = PaystackPop.setup({
+    key:      paystackKey,
+    email,
+    amount:   amountKobo,
+    currency: "GHS",
+    ref:      `FEE-${fee.id}-${Date.now()}`,
+    metadata: {
+      custom_fields: [
+        { display_name: "Student",        variable_name: "student_name",     value: user.full_name || admissionNumber },
+        { display_name: "Admission No.",  variable_name: "admission_number", value: admissionNumber },
+        { display_name: "Term",           variable_name: "term",             value: termInfo.label },
+        { display_name: "Fee ID",         variable_name: "fee_id",           value: String(fee.id) },
+      ],
+    },
+    onClose:  handleClose,   // plain function ✅
+    callback: handleCallback, // plain function ✅
+  });
+
+  handler.openIframe();
+};
 
     } catch (err) {
       console.error("Paystack error:", err);
