@@ -698,48 +698,7 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
     return null;
   };
 
-const handlePay = async () => {
-  // Guard: missing key
-  if (keyMissing) {
-    setBackendErr("Payment gateway is not configured. Please contact the school administrator.");
-    return;
-  }
-
-  const err = validate();
-  if (err) { setCustomErr(err); return; }
-
-  setCustomErr("");
-  setBackendErr("");
-  setPaying(true);
-
-  // ── Load SDK first, THEN call setup() synchronously ──────────────────────
-  // Paystack's inline.js v1 validator checks typeof callback === 'function'
-  // but rejects async functions in some builds. Load the SDK up front so
-  // setup() is called synchronously with plain (non-async) function refs.
-  let PaystackPop;
-  try {
-    PaystackPop = await loadPaystack();
-  } catch (loadErr) {
-    console.error("Paystack error:", loadErr);
-    setBackendErr(loadErr.message || "Could not load payment gateway. Please try again.");
-    setPaying(false);
-    return;
-  }
-
-  const admissionNumber = user.admission_number || user.username || "student";
-  const email = `${admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.school.com`;
-  const amountKobo = Math.round(payAmount * 100);
-
-  // ── Define as plain named functions (NOT async) ───────────────────────────
-  // Paystack's validator calls isValid() which runs validateInputTypes().
-  // async arrow functions can fail this check in some SDK versions.
-  // Use plain function declarations and handle promises internally.
-
-  function handleClose() {
-    setPaying(false);
-  }
-
-  function handleCallback(response) {
+function handleCallback(response) {
     API.post(`/fees/${fee.id}/pay/`, {
       amount: payAmount,
       note:   `Paystack ref: ${response.reference}`,
@@ -747,10 +706,17 @@ const handlePay = async () => {
       .then(() => {
         onSuccess(payAmount, response.reference);
       })
-      
+      .catch((e) => {
+        const data = e.response?.data;
+        setBackendErr(
+          data?.error || data?.detail ||
+          "Payment was received by Paystack but could not be saved. " +
+          "Please contact the school office with reference: " + response.reference
+        );
+        setPaying(false);
+      });
   }
 
-  // ── Call setup() synchronously after SDK is ready ────────────────────────
   const handler = PaystackPop.setup({
     key:      paystackKey,
     email,
@@ -765,20 +731,15 @@ const handlePay = async () => {
         { display_name: "Fee ID",         variable_name: "fee_id",           value: String(fee.id) },
       ],
     },
-    onClose:  handleClose,   // plain function ✅
-    callback: handleCallback, // plain function ✅
+    onClose:  handleClose,
+    callback: handleCallback,
   });
 
   handler.openIframe();
-};
+};   // ← handlePay ends here. Nothing after this except the return(...) JSX.
 
-    } catch (err) {
-      console.error("Paystack error:", err);
-      setBackendErr(err.message || "Could not load payment gateway. Please try again.");
-      setPaying(false);
-    }
-  };
-
+  return (
+    <div className="sp-modal-overlay" ...>
   return (
     <div className="sp-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="sp-modal sp-pay-modal">
