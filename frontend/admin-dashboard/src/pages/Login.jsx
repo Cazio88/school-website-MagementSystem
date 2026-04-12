@@ -214,19 +214,13 @@ const Login = () => {
                 <p>{forgotContent.body}</p>
                 {forgotContent.showContact && (
                   <div className="flex gap-2 mt-3">
-                    
-                      href="mailto:admin@leadingstars.edu"
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white border border-amber-300 rounded-lg text-amber-800 hover:bg-amber-100 transition-colors"
-                    >
-                      <FaEnvelope className="text-[10px]" /> Email admin
-                    </a>
-                    
-                      href="tel:+000000000"
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white border border-amber-300 rounded-lg text-amber-800 hover:bg-amber-100 transition-colors"
-                    >
-                      <FaPhone className="text-[10px]" /> Call office
-                    </a>
-                  </div>
+                      <a href="mailto:admin@leadingstars.edu" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white border border-amber-300 rounded-lg text-amber-800 hover:bg-amber-100 transition-colors">
+                        <FaEnvelope className="text-[10px]" /> Email admin
+                      </a>
+                      <a href="tel:+000000000" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white border border-amber-300 rounded-lg text-amber-800 hover:bg-amber-100 transition-colors">
+                        <FaPhone className="text-[10px]" /> Call office
+                      </a>
+                    </div>
                 )}
               </div>
             )}
