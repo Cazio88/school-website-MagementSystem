@@ -747,15 +747,7 @@ const handlePay = async () => {
       .then(() => {
         onSuccess(payAmount, response.reference);
       })
-      .catch((e) => {
-        const data = e.response?.data;
-        setBackendErr(
-          data?.error || data?.detail ||
-          "Payment was received by Paystack but could not be saved. " +
-          "Please contact the school office with reference: " + response.reference
-        );
-        setPaying(false);
-      });
+      
   }
 
   // ── Call setup() synchronously after SDK is ready ────────────────────────
