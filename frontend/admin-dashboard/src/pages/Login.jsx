@@ -1,15 +1,16 @@
 import { useState } from "react";
 import {
   FaUser, FaLock, FaUserShield, FaChalkboardTeacher,
-  FaUserGraduate, FaClock, FaEnvelope, FaPhone, FaChevronDown, FaChevronUp,
+  FaUserGraduate, FaClock, FaEnvelope, FaPhone,
+  FaChevronDown, FaChevronUp, FaEye, FaEyeSlash,
 } from "react-icons/fa";
 import { useNavigate, Link } from "react-router-dom";
 import { login } from "../services/auth";
 
 const ROLES = [
-  { value: "admin",   label: "Admin",   icon: <FaUserShield />,        hint: "Use your username",        placeholder: "Username"          },
-  { value: "teacher", label: "Teacher", icon: <FaChalkboardTeacher />, hint: "Use your Teacher ID",      placeholder: "Teacher ID"        },
-  { value: "student", label: "Student", icon: <FaUserGraduate />,      hint: "Use your Admission Number", placeholder: "Admission Number" },
+  { value: "admin",   label: "Admin",   icon: <FaUserShield />,        hint: "Use your username",         placeholder: "Username"          },
+  { value: "teacher", label: "Teacher", icon: <FaChalkboardTeacher />, hint: "Use your Teacher ID",       placeholder: "Teacher ID"        },
+  { value: "student", label: "Student", icon: <FaUserGraduate />,      hint: "Use your Admission Number", placeholder: "Admission Number"  },
 ];
 
 const FORGOT_CONTENT = {
@@ -39,9 +40,10 @@ const Login = () => {
   const [pendingApproval, setPendingApproval] = useState(false);
   const [loading, setLoading]                 = useState(false);
   const [showForgot, setShowForgot]           = useState(false);
+  const [showPassword, setShowPassword]       = useState(false);
 
-  const selectedRole   = ROLES.find((r) => r.value === role);
-  const forgotContent  = FORGOT_CONTENT[role];
+  const selectedRole  = ROLES.find((r) => r.value === role);
+  const forgotContent = FORGOT_CONTENT[role];
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
@@ -49,6 +51,7 @@ const Login = () => {
     setError("");
     setPendingApproval(false);
     setShowForgot(false);
+    setShowPassword(false);
   };
 
   const handleLogin = async (e) => {
@@ -78,7 +81,7 @@ const Login = () => {
     <div className="flex min-h-screen">
 
       {/* ── Left branding panel ── */}
-      <div className="hidden md:flex w-5/12 bg-blue-700 text-white flex-col items-center justify-center p-10 gap-0">
+      <div className="hidden md:flex w-5/12 bg-blue-700 text-white flex-col items-center justify-center p-10">
         <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-5">
           <span className="text-2xl font-medium text-white">LS</span>
         </div>
@@ -86,9 +89,9 @@ const Login = () => {
         <p className="text-blue-300 text-sm mb-10">Where Leaders Are Born</p>
         <div className="space-y-3 w-full max-w-xs">
           {[
-            { icon: <FaUserShield />, text: "Admins — full system access" },
-            { icon: <FaChalkboardTeacher />, text: "Teachers — class, attendance & results" },
-            { icon: <FaUserGraduate />, text: "Students — results, reports & fees" },
+            { icon: <FaUserShield />,        text: "Admins — full system access"              },
+            { icon: <FaChalkboardTeacher />, text: "Teachers — class, attendance & results"   },
+            { icon: <FaUserGraduate />,      text: "Students — results, reports & fees"       },
           ].map(({ icon, text }) => (
             <div key={text} className="flex items-center gap-3 text-blue-200 text-sm">
               <span className="text-blue-300 text-xs">{icon}</span>
@@ -154,6 +157,8 @@ const Login = () => {
 
           {/* ── Form ── */}
           <form onSubmit={handleLogin} className="space-y-3">
+
+            {/* Username */}
             <div className="flex items-center border border-gray-300 rounded-lg px-3 focus-within:ring-2 focus-within:ring-blue-500 transition">
               <FaUser className="text-gray-400 text-xs flex-shrink-0" />
               <input
@@ -166,19 +171,29 @@ const Login = () => {
               />
             </div>
 
+            {/* Password */}
             <div className="flex items-center border border-gray-300 rounded-lg px-3 focus-within:ring-2 focus-within:ring-blue-500 transition">
               <FaLock className="text-gray-400 text-xs flex-shrink-0" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 className="w-full p-3 outline-none text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="text-gray-400 hover:text-blue-600 transition-colors ml-2 flex-shrink-0"
+                tabIndex={-1}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <FaEyeSlash className="text-sm" /> : <FaEye className="text-sm" />}
+              </button>
             </div>
 
-            {/* ── Forgot password toggle ── */}
+            {/* Forgot password toggle */}
             <div className="flex justify-end">
               <button
                 type="button"
@@ -190,7 +205,7 @@ const Login = () => {
               </button>
             </div>
 
-            {/* ── Forgot password notice ── */}
+            {/* Forgot password notice */}
             {showForgot && (
               <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
                 <p className="font-semibold text-amber-900 mb-1">{forgotContent.title}</p>
@@ -231,6 +246,7 @@ const Login = () => {
               </Link>
             </p>
           )}
+
         </div>
       </div>
     </div>
