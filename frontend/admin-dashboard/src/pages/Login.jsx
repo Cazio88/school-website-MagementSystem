@@ -8,9 +8,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { login } from "../services/auth";
 
 const ROLES = [
-  { value: "admin",   label: "Admin",   icon: <FaUserShield />,        hint: "Use your username",         placeholder: "Username"          },
-  { value: "teacher", label: "Teacher", icon: <FaChalkboardTeacher />, hint: "Use your Teacher ID",       placeholder: "Teacher ID"        },
-  { value: "student", label: "Student", icon: <FaUserGraduate />,      hint: "Use your Admission Number", placeholder: "Admission Number"  },
+  { value: "admin",   label: "Admin",   icon: <FaUserShield />,        hint: "Use your username",         placeholder: "Username"         },
+  { value: "teacher", label: "Teacher", icon: <FaChalkboardTeacher />, hint: "Use your Teacher ID",       placeholder: "Teacher ID"       },
+  { value: "student", label: "Student", icon: <FaUserGraduate />,      hint: "Use your Admission Number", placeholder: "Admission Number" },
 ];
 
 const FORGOT_CONTENT = {
@@ -32,15 +32,15 @@ const FORGOT_CONTENT = {
 };
 
 const Login = () => {
-  const navigate                              = useNavigate();
-  const [role, setRole]                       = useState("student");
-  const [username, setUsername]               = useState("");
-  const [password, setPassword]               = useState("");
-  const [error, setError]                     = useState("");
-  const [pendingApproval, setPendingApproval] = useState(false);
-  const [loading, setLoading]                 = useState(false);
-  const [showForgot, setShowForgot]           = useState(false);
-  const [showPassword, setShowPassword]       = useState(false);
+  const navigate                        = useNavigate();
+  const [role, setRole]                 = useState("student");
+  const [username, setUsername]         = useState("");
+  const [password, setPassword]         = useState("");
+  const [error, setError]               = useState("");
+  const [pendingApproval, setPending]   = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [showForgot, setShowForgot]     = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const selectedRole  = ROLES.find((r) => r.value === role);
   const forgotContent = FORGOT_CONTENT[role];
@@ -49,7 +49,7 @@ const Login = () => {
     setRole(newRole);
     setUsername("");
     setError("");
-    setPendingApproval(false);
+    setPending(false);
     setShowForgot(false);
     setShowPassword(false);
   };
@@ -57,7 +57,7 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    setPendingApproval(false);
+    setPending(false);
     setLoading(true);
     try {
       const user = await login(username, password);
@@ -68,7 +68,7 @@ const Login = () => {
     } catch (err) {
       const errData = err.response?.data;
       if (errData?.error === "pending_approval") {
-        setPendingApproval(true);
+        setPending(true);
       } else {
         setError(errData?.error || errData?.message || "Invalid credentials. Please try again.");
       }
@@ -89,9 +89,9 @@ const Login = () => {
         <p className="text-blue-300 text-sm mb-10">Where Leaders Are Born</p>
         <div className="space-y-3 w-full max-w-xs">
           {[
-            { icon: <FaUserShield />,        text: "Admins — full system access"              },
-            { icon: <FaChalkboardTeacher />, text: "Teachers — class, attendance & results"   },
-            { icon: <FaUserGraduate />,      text: "Students — results, reports & fees"       },
+            { icon: <FaUserShield />,        text: "Admins — full system access"            },
+            { icon: <FaChalkboardTeacher />, text: "Teachers — class, attendance & results" },
+            { icon: <FaUserGraduate />,      text: "Students — results, reports & fees"     },
           ].map(({ icon, text }) => (
             <div key={text} className="flex items-center gap-3 text-blue-200 text-sm">
               <span className="text-blue-300 text-xs">{icon}</span>
@@ -158,7 +158,7 @@ const Login = () => {
           {/* ── Form ── */}
           <form onSubmit={handleLogin} className="space-y-3">
 
-            {/* Username */}
+            {/* Username field */}
             <div className="flex items-center border border-gray-300 rounded-lg px-3 focus-within:ring-2 focus-within:ring-blue-500 transition">
               <FaUser className="text-gray-400 text-xs flex-shrink-0" />
               <input
@@ -171,7 +171,7 @@ const Login = () => {
               />
             </div>
 
-            {/* Password */}
+            {/* Password field */}
             <div className="flex items-center border border-gray-300 rounded-lg px-3 focus-within:ring-2 focus-within:ring-blue-500 transition">
               <FaLock className="text-gray-400 text-xs flex-shrink-0" />
               <input
@@ -201,7 +201,9 @@ const Login = () => {
                 className="text-xs text-blue-600 hover:underline flex items-center gap-1"
               >
                 Forgot password?
-                {showForgot ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+                {showForgot
+                  ? <FaChevronUp className="text-[10px]" />
+                  : <FaChevronDown className="text-[10px]" />}
               </button>
             </div>
 
@@ -229,6 +231,7 @@ const Login = () => {
               </div>
             )}
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
@@ -236,6 +239,7 @@ const Login = () => {
             >
               {loading ? "Signing in…" : `Sign in as ${selectedRole?.label}`}
             </button>
+
           </form>
 
           {role === "admin" && (
