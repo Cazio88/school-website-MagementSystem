@@ -444,17 +444,14 @@ const PORTAL_STYLES = `
 `;
 
 /* ─────────────────────────────────────────────
-   Paystack loader — fixed with proper error handling
+   Paystack loader
 ───────────────────────────────────────────── */
 const loadPaystack = () =>
   new Promise((resolve, reject) => {
-    // Already loaded
     if (window.PaystackPop) return resolve(window.PaystackPop);
 
-    // Check if script tag already exists but PopstackPop not ready yet
     const existing = document.querySelector('script[src*="paystack"]');
     if (existing) {
-      // Wait up to 5s for it to become available
       let attempts = 0;
       const poll = setInterval(() => {
         attempts++;
@@ -472,7 +469,6 @@ const loadPaystack = () =>
     const script = document.createElement("script");
     script.src = "https://js.paystack.co/v1/inline.js";
     script.async = true;
-
     script.onload = () => {
       if (window.PaystackPop) {
         resolve(window.PaystackPop);
@@ -480,11 +476,9 @@ const loadPaystack = () =>
         reject(new Error("Paystack loaded but PaystackPop is unavailable. Try disabling your ad-blocker."));
       }
     };
-
     script.onerror = () => {
       reject(new Error("Failed to load Paystack script. Check your internet connection or disable any ad-blocker."));
     };
-
     document.head.appendChild(script);
   });
 
@@ -534,21 +528,22 @@ const TABS = [
 /* ─────────────────────────────────────────────
    Helpers
 ───────────────────────────────────────────── */
-const fmt = (v) => Number(v || 0).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (v) =>
+  Number(v || 0).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function pwStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "transparent" };
   let s = 0;
-  if (pw.length >= 8)             s++;
-  if (/[A-Z]/.test(pw))           s++;
-  if (/[0-9]/.test(pw))           s++;
-  if (/[^A-Za-z0-9]/.test(pw))   s++;
+  if (pw.length >= 8)           s++;
+  if (/[A-Z]/.test(pw))         s++;
+  if (/[0-9]/.test(pw))         s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
   const map = [
-    { label: "Too short",  color: "#f87171", w: "25%" },
-    { label: "Weak",       color: "#fb923c", w: "40%" },
-    { label: "Fair",       color: "#fbbf24", w: "60%" },
-    { label: "Good",       color: "#34d399", w: "80%" },
-    { label: "Strong",     color: "#16a34a", w: "100%" },
+    { label: "Too short", color: "#f87171", w: "25%" },
+    { label: "Weak",      color: "#fb923c", w: "40%" },
+    { label: "Fair",      color: "#fbbf24", w: "60%" },
+    { label: "Good",      color: "#34d399", w: "80%" },
+    { label: "Strong",    color: "#16a34a", w: "100%" },
   ];
   return { score: s, ...map[Math.min(s, map.length - 1)] };
 }
@@ -556,39 +551,41 @@ function pwStrength(pw) {
 /* ─────────────────────────────────────────────
    Eye icon
 ───────────────────────────────────────────── */
-const EyeIcon = ({ open }) => open ? (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-  </svg>
-) : (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-    <line x1="1" y1="1" x2="23" y2="23"/>
-  </svg>
-);
-//v3
+const EyeIcon = ({ open }) =>
+  open ? (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  ) : (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  );
+
 /* ─────────────────────────────────────────────
    Change Password Modal
 ───────────────────────────────────────────── */
 const ChangePasswordModal = ({ onClose }) => {
-  const [current, setCurrent]   = useState("");
-  const [next, setNext]         = useState("");
-  const [confirm, setConfirm]   = useState("");
-  const [showCur, setShowCur]   = useState(false);
-  const [showNew, setShowNew]   = useState(false);
-  const [showCon, setShowCon]   = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [error, setError]       = useState("");
-  const [success, setSuccess]   = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext]       = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showCur, setShowCur] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showCon, setShowCon] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState("");
+  const [success, setSuccess] = useState(false);
 
   const strength = pwStrength(next);
   const mismatch = confirm && next !== confirm;
 
   const handleSubmit = async () => {
     setError("");
-    if (!current)               return setError("Enter your current password.");
-    if (next.length < 8)        return setError("New password must be at least 8 characters.");
-    if (next !== confirm)       return setError("New passwords do not match.");
+    if (!current)         return setError("Enter your current password.");
+    if (next.length < 8)  return setError("New password must be at least 8 characters.");
+    if (next !== confirm)  return setError("New passwords do not match.");
     setSaving(true);
     try {
       await API.post("/auth/change-password/", { old_password: current, new_password: next });
@@ -596,8 +593,13 @@ const ChangePasswordModal = ({ onClose }) => {
       setTimeout(onClose, 2200);
     } catch (e) {
       const data = e.response?.data;
-      setError(data?.old_password?.[0] || data?.new_password?.[0] || data?.detail || "Failed to change password.");
-    } finally { setSaving(false); }
+      setError(
+        data?.old_password?.[0] || data?.new_password?.[0] ||
+        data?.detail || "Failed to change password."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -612,7 +614,10 @@ const ChangePasswordModal = ({ onClose }) => {
         </div>
         {success ? (
           <div className="sp-pw-success">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
             Password changed successfully!
           </div>
         ) : (
@@ -623,7 +628,9 @@ const ChangePasswordModal = ({ onClose }) => {
                 <input type={showCur ? "text" : "password"} className="sp-modal-input"
                   placeholder="Enter current password" value={current}
                   onChange={e => { setCurrent(e.target.value); setError(""); }} />
-                <button className="sp-modal-eye" onClick={() => setShowCur(v => !v)}><EyeIcon open={showCur} /></button>
+                <button className="sp-modal-eye" onClick={() => setShowCur(v => !v)}>
+                  <EyeIcon open={showCur} />
+                </button>
               </div>
             </div>
             <div className="sp-modal-field">
@@ -632,7 +639,9 @@ const ChangePasswordModal = ({ onClose }) => {
                 <input type={showNew ? "text" : "password"} className="sp-modal-input"
                   placeholder="Min. 8 characters" value={next}
                   onChange={e => { setNext(e.target.value); setError(""); }} />
-                <button className="sp-modal-eye" onClick={() => setShowNew(v => !v)}><EyeIcon open={showNew} /></button>
+                <button className="sp-modal-eye" onClick={() => setShowNew(v => !v)}>
+                  <EyeIcon open={showNew} />
+                </button>
               </div>
               {next && (
                 <>
@@ -648,7 +657,9 @@ const ChangePasswordModal = ({ onClose }) => {
                   style={mismatch ? { borderColor:"#f87171" } : confirm && !mismatch ? { borderColor:"#34d399" } : {}}
                   placeholder="Repeat new password" value={confirm}
                   onChange={e => { setConfirm(e.target.value); setError(""); }} />
-                <button className="sp-modal-eye" onClick={() => setShowCon(v => !v)}><EyeIcon open={showCon} /></button>
+                <button className="sp-modal-eye" onClick={() => setShowCon(v => !v)}>
+                  <EyeIcon open={showCon} />
+                </button>
               </div>
               {mismatch && <p className="sp-pw-hint" style={{ color:"#f87171" }}>Passwords don't match</p>}
             </div>
@@ -656,9 +667,12 @@ const ChangePasswordModal = ({ onClose }) => {
             <div className="sp-modal-actions">
               <button className="sp-btn-secondary" onClick={onClose}>Cancel</button>
               <button className="sp-btn-primary" onClick={handleSubmit} disabled={saving || mismatch}>
-                {saving
-                  ? <><div style={{ width:"15px",height:"15px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"sp-spin .6s linear infinite" }}/> Saving…</>
-                  : "Update Password"}
+                {saving ? (
+                  <>
+                    <div style={{ width:"15px", height:"15px", border:"2px solid rgba(255,255,255,.3)", borderTopColor:"#fff", borderRadius:"50%", animation:"sp-spin .6s linear infinite" }}/>
+                    Saving…
+                  </>
+                ) : "Update Password"}
               </button>
             </div>
           </>
@@ -669,11 +683,12 @@ const ChangePasswordModal = ({ onClose }) => {
 };
 
 /* ─────────────────────────────────────────────
-   Payment Modal — fixed Paystack integration
+   Payment Modal — clean Paystack integration
 ───────────────────────────────────────────── */
 const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
-  const termInfo   = TERMS.find(t => t.value === fee.term) || { label: fee.term, icon: "💳" };
-  const balance    = Number(fee.balance);
+  const termInfo  = TERMS.find(t => t.value === fee.term) || { label: fee.term, icon: "💳" };
+  const balance   = Number(fee.balance);
+
   const [mode, setMode]             = useState("full");
   const [custom, setCustom]         = useState("");
   const [customErr, setCustomErr]   = useState("");
@@ -683,66 +698,98 @@ const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
   const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
   const keyMissing  = !paystackKey || paystackKey.trim() === "";
 
-  const payAmount = mode === "full"
-    ? balance
-    : parseFloat(custom) || 0;
+  const payAmount = mode === "full" ? balance : parseFloat(custom) || 0;
 
   const validate = () => {
-    if (payAmount <= 0)       return "Payment amount must be greater than zero.";
+    if (payAmount <= 0) return "Payment amount must be greater than zero.";
     if (mode === "partial") {
       const v = parseFloat(custom);
-      if (!v || v <= 0)       return "Enter a valid amount.";
-      if (v > balance)        return `Amount cannot exceed balance of GHS ${fmt(balance)}.`;
-      if (v < 1)              return "Minimum payment is GHS 1.00.";
+      if (!v || v <= 0)  return "Enter a valid amount.";
+      if (v > balance)   return `Amount cannot exceed balance of GHS ${fmt(balance)}.`;
+      if (v < 1)         return "Minimum payment is GHS 1.00.";
     }
     return null;
   };
 
-function handleCallback(response) {
-    API.post(`/fees/${fee.id}/pay/`, {
-      amount: payAmount,
-      note:   `Paystack ref: ${response.reference}`,
-    })
-      .then(() => {
-        onSuccess(payAmount, response.reference);
+  const handlePay = async () => {
+    if (keyMissing) {
+      setBackendErr("Payment gateway is not configured. Please contact the school administrator.");
+      return;
+    }
+
+    const err = validate();
+    if (err) { setCustomErr(err); return; }
+
+    setCustomErr("");
+    setBackendErr("");
+    setPaying(true);
+
+    // Load Paystack SDK first, then call setup() synchronously with plain
+    // (non-async) function references — Paystack's validator rejects async fns.
+    let PaystackPop;
+    try {
+      PaystackPop = await loadPaystack();
+    } catch (loadErr) {
+      console.error("Paystack load error:", loadErr);
+      setBackendErr(loadErr.message || "Could not load payment gateway. Please try again.");
+      setPaying(false);
+      return;
+    }
+
+    const admissionNumber = user.admission_number || user.username || "student";
+    const email           = `${admissionNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.school.com`;
+    const amountPesewas   = Math.round(payAmount * 100);
+
+    // Plain (non-async) function — satisfies Paystack's typeof check
+    function handleClose() {
+      setPaying(false);
+    }
+
+    // Plain function that fires async work internally
+    function handleCallback(response) {
+      API.post(`/fees/${fee.id}/pay/`, {
+        amount: payAmount,
+        note:   `Paystack ref: ${response.reference}`,
       })
-      .catch((e) => {
-        const data = e.response?.data;
-        setBackendErr(
-          data?.error || data?.detail ||
-          "Payment was received by Paystack but could not be saved. " +
-          "Please contact the school office with reference: " + response.reference
-        );
-        setPaying(false);
-      });
-  }
+        .then(() => {
+          onSuccess(payAmount, response.reference);
+        })
+        .catch((e) => {
+          const data = e.response?.data;
+          setBackendErr(
+            data?.error || data?.detail ||
+            "Payment was received by Paystack but could not be saved. " +
+            "Please contact the school office with reference: " + response.reference
+          );
+          setPaying(false);
+        });
+    }
 
-  const handler = PaystackPop.setup({
-    key:      paystackKey,
-    email,
-    amount:   amountKobo,
-    currency: "GHS",
-    ref:      `FEE-${fee.id}-${Date.now()}`,
-    metadata: {
-      custom_fields: [
-        { display_name: "Student",        variable_name: "student_name",     value: user.full_name || admissionNumber },
-        { display_name: "Admission No.",  variable_name: "admission_number", value: admissionNumber },
-        { display_name: "Term",           variable_name: "term",             value: termInfo.label },
-        { display_name: "Fee ID",         variable_name: "fee_id",           value: String(fee.id) },
-      ],
-    },
-    onClose:  handleClose,
-    callback: handleCallback,
-  });
+    const handler = PaystackPop.setup({
+      key:      paystackKey,
+      email,
+      amount:   amountPesewas,
+      currency: "GHS",
+      ref:      `FEE-${fee.id}-${Date.now()}`,
+      metadata: {
+        custom_fields: [
+          { display_name: "Student",       variable_name: "student_name",     value: user.full_name || admissionNumber },
+          { display_name: "Admission No.", variable_name: "admission_number", value: admissionNumber },
+          { display_name: "Term",          variable_name: "term",             value: termInfo.label },
+          { display_name: "Fee ID",        variable_name: "fee_id",           value: String(fee.id) },
+        ],
+      },
+      onClose:  handleClose,    // plain function ✅
+      callback: handleCallback, // plain function ✅
+    });
 
-  handler.openIframe();
-};   // ← handlePay ends here. Nothing after this except the return(...) JSX.
+    handler.openIframe();
+  };
 
-  return (
-    <div className="sp-modal-overlay" ...>
   return (
     <div className="sp-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="sp-modal sp-pay-modal">
+
         {/* Header */}
         <div className="sp-pay-modal-header">
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -766,11 +813,17 @@ function handleCallback(response) {
         <div className="sp-modal-field">
           <label className="sp-field-label">Payment amount</label>
           <div className="sp-amount-options">
-            <button className={`sp-amount-option ${mode === "full" ? "selected" : ""}`} onClick={() => { setMode("full"); setCustomErr(""); }}>
+            <button
+              className={`sp-amount-option ${mode === "full" ? "selected" : ""}`}
+              onClick={() => { setMode("full"); setCustomErr(""); }}
+            >
               <div className="sp-amount-option-label">Full balance</div>
               <div className="sp-amount-option-val">GHS {fmt(balance)}</div>
             </button>
-            <button className={`sp-amount-option ${mode === "partial" ? "selected" : ""}`} onClick={() => { setMode("partial"); setCustomErr(""); }}>
+            <button
+              className={`sp-amount-option ${mode === "partial" ? "selected" : ""}`}
+              onClick={() => { setMode("partial"); setCustomErr(""); }}
+            >
               <div className="sp-amount-option-label">Partial amount</div>
               <div className="sp-amount-option-val" style={{ color: mode === "partial" && custom ? "#2563eb" : "#94a3b8" }}>
                 {mode === "partial" && custom ? `GHS ${fmt(custom)}` : "Enter amount"}
@@ -799,9 +852,7 @@ function handleCallback(response) {
           )}
         </div>
 
-        {backendErr && (
-          <div className="sp-gateway-err">{backendErr}</div>
-        )}
+        {backendErr && <div className="sp-gateway-err">{backendErr}</div>}
 
         {/* Pay button */}
         <button
@@ -810,11 +861,15 @@ function handleCallback(response) {
           disabled={paying || keyMissing || (mode === "partial" && !custom)}
         >
           {paying ? (
-            <><div style={{ width:"16px",height:"16px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"sp-spin .6s linear infinite" }}/> Opening Paystack…</>
+            <>
+              <div style={{ width:"16px", height:"16px", border:"2px solid rgba(255,255,255,.3)", borderTopColor:"#fff", borderRadius:"50%", animation:"sp-spin .6s linear infinite" }}/>
+              Opening Paystack…
+            </>
           ) : (
             <>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                <line x1="1" y1="10" x2="23" y2="10"/>
               </svg>
               Pay GHS {fmt(payAmount)}
             </>
@@ -822,7 +877,8 @@ function handleCallback(response) {
         </button>
         <div className="sp-paystack-badge">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
           </svg>
           Secured by Paystack · Mobile Money &amp; Cards accepted
         </div>
@@ -864,9 +920,10 @@ const TransactionHistory = ({ transactions }) => (
             <div className="sp-txn-icon">💸</div>
             <div className="sp-txn-info">
               <div className="sp-txn-note">{txn.note || "Fee payment"}</div>
-              <div className="sp-txn-date">{txn.created_at
-                ? new Date(txn.created_at).toLocaleDateString("en-GH", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })
-                : "—"}
+              <div className="sp-txn-date">
+                {txn.created_at
+                  ? new Date(txn.created_at).toLocaleDateString("en-GH", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })
+                  : "—"}
               </div>
             </div>
             <div style={{ textAlign:"right" }}>
@@ -884,26 +941,26 @@ const TransactionHistory = ({ transactions }) => (
    Fee Term Card (collapsible)
 ───────────────────────────────────────────── */
 const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
-  const [open, setOpen]             = useState(false);
+  const [open, setOpen]                 = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
-  const [localFee, setLocalFee]     = useState(fee);
+  const [localFee, setLocalFee]         = useState(fee);
 
   useEffect(() => { setLocalFee(fee); }, [fee]);
 
-  const balance    = Number(localFee.balance);
-  const paid       = Number(localFee.paid);
-  const total      = Number(localFee.total_amount);
-  const isPaid     = balance <= 0;
-  const isPartial  = !isPaid && paid > 0;
-  const pct        = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
-  const termInfo   = TERMS.find(t => t.value === localFee.term) || { label: localFee.term, icon: "💳" };
+  const balance   = Number(localFee.balance);
+  const paid      = Number(localFee.paid);
+  const total     = Number(localFee.total_amount);
+  const isPaid    = balance <= 0;
+  const isPartial = !isPaid && paid > 0;
+  const pct       = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+  const termInfo  = TERMS.find(t => t.value === localFee.term) || { label: localFee.term, icon: "💳" };
   const progressColor = isPaid ? "#16a34a" : isPartial ? "#d97706" : "#dc2626";
 
   const lineItems = [
-    { label: "School Fees",    value: localFee.amount },
-    { label: "Book User Fee",  value: localFee.book_user_fee },
-    { label: "Workbook Fee",   value: localFee.workbook_fee },
-    { label: "Arrears",        value: localFee.arrears },
+    { label: "School Fees",   value: localFee.amount },
+    { label: "Book User Fee", value: localFee.book_user_fee },
+    { label: "Workbook Fee",  value: localFee.workbook_fee },
+    { label: "Arrears",       value: localFee.arrears },
   ].filter(r => Number(r.value) > 0);
 
   const handleSuccess = (amount, reference) => {
@@ -1005,7 +1062,8 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
             {isPaid ? (
               <div className="sp-pay-btn-paid">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
                 All fees paid — Thank you!
               </div>
@@ -1013,13 +1071,15 @@ const FeeTermCard = ({ fee, user, onPaymentSuccess }) => {
               <>
                 <button className="sp-pay-btn" onClick={() => setShowPayModal(true)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                    <line x1="1" y1="10" x2="23" y2="10"/>
                   </svg>
                   Pay Now — GHS {fmt(balance)}
                 </button>
                 <div className="sp-paystack-badge">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0110 0v4"/>
                   </svg>
                   Secured by Paystack · Mobile Money, Cards accepted
                 </div>
@@ -1071,7 +1131,7 @@ const FeesOverview = ({ fees }) => {
 };
 
 /* ─────────────────────────────────────────────
-   Grade badge
+   Grade badges
 ───────────────────────────────────────────── */
 const GradeBadge = ({ grade }) => {
   const c = GRADE_COLORS[grade];
@@ -1105,7 +1165,7 @@ const SubjectTable = ({ report }) => (
       <table className="sp-table">
         <thead>
           <tr>
-            <th style={{textAlign:"left",padding:"10px 14px"}}>Subject</th>
+            <th style={{ textAlign:"left", padding:"10px 14px" }}>Subject</th>
             <th className="c">Re-Open</th>
             <th className="c">CA/MGT</th>
             <th className="c">Exams</th>
@@ -1118,12 +1178,12 @@ const SubjectTable = ({ report }) => (
         <tbody>
           {report.subjects?.map((sub, i) => (
             <tr key={i}>
-              <td style={{fontWeight:"600",color:"#1e293b"}}>{sub.subject}</td>
+              <td style={{ fontWeight:"600", color:"#1e293b" }}>{sub.subject}</td>
               <td className="c sp-muted">{sub.reopen ?? "—"}</td>
               <td className="c sp-muted">{sub.ca     ?? "—"}</td>
               <td className="c sp-muted">{sub.exams  ?? "—"}</td>
               <td className="c sp-score">{sub.score}</td>
-              {report.show_position && <td className="c" style={{fontWeight:"600",color:"#64748b"}}>{sub.subject_position ?? "—"}</td>}
+              {report.show_position && <td className="c" style={{ fontWeight:"600", color:"#64748b" }}>{sub.subject_position ?? "—"}</td>}
               <td className="c"><GradeBadge grade={sub.grade} /></td>
               <td className="c"><RemarkBadge grade={sub.grade} remark={sub.remark} /></td>
             </tr>
@@ -1143,10 +1203,11 @@ const SubjectLineChart = ({ subject, data, color }) => {
   const pts    = data.map((d, i) => ({
     x: PAD + (i / Math.max(data.length - 1, 1)) * (W - PAD * 2),
     y: PAD + (1 - (d.score - min) / range) * (H - PAD * 2),
-    score: d.score, term: d.term,
+    score: d.score,
+    term:  d.term,
   }));
-  const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const areaD = pts.length > 0 ? `${pathD} L ${pts[pts.length-1].x} ${H-PAD} L ${pts[0].x} ${H-PAD} Z` : "";
+  const pathD  = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const areaD  = pts.length > 0 ? `${pathD} L ${pts[pts.length-1].x} ${H-PAD} L ${pts[0].x} ${H-PAD} Z` : "";
   const latest   = scores[scores.length - 1];
   const previous = scores.length > 1 ? scores[scores.length - 2] : null;
   const diff     = previous != null ? latest - previous : null;
@@ -1156,7 +1217,7 @@ const SubjectLineChart = ({ subject, data, color }) => {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"8px" }}>
         <p style={{ fontWeight:"700", fontSize:"13px", color:"#1e293b", margin:0 }}>{subject}</p>
         <div style={{ textAlign:"right" }}>
-          <p style={{ fontFamily:"'DM Mono',monospace", fontWeight:"800", color:color, fontSize:"18px", margin:0, lineHeight:1 }}>{latest}</p>
+          <p style={{ fontFamily:"'DM Mono',monospace", fontWeight:"800", color, fontSize:"18px", margin:0, lineHeight:1 }}>{latest}</p>
           {diff != null && Math.abs(diff) >= 0.5 && (
             <p style={{ fontSize:"11px", fontWeight:"600", margin:0, color: diff > 0 ? "#16a34a" : "#dc2626" }}>
               {diff > 0 ? `▲ +${diff.toFixed(1)}` : `▼ ${diff.toFixed(1)}`}
@@ -1166,7 +1227,7 @@ const SubjectLineChart = ({ subject, data, color }) => {
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", height:76 }}>
         {areaD && <path d={areaD} fill={color} fillOpacity="0.07" />}
-        {[0,.5,1].map(t => (
+        {[0, .5, 1].map(t => (
           <line key={t} x1={PAD} y1={PAD+t*(H-PAD*2)} x2={W-PAD} y2={PAD+t*(H-PAD*2)} stroke="#f1f5f9" strokeWidth="1"/>
         ))}
         {pts.length > 1 && <path d={pathD} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>}
@@ -1174,7 +1235,7 @@ const SubjectLineChart = ({ subject, data, color }) => {
           <g key={i}>
             <circle cx={p.x} cy={p.y} r="4.5" fill="white" stroke={color} strokeWidth="2.5"/>
             <text x={p.x} y={H-2} textAnchor="middle" fontSize="9" fill="#94a3b8">
-              {TERMS.find(t => t.value === p.term)?.label.replace("Term ","T")}
+              {TERMS.find(t => t.value === p.term)?.label.replace("Term ", "T")}
             </text>
             <text x={p.x} y={p.y-8} textAnchor="middle" fontSize="9" fill={color} fontWeight="700">{p.score}</text>
           </g>
@@ -1195,7 +1256,7 @@ const OverallTrendChart = ({ termData }) => {
     y: PAD + (1 - ((parseFloat(d.average) || 0) - min) / range) * (H - PAD * 2),
     ...d,
   }));
-  const pathD = pts.map((p, i) => `${i===0?"M":"L"} ${p.x} ${p.y}`).join(" ");
+  const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
   const areaD = pts.length > 0 ? `${pathD} L ${pts[pts.length-1].x} ${H-PAD} L ${pts[0].x} ${H-PAD} Z` : "";
 
   return (
@@ -1210,7 +1271,7 @@ const OverallTrendChart = ({ termData }) => {
             </linearGradient>
           </defs>
           {areaD && <path d={areaD} fill="url(#spGrad)"/>}
-          {[0,.5,1].map(t => (
+          {[0, .5, 1].map(t => (
             <line key={t} x1={PAD} y1={PAD+t*(H-PAD*2)} x2={W-PAD} y2={PAD+t*(H-PAD*2)} stroke="#f1f5f9" strokeWidth="1"/>
           ))}
           {pts.length > 1 && <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>}
@@ -1225,10 +1286,10 @@ const OverallTrendChart = ({ termData }) => {
         <div className="sp-trend-cards">
           {termData.map(d => (
             <div key={d.term} className="sp-trend-card">
-              <p style={{ fontSize:"10px",fontWeight:"700",color:"#94a3b8",textTransform:"uppercase",letterSpacing:".6px",margin:"0 0 4px" }}>{d.label}</p>
-              <p style={{ fontFamily:"'DM Mono',monospace",fontWeight:"900",color:"#2563eb",fontSize:"22px",margin:"0 0 2px",lineHeight:1 }}>{d.average ?? "—"}</p>
-              <p style={{ fontSize:"11px",color:"#94a3b8",margin:0 }}>avg · <b style={{color:"#475569"}}>{d.total}</b> total</p>
-              {d.position && <p style={{ fontSize:"11px",color:"#94a3b8",margin:"2px 0 0" }}>Pos: <b style={{color:"#475569"}}>{d.position}</b></p>}
+              <p style={{ fontSize:"10px", fontWeight:"700", color:"#94a3b8", textTransform:"uppercase", letterSpacing:".6px", margin:"0 0 4px" }}>{d.label}</p>
+              <p style={{ fontFamily:"'DM Mono',monospace", fontWeight:"900", color:"#2563eb", fontSize:"22px", margin:"0 0 2px", lineHeight:1 }}>{d.average ?? "—"}</p>
+              <p style={{ fontSize:"11px", color:"#94a3b8", margin:0 }}>avg · <b style={{ color:"#475569" }}>{d.total}</b> total</p>
+              {d.position && <p style={{ fontSize:"11px", color:"#94a3b8", margin:"2px 0 0" }}>Pos: <b style={{ color:"#475569" }}>{d.position}</b></p>}
             </div>
           ))}
         </div>
@@ -1253,7 +1314,7 @@ const Loading = ({ text = "Loading…" }) => (
 );
 
 /* ─────────────────────────────────────────────
-   Main
+   Main StudentPortal
 ───────────────────────────────────────────── */
 const StudentPortal = () => {
   useEffect(() => {
@@ -1264,11 +1325,9 @@ const StudentPortal = () => {
     document.head.appendChild(el);
   }, []);
 
-  // Preload Paystack SDK as soon as the portal mounts
+  // Preload Paystack SDK silently on mount
   useEffect(() => {
-    loadPaystack().catch(() => {
-      // Silent — will show error at payment time if it fails
-    });
+    loadPaystack().catch(() => {});
   }, []);
 
   const user = getUser();
@@ -1291,8 +1350,11 @@ const StudentPortal = () => {
     try {
       const r = await API.get(`/report/student/${user.student_id}/?term=${term}`);
       setReport(r.data);
-    } catch { setError("No report found for this term."); }
-    finally { setLoading(false); }
+    } catch {
+      setError("No report found for this term.");
+    } finally {
+      setLoading(false);
+    }
   }, [user.student_id]);
 
   const fetchAllReports = useCallback(async () => {
@@ -1305,7 +1367,9 @@ const StudentPortal = () => {
         results[value] = r.data;
       } catch {}
     }));
-    setAllReports(results); setProgressLoaded(true); setLoadingProgress(false);
+    setAllReports(results);
+    setProgressLoaded(true);
+    setLoadingProgress(false);
   }, [user.student_id, progressLoaded]);
 
   const fetchFees = useCallback(async () => {
@@ -1313,13 +1377,25 @@ const StudentPortal = () => {
     try {
       const r = await API.get(`/fees/?student=${user.student_id}`);
       setFees(r.data.results ?? r.data);
-    } catch { setError("Failed to load fees."); }
-    finally { setLoadingFees(false); }
+    } catch {
+      setError("Failed to load fees.");
+    } finally {
+      setLoadingFees(false);
+    }
   }, [user.student_id]);
 
-  useEffect(() => { if (tab === "Results" || tab === "Report Card") fetchReport(selectedTerm); }, [tab, selectedTerm, fetchReport]);
-  useEffect(() => { if (tab === "Progress") fetchAllReports(); }, [tab, fetchAllReports]);
-  useEffect(() => { if (tab === "Fees") fetchFees(); }, [tab, fetchFees]);
+  useEffect(() => {
+    if (tab === "Results" || tab === "Report Card") fetchReport(selectedTerm);
+  }, [tab, selectedTerm, fetchReport]);
+
+  useEffect(() => {
+    if (tab === "Progress") fetchAllReports();
+  }, [tab, fetchAllReports]);
+
+  useEffect(() => {
+    if (tab === "Fees") fetchFees();
+  }, [tab, fetchFees]);
+
   useEffect(() => { setError(""); }, [tab]);
 
   const downloadReport = async () => {
@@ -1328,8 +1404,12 @@ const StudentPortal = () => {
       const link = document.createElement("a");
       link.href  = window.URL.createObjectURL(new Blob([r.data]));
       link.setAttribute("download", `report_${selectedTerm}.pdf`);
-      document.body.appendChild(link); link.click(); link.remove();
-    } catch { setError("Failed to download report."); }
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {
+      setError("Failed to download report.");
+    }
   };
 
   const handlePaymentSuccess = (amount, reference) => {
@@ -1337,7 +1417,7 @@ const StudentPortal = () => {
     setTimeout(fetchFees, 3000);
   };
 
-  /* Progress derived data */
+  /* ── Progress derived data ── */
   const subjectTrends = (() => {
     const map = {};
     TERMS.forEach(({ value: term }) => {
@@ -1354,7 +1434,8 @@ const StudentPortal = () => {
   const termSummary = TERMS
     .filter(({ value }) => allReports[value])
     .map(({ value, label }) => ({
-      term: value, label,
+      term:     value,
+      label,
       average:  allReports[value]?.average_score,
       total:    allReports[value]?.total_score,
       position: allReports[value]?.show_position ? allReports[value]?.position_formatted : null,
@@ -1448,7 +1529,9 @@ const StudentPortal = () => {
             {tab === "Report Card" && report && (
               <button className="sp-btn-pdf" onClick={downloadReport}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
                 Download PDF
               </button>
@@ -1459,7 +1542,7 @@ const StudentPortal = () => {
         {error && (
           <div className="sp-alert">
             <span>⚠ {error}</span>
-            <button onClick={() => setError("")} style={{ background:"none",border:"none",cursor:"pointer",color:"inherit",fontSize:"18px",opacity:.6,padding:"0 0 0 12px" }}>×</button>
+            <button onClick={() => setError("")} style={{ background:"none", border:"none", cursor:"pointer", color:"inherit", fontSize:"18px", opacity:.6, padding:"0 0 0 12px" }}>×</button>
           </div>
         )}
 
@@ -1482,7 +1565,7 @@ const StudentPortal = () => {
                 <div className="sp-card">
                   <div className="sp-card-head">
                     <span className="sp-card-title">{TERMS.find(t => t.value === selectedTerm)?.label} — Subject Results</span>
-                    <span style={{ fontSize:"12px",color:"#94a3b8" }}>{report.subjects?.length ?? 0} subjects</span>
+                    <span style={{ fontSize:"12px", color:"#94a3b8" }}>{report.subjects?.length ?? 0} subjects</span>
                   </div>
                 </div>
                 <SubjectTable report={report}/>
@@ -1520,13 +1603,13 @@ const StudentPortal = () => {
                 <div className="sp-card">
                   <div className="sp-card-head">
                     <span className="sp-card-title">Subject Comparison — All Terms</span>
-                    <span style={{ fontSize:"12px",color:"#94a3b8" }}>{subjectNames.length} subjects</span>
+                    <span style={{ fontSize:"12px", color:"#94a3b8" }}>{subjectNames.length} subjects</span>
                   </div>
                   <div className="sp-table-wrap">
                     <table className="sp-table">
                       <thead>
                         <tr>
-                          <th style={{textAlign:"left",padding:"10px 14px"}}>Subject</th>
+                          <th style={{ textAlign:"left", padding:"10px 14px" }}>Subject</th>
                           {TERMS.filter(({ value }) => allReports[value]).map(({ value, label }) => (
                             <th key={value} className="c">{label}</th>
                           ))}
@@ -1542,8 +1625,8 @@ const StudentPortal = () => {
                           return (
                             <tr key={name}>
                               <td>
-                                <span style={{ display:"inline-flex",alignItems:"center",gap:"8px",fontWeight:"600",color:"#1e293b" }}>
-                                  <span style={{ width:"8px",height:"8px",borderRadius:"50%",background:color,flexShrink:0 }}/>
+                                <span style={{ display:"inline-flex", alignItems:"center", gap:"8px", fontWeight:"600", color:"#1e293b" }}>
+                                  <span style={{ width:"8px", height:"8px", borderRadius:"50%", background:color, flexShrink:0 }}/>
                                   {name}
                                 </span>
                               </td>
@@ -1552,17 +1635,17 @@ const StudentPortal = () => {
                                 return (
                                   <td key={value} className="c">
                                     {score != null
-                                      ? <span style={{ fontWeight:"700",color:"#2563eb",fontFamily:"'DM Mono',monospace" }}>{score}</span>
+                                      ? <span style={{ fontWeight:"700", color:"#2563eb", fontFamily:"'DM Mono',monospace" }}>{score}</span>
                                       : <span style={{ color:"#e2e8f0" }}>—</span>}
                                   </td>
                                 );
                               })}
                               <td className="c">
                                 {diff == null || Math.abs(diff) < 0.5
-                                  ? <span style={{ color:"#94a3b8",fontSize:"12px" }}>→</span>
+                                  ? <span style={{ color:"#94a3b8", fontSize:"12px" }}>→</span>
                                   : diff > 0
-                                  ? <span style={{ color:"#16a34a",fontSize:"12px",fontWeight:"600" }}>▲ +{diff.toFixed(1)}</span>
-                                  : <span style={{ color:"#dc2626",fontSize:"12px",fontWeight:"600" }}>▼ {diff.toFixed(1)}</span>
+                                  ? <span style={{ color:"#16a34a", fontSize:"12px", fontWeight:"600" }}>▲ +{diff.toFixed(1)}</span>
+                                  : <span style={{ color:"#dc2626", fontSize:"12px", fontWeight:"600" }}>▼ {diff.toFixed(1)}</span>
                                 }
                               </td>
                             </tr>
@@ -1573,11 +1656,15 @@ const StudentPortal = () => {
                   </div>
                 </div>
                 <div>
-                  <p style={{ fontWeight:"700",color:"#1e293b",fontSize:"13.5px",marginBottom:"12px" }}>Subject Trends</p>
+                  <p style={{ fontWeight:"700", color:"#1e293b", fontSize:"13.5px", marginBottom:"12px" }}>Subject Trends</p>
                   <div className="sp-chart-grid">
                     {subjectNames.map((name, i) => (
-                      <SubjectLineChart key={name} subject={name}
-                        data={subjectTrends[name]} color={SUBJECT_PALETTE[i % SUBJECT_PALETTE.length]}/>
+                      <SubjectLineChart
+                        key={name}
+                        subject={name}
+                        data={subjectTrends[name]}
+                        color={SUBJECT_PALETTE[i % SUBJECT_PALETTE.length]}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1606,19 +1693,23 @@ const StudentPortal = () => {
                   <div className="sp-card">
                     <div className="sp-card-head"><span className="sp-card-title">Attendance</span></div>
                     <div style={{ padding:"14px 18px" }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:"13.5px",marginBottom:"6px" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"13.5px", marginBottom:"6px" }}>
                         <span style={{ color:"#64748b" }}>Days Present</span>
-                        <span style={{ fontWeight:"700",color:"#1e293b",fontFamily:"'DM Mono',monospace" }}>
+                        <span style={{ fontWeight:"700", color:"#1e293b", fontFamily:"'DM Mono',monospace" }}>
                           {report.attendance} / {report.attendance_total}
                         </span>
                       </div>
                       <div className="sp-progress-bar">
                         <div className="sp-progress-fill" style={{
-                          width:`${report.attendance_percent ?? 0}%`,
-                          background: (report.attendance_percent ?? 0) >= 80 ? "#16a34a" : (report.attendance_percent ?? 0) >= 60 ? "#d97706" : "#dc2626"
+                          width: `${report.attendance_percent ?? 0}%`,
+                          background: (report.attendance_percent ?? 0) >= 80 ? "#16a34a"
+                            : (report.attendance_percent ?? 0) >= 60 ? "#d97706"
+                            : "#dc2626",
                         }}/>
                       </div>
-                      <p style={{ fontSize:"11.5px",color:"#94a3b8",textAlign:"right",marginTop:"5px" }}>{report.attendance_percent}% attendance</p>
+                      <p style={{ fontSize:"11.5px", color:"#94a3b8", textAlign:"right", marginTop:"5px" }}>
+                        {report.attendance_percent}% attendance
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1628,17 +1719,19 @@ const StudentPortal = () => {
                     <div style={{ padding:"14px 18px" }}>
                       {report.conduct && (
                         <div className="sp-remark-row">
-                          <span style={{ color:"#64748b",fontSize:"13.5px" }}>Conduct</span>
-                          <span style={{ fontWeight:"600",color:"#2563eb",fontSize:"13.5px" }}>{report.conduct}</span>
+                          <span style={{ color:"#64748b", fontSize:"13.5px" }}>Conduct</span>
+                          <span style={{ fontWeight:"600", color:"#2563eb", fontSize:"13.5px" }}>{report.conduct}</span>
                         </div>
                       )}
                       {report.interest && (
                         <div className="sp-remark-row">
-                          <span style={{ color:"#64748b",fontSize:"13.5px" }}>Interest</span>
-                          <span style={{ fontWeight:"600",color:"#2563eb",fontSize:"13.5px" }}>{report.interest}</span>
+                          <span style={{ color:"#64748b", fontSize:"13.5px" }}>Interest</span>
+                          <span style={{ fontWeight:"600", color:"#2563eb", fontSize:"13.5px" }}>{report.interest}</span>
                         </div>
                       )}
-                      {report.teacher_remark && <div className="sp-remark-quote">"{report.teacher_remark}"</div>}
+                      {report.teacher_remark && (
+                        <div className="sp-remark-quote">"{report.teacher_remark}"</div>
+                      )}
                     </div>
                   </div>
                 )}
