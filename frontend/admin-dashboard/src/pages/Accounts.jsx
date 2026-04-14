@@ -27,6 +27,9 @@ const Accounts = () => {
   const [deleteLoading, setDeleteLoading]   = useState(false);
   const [deleteMsg, setDeleteMsg]           = useState("");
 
+  // Class-delete state
+  const [selectedDeleteClass, setSelectedDeleteClass] = useState("");
+
   useEffect(() => { fetchClasses(); }, []);
   useEffect(() => {
     setError("");
@@ -94,6 +97,34 @@ const Accounts = () => {
       setDeleteLoading(false);
     }
   };
+
+  // Delete all fees for a specific class
+  const deleteByClass = async () => {
+    if (!selectedDeleteClass) return;
+    const className = classes.find((c) => String(c.id) === String(selectedDeleteClass))?.name || "selected class";
+    const affected = unassignedFees.filter((f) => String(f.class_id) === String(selectedDeleteClass));
+    if (affected.length === 0) {
+      setError(`No unassigned fee records found for ${className}.`);
+      return;
+    }
+    if (!window.confirm(`Delete all ${affected.length} fee record(s) for ${className}? This cannot be undone.`)) return;
+    setDeleteLoading(true);
+    try {
+      const r = await API.delete(`/fees/unassigned-fees/delete/?school_class=${selectedDeleteClass}`);
+      setDeleteMsg(r.data?.detail || `Deleted ${affected.length} record(s) for ${className}.`);
+      setUnassignedFees((prev) => prev.filter((f) => String(f.class_id) !== String(selectedDeleteClass)));
+      setSelectedDeleteClass("");
+    } catch {
+      setError("Failed to delete fees for class.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Derive unique classes that appear in unassigned fees list
+  const classesWithUnassigned = classes.filter((c) =>
+    unassignedFees.some((f) => String(f.class_id) === String(c.id))
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -435,11 +466,57 @@ const Accounts = () => {
                   {deleteLoading ? (
                     <><span className="animate-spin">⟳</span> Deleting...</>
                   ) : (
-                    <>`🗑 Delete All ({unassignedFees.length})`</>
+                    <>🗑 Delete All ({unassignedFees.length})</>
                   )}
                 </button>
               )}
             </div>
+
+            {/* ── Delete by class panel ── */}
+            {unassignedFees.length > 0 && (
+              <div className="bg-white rounded-xl border border-red-200 p-4 flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                    Delete bills by class
+                  </label>
+                  <select
+                    value={selectedDeleteClass}
+                    onChange={(e) => setSelectedDeleteClass(e.target.value)}
+                    className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                  >
+                    <option value="">— Select a class —</option>
+                    {classesWithUnassigned.map((c) => {
+                      const count = unassignedFees.filter((f) => String(f.class_id) === String(c.id)).length;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({count} record{count !== 1 ? "s" : ""})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <button
+                  onClick={deleteByClass}
+                  disabled={!selectedDeleteClass || deleteLoading}
+                  className="px-4 py-2.5 bg-red-100 hover:bg-red-200 active:bg-red-300 text-red-700 text-sm font-medium rounded-lg disabled:opacity-40 transition-colors flex items-center gap-2 whitespace-nowrap"
+                >
+                  {deleteLoading ? (
+                    <><span className="animate-spin">⟳</span> Deleting...</>
+                  ) : (
+                    <>🗑 Delete Class Bills</>
+                  )}
+                </button>
+                {selectedDeleteClass && (() => {
+                  const count = unassignedFees.filter((f) => String(f.class_id) === String(selectedDeleteClass)).length;
+                  const name  = classes.find((c) => String(c.id) === String(selectedDeleteClass))?.name;
+                  return (
+                    <p className="w-full text-xs text-red-500 -mt-1">
+                      This will permanently delete {count} fee record{count !== 1 ? "s" : ""} for {name}.
+                    </p>
+                  );
+                })()}
+              </div>
+            )}
 
             {unassignedFees.length === 0 ? (
               <div className="text-center py-16 text-slate-400">
@@ -453,18 +530,26 @@ const Accounts = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-red-50 border-b border-slate-200">
-                        {["Student", "Term", "Total Billed", "Paid", "Balance", "Date Added", "Action"].map((h) => (
+                        {["Student", "Class", "Term", "Total Billed", "Paid", "Balance", "Date Added", "Action"].map((h) => (
                           <th key={h} className={`p-3 text-xs font-semibold text-slate-500 uppercase tracking-wide ${h === "Student" ? "text-left" : "text-center"}`}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {unassignedFees.map((f, i) => (
-                        <tr key={f.fee_id} className={`hover:bg-red-50/40 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/50"}`}>
+                        <tr
+                          key={f.fee_id}
+                          className={`hover:bg-red-50/40 transition-colors ${
+                            selectedDeleteClass && String(f.class_id) === String(selectedDeleteClass)
+                              ? "bg-red-50"
+                              : i % 2 === 0 ? "" : "bg-slate-50/50"
+                          }`}
+                        >
                           <td className="p-3">
                             <div className="font-medium text-slate-800">{f.student_name}</div>
                             <div className="text-xs text-slate-400">{f.admission_number}</div>
                           </td>
+                          <td className="p-3 text-center text-slate-600">{f.class_name || "—"}</td>
                           <td className="p-3 text-center text-slate-600 capitalize">{f.term.replace("term", "Term ")}</td>
                           <td className="p-3 text-center text-slate-700 font-medium">{fmt(f.total_amount)}</td>
                           <td className="p-3 text-center text-emerald-600">{fmt(f.paid)}</td>
