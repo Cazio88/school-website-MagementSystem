@@ -319,3 +319,66 @@ class FeeViewSet(ModelViewSet):
             "recent_payments": recent,
             "records":         FeeSerializer(fees, many=True).data,
         })
+
+# ------------------------------------------------------------------
+# Fetch fees for unassigned students (school_class is NULL)
+# ------------------------------------------------------------------
+
+@action(detail=False, methods=["get"], url_path="unassigned-fees")
+def unassigned_fees(self, request):
+    fees = Fee.objects.filter(
+        student__school_class__isnull=True
+    ).select_related("student", "student__user")
+
+    data = [
+        {
+            "fee_id":           fee.id,
+            "term":             fee.term,
+            "student_id":       fee.student.id,
+            "admission_number": fee.student.admission_number,
+            "student_name":     fee.student.full_name,
+            "school_class":     None,
+            "amount":           str(fee.amount),
+            "total_amount":     str(fee.total_amount),
+            "paid":             str(fee.paid),
+            "balance":          str(fee.balance),
+            "created_at":       fee.created_at.strftime("%d %b %Y, %I:%M %p"),
+        }
+        for fee in fees
+    ]
+
+    return Response(data, status=status.HTTP_200_OK)
+
+
+# ------------------------------------------------------------------
+# Delete wrongly billed fees for unassigned students
+# ------------------------------------------------------------------
+
+@action(detail=False, methods=["delete"], url_path="unassigned-fees/delete")
+def delete_unassigned_fees(self, request):
+    fee_id = request.query_params.get("fee_id")
+
+    if fee_id:
+        # Delete a single fee — only if student is unassigned
+        try:
+            fee = Fee.objects.get(id=fee_id, student__school_class__isnull=True)
+        except Fee.DoesNotExist:
+            return Response(
+                {"error": "Fee not found or student is already assigned to a class."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        fee.delete()
+        return Response(
+            {"detail": f"Fee {fee_id} deleted successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+    # Bulk delete all fees for unassigned students
+    deleted_count, _ = Fee.objects.filter(
+        student__school_class__isnull=True
+    ).delete()
+
+    return Response(
+        {"detail": f"{deleted_count} fee record(s) deleted for unassigned students."},
+        status=status.HTTP_200_OK,
+    )
