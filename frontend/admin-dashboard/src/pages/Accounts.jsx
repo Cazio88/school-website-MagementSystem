@@ -8,29 +8,34 @@ const TERMS = [
   { value: "term3", label: "Term 3"    },
 ];
 const YEARS = [2026, 2025, 2024, 2023, 2022];
-const TABS  = ["Dashboard", "Income Ledger", "Collection Report", "Defaulters"];
+const TABS  = ["Dashboard", "Income Ledger", "Collection Report", "Defaulters", "Unassigned Fees"];
 const fmt   = (n) => `GHS ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
 const Accounts = () => {
-  const [tab, setTab]                     = useState("Dashboard");
-  const [classes, setClasses]             = useState([]);
-  const [selectedTerm, setSelectedTerm]   = useState("");
-  const [selectedYear, setSelectedYear]   = useState(String(YEARS[0]));
-  const [selectedClass, setSelectedClass] = useState("");
-  const [loading, setLoading]             = useState(false);
-  const [error, setError]                 = useState("");
-  const [dashboard, setDashboard]         = useState(null);
-  const [ledger, setLedger]               = useState(null);
-  const [collection, setCollection]       = useState([]);
-  const [defaulters, setDefaulters]       = useState(null);
+  const [tab, setTab]                       = useState("Dashboard");
+  const [classes, setClasses]               = useState([]);
+  const [selectedTerm, setSelectedTerm]     = useState("");
+  const [selectedYear, setSelectedYear]     = useState(String(YEARS[0]));
+  const [selectedClass, setSelectedClass]   = useState("");
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState("");
+  const [dashboard, setDashboard]           = useState(null);
+  const [ledger, setLedger]                 = useState(null);
+  const [collection, setCollection]         = useState([]);
+  const [defaulters, setDefaulters]         = useState(null);
+  const [unassignedFees, setUnassignedFees] = useState([]);
+  const [deleteLoading, setDeleteLoading]   = useState(false);
+  const [deleteMsg, setDeleteMsg]           = useState("");
 
   useEffect(() => { fetchClasses(); }, []);
   useEffect(() => {
     setError("");
+    setDeleteMsg("");
     if (tab === "Dashboard")         fetchDashboard();
     if (tab === "Income Ledger")     fetchLedger();
     if (tab === "Collection Report") fetchCollection();
     if (tab === "Defaulters")        fetchDefaulters();
+    if (tab === "Unassigned Fees")   fetchUnassignedFees();
   }, [tab, selectedTerm, selectedYear, selectedClass]);
 
   const fetchClasses = async () => {
@@ -46,10 +51,49 @@ const Accounts = () => {
     return p.length ? `?${p.join("&")}` : "";
   };
 
-  const fetchDashboard  = async () => { setLoading(true); try { const r = await API.get(`/accounts/dashboard/${buildQuery()}`);  setDashboard(r.data);  } catch { setError("Failed to load dashboard.");        } finally { setLoading(false); } };
-  const fetchLedger     = async () => { setLoading(true); try { const r = await API.get(`/accounts/ledger/${buildQuery()}`);     setLedger(r.data);     } catch { setError("Failed to load ledger.");           } finally { setLoading(false); } };
-  const fetchCollection = async () => { setLoading(true); try { const r = await API.get(`/accounts/collection/${buildQuery()}`); setCollection(r.data); } catch { setError("Failed to load collection report."); } finally { setLoading(false); } };
-  const fetchDefaulters = async () => { setLoading(true); try { const r = await API.get(`/accounts/defaulters/${buildQuery()}`); setDefaulters(r.data); } catch { setError("Failed to load defaulters.");        } finally { setLoading(false); } };
+  const fetchDashboard      = async () => { setLoading(true); try { const r = await API.get(`/accounts/dashboard/${buildQuery()}`);  setDashboard(r.data);  } catch { setError("Failed to load dashboard.");        } finally { setLoading(false); } };
+  const fetchLedger         = async () => { setLoading(true); try { const r = await API.get(`/accounts/ledger/${buildQuery()}`);     setLedger(r.data);     } catch { setError("Failed to load ledger.");           } finally { setLoading(false); } };
+  const fetchCollection     = async () => { setLoading(true); try { const r = await API.get(`/accounts/collection/${buildQuery()}`); setCollection(r.data); } catch { setError("Failed to load collection report."); } finally { setLoading(false); } };
+  const fetchDefaulters     = async () => { setLoading(true); try { const r = await API.get(`/accounts/defaulters/${buildQuery()}`); setDefaulters(r.data); } catch { setError("Failed to load defaulters.");        } finally { setLoading(false); } };
+  const fetchUnassignedFees = async () => {
+    setLoading(true);
+    try {
+      const r = await API.get("/fees/unassigned-fees/");
+      setUnassignedFees(r.data);
+    } catch {
+      setError("Failed to load unassigned fees.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteOneFee = async (feeId) => {
+    if (!window.confirm("Delete this fee record? This cannot be undone.")) return;
+    setDeleteLoading(true);
+    try {
+      await API.delete(`/fees/unassigned-fees/delete/?fee_id=${feeId}`);
+      setDeleteMsg("Fee deleted successfully.");
+      setUnassignedFees((prev) => prev.filter((f) => f.fee_id !== feeId));
+    } catch {
+      setError("Failed to delete fee.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const deleteAllUnassigned = async () => {
+    if (!window.confirm(`Delete ALL ${unassignedFees.length} fee record(s) for unassigned students? This cannot be undone.`)) return;
+    setDeleteLoading(true);
+    try {
+      const r = await API.delete("/fees/unassigned-fees/delete/");
+      setDeleteMsg(r.data.detail);
+      setUnassignedFees([]);
+    } catch {
+      setError("Failed to delete fees.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -87,11 +131,22 @@ const Accounts = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit flex-wrap">
           {TABS.map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${tab === t ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                tab === t
+                  ? t === "Unassigned Fees"
+                    ? "bg-white text-red-600 shadow-sm"
+                    : "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}>
               {t}
+              {t === "Unassigned Fees" && unassignedFees.length > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded-full font-semibold">
+                  {unassignedFees.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -110,10 +165,10 @@ const Accounts = () => {
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: "Total Billed",    value: fmt(dashboard.total_billed),     color: "text-slate-800",  bg: "bg-white"       },
-                { label: "Total Collected", value: fmt(dashboard.total_paid),       color: "text-emerald-600",bg: "bg-emerald-50"  },
-                { label: "Outstanding",     value: fmt(dashboard.total_balance),    color: "text-red-600",    bg: "bg-red-50"      },
-                { label: "Collection Rate", value: `${dashboard.collection_rate}%`, color: "text-blue-600",   bg: "bg-blue-50"     },
+                { label: "Total Billed",    value: fmt(dashboard.total_billed),     color: "text-slate-800",   bg: "bg-white"      },
+                { label: "Total Collected", value: fmt(dashboard.total_paid),       color: "text-emerald-600", bg: "bg-emerald-50" },
+                { label: "Outstanding",     value: fmt(dashboard.total_balance),    color: "text-red-600",     bg: "bg-red-50"     },
+                { label: "Collection Rate", value: `${dashboard.collection_rate}%`, color: "text-blue-600",    bg: "bg-blue-50"    },
               ].map((s) => (
                 <div key={s.label} className={`${s.bg} rounded-xl border border-slate-200 p-4 shadow-sm`}>
                   <div className={`text-2xl font-bold tracking-tight ${s.color}`}>{s.value}</div>
@@ -140,7 +195,7 @@ const Accounts = () => {
                       <div className="font-semibold text-blue-700 mb-3">{t.label}</div>
                       <div className="space-y-1.5 text-sm">
                         {[
-                          { label: "Billed",      value: fmt(t.billed),  color: "text-slate-700"  },
+                          { label: "Billed",      value: fmt(t.billed),  color: "text-slate-700"   },
                           { label: "Collected",   value: fmt(t.paid),    color: "text-emerald-600" },
                           { label: "Outstanding", value: fmt(t.balance), color: "text-red-600"     },
                         ].map((row) => (
@@ -161,7 +216,7 @@ const Accounts = () => {
               </div>
             </div>
 
-            {/* Recent payments — uses flat fields from backend */}
+            {/* Recent payments */}
             <div>
               <h3 className="font-semibold text-slate-700 mb-3">Recent Payments</h3>
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -339,6 +394,91 @@ const Accounts = () => {
                           <td className="p-3 text-center text-emerald-600">{fmt(d.paid)}</td>
                           <td className="p-3 text-center font-bold text-red-600">{fmt(d.balance)}</td>
                           <td className="p-3 text-center text-amber-600">{Number(d.arrears) > 0 ? fmt(d.arrears) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Unassigned Fees ── */}
+        {tab === "Unassigned Fees" && !loading && (
+          <div className="space-y-4">
+
+            {deleteMsg && (
+              <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm">
+                <span>✓</span> {deleteMsg}
+                <button onClick={() => setDeleteMsg("")} className="ml-auto text-emerald-400 hover:text-emerald-600">✕</button>
+              </div>
+            )}
+
+            {/* Header row */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h3 className="font-semibold text-slate-700">Wrongly Billed — Unassigned Students</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Students who have been billed but are not assigned to any class.
+                  {unassignedFees.length > 0 && (
+                    <span className="ml-1 font-semibold text-red-500">{unassignedFees.length} record(s) found.</span>
+                  )}
+                </p>
+              </div>
+              {unassignedFees.length > 0 && (
+                <button
+                  onClick={deleteAllUnassigned}
+                  disabled={deleteLoading}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2"
+                >
+                  {deleteLoading ? (
+                    <><span className="animate-spin">⟳</span> Deleting...</>
+                  ) : (
+                    <>`🗑 Delete All ({unassignedFees.length})`</>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {unassignedFees.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <div className="text-4xl mb-2">✅</div>
+                <p className="font-medium text-slate-500">No wrongly billed students found.</p>
+                <p className="text-xs mt-1">All billed students are assigned to a class.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-red-50 border-b border-slate-200">
+                        {["Student", "Term", "Total Billed", "Paid", "Balance", "Date Added", "Action"].map((h) => (
+                          <th key={h} className={`p-3 text-xs font-semibold text-slate-500 uppercase tracking-wide ${h === "Student" ? "text-left" : "text-center"}`}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {unassignedFees.map((f, i) => (
+                        <tr key={f.fee_id} className={`hover:bg-red-50/40 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/50"}`}>
+                          <td className="p-3">
+                            <div className="font-medium text-slate-800">{f.student_name}</div>
+                            <div className="text-xs text-slate-400">{f.admission_number}</div>
+                          </td>
+                          <td className="p-3 text-center text-slate-600 capitalize">{f.term.replace("term", "Term ")}</td>
+                          <td className="p-3 text-center text-slate-700 font-medium">{fmt(f.total_amount)}</td>
+                          <td className="p-3 text-center text-emerald-600">{fmt(f.paid)}</td>
+                          <td className="p-3 text-center font-bold text-red-500">{fmt(f.balance)}</td>
+                          <td className="p-3 text-center text-slate-400 text-xs">{f.created_at}</td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => deleteOneFee(f.fee_id)}
+                              disabled={deleteLoading}
+                              className="px-3 py-1.5 bg-red-100 hover:bg-red-200 active:bg-red-300 text-red-700 text-xs font-medium rounded-lg disabled:opacity-50 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
