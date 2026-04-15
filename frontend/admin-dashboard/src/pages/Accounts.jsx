@@ -11,6 +11,228 @@ const YEARS = [2026, 2025, 2024, 2023, 2022];
 const TABS  = ["Dashboard", "Income Ledger", "Collection Report", "Defaulters", "Unassigned Fees"];
 const fmt   = (n) => `GHS ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
+// ── Delete Class Fees Modal ────────────────────────────────────────────────
+const DeleteClassFeesModal = ({ classes, onClose, onDeleted }) => {
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedTerm,  setSelectedTerm]  = useState("");
+  const [selectedYear,  setSelectedYear]  = useState(String(YEARS[0]));
+  const [preview,       setPreview]       = useState(null);
+  const [previewLoading,setPreviewLoading]= useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [error,         setError]         = useState("");
+
+  const fetchPreview = async () => {
+    if (!selectedClass) return;
+    setPreviewLoading(true);
+    setError("");
+    setPreview(null);
+    try {
+      const params = [`school_class=${selectedClass}`];
+      if (selectedTerm) params.push(`term=${selectedTerm}`);
+      if (selectedYear) params.push(`year=${selectedYear}`);
+      const r = await API.get(`/fees/delete-preview/?${params.join("&")}`);
+      setPreview(r.data);
+    } catch {
+      setError("Failed to load preview. Please try again.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!preview || preview.count === 0) return;
+    setDeleteLoading(true);
+    setError("");
+    try {
+      const params = [`school_class=${selectedClass}`];
+      if (selectedTerm) params.push(`term=${selectedTerm}`);
+      if (selectedYear) params.push(`year=${selectedYear}`);
+      const r = await API.delete(`/fees/delete-class-fees/?${params.join("&")}`);
+      onDeleted(r.data?.detail || `Deleted ${preview.count} fee record(s).`);
+      onClose();
+    } catch {
+      setError("Failed to delete fees. Please try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const className = classes.find((c) => String(c.id) === String(selectedClass))?.name;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">Delete Class Fees</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Select a class, term, and year to review and delete fee records.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors text-xl leading-none mt-0.5"
+          >
+            ✕
+          </button>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+            <span>⚠</span> {error}
+          </div>
+        )}
+
+        {/* Selectors */}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+              Class <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={selectedClass}
+              onChange={(e) => { setSelectedClass(e.target.value); setPreview(null); }}
+              className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            >
+              <option value="">— Select a class —</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Term</label>
+              <select
+                value={selectedTerm}
+                onChange={(e) => { setSelectedTerm(e.target.value); setPreview(null); }}
+                className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                {TERMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Year</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => { setSelectedYear(e.target.value); setPreview(null); }}
+                className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview button */}
+        {!preview && (
+          <button
+            onClick={fetchPreview}
+            disabled={!selectedClass || previewLoading}
+            className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+          >
+            {previewLoading ? (
+              <><span className="animate-spin inline-block">⟳</span> Loading preview...</>
+            ) : (
+              "Preview Records"
+            )}
+          </button>
+        )}
+
+        {/* Preview results */}
+        {preview && (
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Preview</p>
+            </div>
+            <div className="p-4 space-y-2.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Class</span>
+                <span className="font-semibold text-slate-800">{className}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Term</span>
+                <span className="font-medium text-slate-700">
+                  {selectedTerm ? TERMS.find(t => t.value === selectedTerm)?.label : "All Terms"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Year</span>
+                <span className="font-medium text-slate-700">{selectedYear}</span>
+              </div>
+              <div className="border-t border-slate-100 pt-2.5 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Fee records</span>
+                  <span className="font-bold text-red-600">{preview.count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total billed</span>
+                  <span className="font-medium text-slate-700">{fmt(preview.total_billed)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total paid</span>
+                  <span className="font-medium text-emerald-600">{fmt(preview.total_paid)}</span>
+                </div>
+              </div>
+
+              {preview.count === 0 ? (
+                <p className="text-center text-slate-400 py-2 text-xs">
+                  No fee records found for these filters.
+                </p>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700 mt-1">
+                  ⚠ This will permanently delete <strong>{preview.count}</strong> fee record(s)
+                  {preview.total_paid > 0 && (
+                    <span> including <strong>{fmt(preview.total_paid)}</strong> in payments already recorded</span>
+                  )}. This cannot be undone.
+                </div>
+              )}
+            </div>
+
+            {/* Change selection */}
+            <div className="px-4 pb-4">
+              <button
+                onClick={() => setPreview(null)}
+                className="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2"
+              >
+                ← Change selection
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={!preview || preview.count === 0 || deleteLoading}
+            className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+          >
+            {deleteLoading ? (
+              <><span className="animate-spin inline-block">⟳</span> Deleting...</>
+            ) : (
+              <>🗑 Confirm Delete</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Main Component ─────────────────────────────────────────────────────────
 const Accounts = () => {
   const [tab, setTab]                       = useState("Dashboard");
   const [classes, setClasses]               = useState([]);
@@ -26,6 +248,7 @@ const Accounts = () => {
   const [unassignedFees, setUnassignedFees] = useState([]);
   const [deleteLoading, setDeleteLoading]   = useState(false);
   const [deleteMsg, setDeleteMsg]           = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Class-delete state
   const [selectedDeleteClass, setSelectedDeleteClass] = useState("");
@@ -98,7 +321,6 @@ const Accounts = () => {
     }
   };
 
-  // Delete all fees for a specific class
   const deleteByClass = async () => {
     if (!selectedDeleteClass) return;
     const className = classes.find((c) => String(c.id) === String(selectedDeleteClass))?.name || "selected class";
@@ -121,13 +343,25 @@ const Accounts = () => {
     }
   };
 
-  // Derive unique classes that appear in unassigned fees list
   const classesWithUnassigned = classes.filter((c) =>
     unassignedFees.some((f) => String(f.class_id) === String(c.id))
   );
 
   return (
     <div className="min-h-screen bg-slate-50">
+
+      {/* Delete Class Fees Modal */}
+      {showDeleteModal && (
+        <DeleteClassFeesModal
+          classes={classes}
+          onClose={() => setShowDeleteModal(false)}
+          onDeleted={(msg) => {
+            setDeleteMsg(msg);
+            fetchDashboard();
+          }}
+        />
+      )}
+
       <div className="max-w-7xl mx-auto p-6">
 
         <div className="mb-6">
@@ -139,6 +373,13 @@ const Accounts = () => {
           <div className="mb-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
             <span>⚠</span> {error}
             <button onClick={() => setError("")} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+          </div>
+        )}
+
+        {deleteMsg && (
+          <div className="mb-4 flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm">
+            <span>✓</span> {deleteMsg}
+            <button onClick={() => setDeleteMsg("")} className="ml-auto text-emerald-400 hover:text-emerald-600">✕</button>
           </div>
         )}
 
@@ -193,19 +434,29 @@ const Accounts = () => {
         {tab === "Dashboard" && dashboard && !loading && (
           <div className="space-y-6">
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: "Total Billed",    value: fmt(dashboard.total_billed),     color: "text-slate-800",   bg: "bg-white"      },
-                { label: "Total Collected", value: fmt(dashboard.total_paid),       color: "text-emerald-600", bg: "bg-emerald-50" },
-                { label: "Outstanding",     value: fmt(dashboard.total_balance),    color: "text-red-600",     bg: "bg-red-50"     },
-                { label: "Collection Rate", value: `${dashboard.collection_rate}%`, color: "text-blue-600",    bg: "bg-blue-50"    },
-              ].map((s) => (
-                <div key={s.label} className={`${s.bg} rounded-xl border border-slate-200 p-4 shadow-sm`}>
-                  <div className={`text-2xl font-bold tracking-tight ${s.color}`}>{s.value}</div>
-                  <div className="text-xs font-medium text-slate-500 mt-1">{s.label}</div>
-                </div>
-              ))}
+            {/* Stats + Delete button */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+                {[
+                  { label: "Total Billed",    value: fmt(dashboard.total_billed),     color: "text-slate-800",   bg: "bg-white"      },
+                  { label: "Total Collected", value: fmt(dashboard.total_paid),       color: "text-emerald-600", bg: "bg-emerald-50" },
+                  { label: "Outstanding",     value: fmt(dashboard.total_balance),    color: "text-red-600",     bg: "bg-red-50"     },
+                  { label: "Collection Rate", value: `${dashboard.collection_rate}%`, color: "text-blue-600",    bg: "bg-blue-50"    },
+                ].map((s) => (
+                  <div key={s.label} className={`${s.bg} rounded-xl border border-slate-200 p-4 shadow-sm`}>
+                    <div className={`text-2xl font-bold tracking-tight ${s.color}`}>{s.value}</div>
+                    <div className="text-xs font-medium text-slate-500 mt-1">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Delete Class Fees button ── */}
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-sm font-medium rounded-xl shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap"
+              >
+                🗑 Delete Class Fees
+              </button>
             </div>
 
             {/* Status badges */}
