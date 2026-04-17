@@ -1,59 +1,61 @@
 import logging
-
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
-from apps.fees.models import PaymentTransaction
-from apps.fees.services.termii import TermiiSMSService, TermiiSMSError
-from apps.fees.services.templates import fee_payment_received
+import requests
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
-@receiver(post_save, sender=PaymentTransaction)
-def notify_parent_on_payment(
-    sender,
-    instance: PaymentTransaction,
-    created: bool,
-    **kwargs,
-):
-    if not created:
-        return
+class TermiiSMSService:
+    BASE_URL = "https://v3.api.termii.com/api"
+    ENDPOINT = "/sms/send"
 
-    fee     = instance.fee
-    student = fee.student
+    def __init__(self):
+        self.api_key   = settings.TERMII_API_KEY
+        self.sender_id = settings.TERMII_SENDER_ID
 
-    parent_phone  = student.parent_phone
-    parent_name   = student.parent_name or "Parent"
-    student_name  = student.full_name
-    student_class = str(student.school_class) if student.school_class else "N/A"
+    def send(self, phone: str, message: str) -> dict:
+        phone = self._normalize_phone(phone)
+        payload = {
+            "api_key": self.api_key,
+            "to":      phone,
+            "from":    self.sender_id,
+            "sms":     message,
+            "type":    "plain",
+            "channel": "dnd",          # ← fixed from "generic"
+        }
+        try:
+            response = requests.post(
+                f"{self.BASE_URL}{self.ENDPOINT}",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+            logger.info("Termii response: %s %s", response.status_code, response.text)
+            response.raise_for_status()
+        except requests.Timeout:
+            logger.error("Termii SMS timeout for %s", phone)
+            raise TermiiSMSError("Request to Termii timed out.")
+        except requests.RequestException as exc:
+            logger.error("Termii HTTP error for %s: %s", phone, exc)
+            raise TermiiSMSError(f"HTTP error: {exc}") from exc
 
-    if not parent_phone:
-        logger.warning(
-            "No parent_phone for student %s (fee pk=%s). SMS skipped.",
-            student, fee.pk,
-        )
-        return
+        data = response.json()
+        if data.get("code") != "ok":
+            logger.error("Termii rejected SMS to %s: %s", phone, data)
+            raise TermiiSMSError(f"Termii error: {data.get('message', data)}")
 
-    message = fee_payment_received(
-        parent_name=parent_name,
-        student_name=student_name,
-        student_class=student_class,
-        amount_paid=instance.amount,
-        balance=fee.balance,
-        term=fee.get_term_display(),
-        transaction_id=instance.pk,
-    )
+        logger.info("SMS sent to %s | message_id=%s", phone, data.get("message_id"))
+        return data
 
-    try:
-        TermiiSMSService().send(phone=parent_phone, message=message)
-    except TermiiSMSError as exc:
-        logger.error(
-            "Failed to send SMS for transaction pk=%s to %s: %s",
-            instance.pk, parent_phone, exc,
-        )
-    except Exception as exc:                          # ← add this
-        logger.error(
-            "Unexpected SMS error for transaction pk=%s: %s",
-            instance.pk, exc,
-        )
+    @staticmethod
+    def _normalize_phone(phone: str) -> str:
+        phone = phone.strip().replace(" ", "").replace("-", "")
+        if phone.startswith("0"):
+            phone = "233" + phone[1:]
+        elif phone.startswith("+"):
+            phone = phone[1:]
+        return phone
+
+
+class TermiiSMSError(Exception):
+    pass
