@@ -6,8 +6,8 @@ const PUBLIC_ENDPOINTS = ["/auth/login/", "/auth/refresh/", "/auth/register/"];
 
 // ── Axios instance ─────────────────────────────────────────────
 const API = axios.create({
-  baseURL: BASE_URL + "/",
-  timeout: 30000, // 30s — accounts for Render cold start
+  baseURL: BASE_URL,   // ← removed trailing slash
+  timeout: 30000,
 });
 
 // ── Request interceptor — attach JWT ──────────────────────────
@@ -43,10 +43,8 @@ API.interceptors.response.use(
           window.location.href = "/login";
           return Promise.reject(error);
         }
-
         const res = await axios.post(`${BASE_URL}/auth/refresh/`, { refresh });
         const newAccess = res.data.access;
-
         localStorage.setItem("access", newAccess);
         originalRequest.headers.Authorization = `Bearer ${newAccess}`;
         return API(originalRequest);
@@ -63,11 +61,11 @@ API.interceptors.response.use(
 );
 
 // ── Wake-up ping — call this once on app load ─────────────────
-// Prevents CORS-looking errors caused by Render free tier cold starts
+// Uses a GET-safe endpoint instead of the login endpoint
 export const wakeUpServer = () => {
   axios
-    .get(`${BASE_URL}/auth/login/`, { timeout: 60000 })
-    .catch(() => {}); // silence — just waking the server
+    .get(`${BASE_URL}/health/`, { timeout: 60000 })
+    .catch(() => {});
 };
 
 export default API;
