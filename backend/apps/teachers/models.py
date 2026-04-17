@@ -24,13 +24,6 @@ class Teacher(models.Model):
     )
     hire_date = models.DateField()
 
-    def save(self, *args, **kwargs):
-        is_new = self._state.adding
-        super().save(*args, **kwargs)
-        if is_new and self.user and not self.user.has_usable_password():
-            self.user.set_password("teacher123")
-            self.user.save(update_fields=["password"])
-
     @property
     def full_name(self):
         return self.user.get_full_name() or self.user.username
