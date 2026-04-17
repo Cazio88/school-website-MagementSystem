@@ -13,7 +13,7 @@ from apps.fees.models import Fee, PaymentTransaction
 from apps.students.models import Student
 from api.serializers.fee_serializer import FeeSerializer
 from apps.fees.services.termii import TermiiSMSService, TermiiSMSError
-from apps.fees.messages import fee_payment_received
+from apps.fees.services.templates import fee_payment_received
 
 logger = logging.getLogger(__name__)
 
