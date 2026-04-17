@@ -7,10 +7,15 @@ from rest_framework import status
 from django.db.models import Sum, Count, Q
 
 from decimal import Decimal
+import logging
 
 from apps.fees.models import Fee, PaymentTransaction
 from apps.students.models import Student
 from api.serializers.fee_serializer import FeeSerializer
+from apps.fees.sms import TermiiSMSService, TermiiSMSError
+from apps.fees.messages import fee_payment_received
+
+logger = logging.getLogger(__name__)
 
 
 def to_decimal(value, default=Decimal("0")):
@@ -75,6 +80,7 @@ class FeeViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        previous_balance = fee.balance  # capture BEFORE saving
         fee.paid += amount
         fee.save()
 
@@ -84,6 +90,29 @@ class FeeViewSet(ModelViewSet):
             note        = note,
             recorded_by = request.user if request.user.is_authenticated else None,
         )
+
+        # ── Send SMS ───────────────────────────────────────────────────
+        parent_phone = fee.student.parent_phone
+        if parent_phone:
+            message = fee_payment_received(
+                parent_name    = fee.student.parent_name or "Parent/Guardian",
+                student_name   = fee.student.full_name,
+                student_class  = str(fee.student.school_class) if fee.student.school_class else "N/A",
+                amount_paid    = amount,
+                balance        = fee.balance,
+                term           = fee.get_term_display(),
+                transaction_id = txn.id,
+            )
+            try:
+                TermiiSMSService().send(phone=parent_phone, message=message)
+            except TermiiSMSError as e:
+                logger.error("SMS failed for student %s: %s", fee.student.full_name, e)
+        else:
+            logger.warning(
+                "No parent phone for student %s — SMS skipped.",
+                fee.student.full_name,
+            )
+        # ──────────────────────────────────────────────────────────────
 
         return Response({
             **FeeSerializer(fee).data,
