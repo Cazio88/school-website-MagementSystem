@@ -82,7 +82,7 @@ const NAV_SECTIONS = [
 const timeAgo = (dateStr) => {
   if (!dateStr) return "Never";
   const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-  if (diff < 60)  return `${diff}s ago`;
+  if (diff < 60)   return `${diff}s ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   return `${Math.floor(diff / 3600)}h ago`;
 };
@@ -96,15 +96,18 @@ const roleColor = (role) => {
   }
 };
 
+// ← fixed: was /auth/active-users/ — must match urls.py
+const ACTIVE_USERS_URL = "/accounts/active-users/";
+
 const ActiveUsersPanel = ({ onClose }) => {
-  const [users, setUsers]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [filter, setFilter]     = useState("all");
-  const intervalRef             = useRef(null);
+  const [users,   setUsers]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter,  setFilter]  = useState("all");
+  const intervalRef           = useRef(null);
 
   const fetchActiveUsers = useCallback(async () => {
     try {
-      const res = await API.get("/auth/active-users/");
+      const res = await API.get(ACTIVE_USERS_URL);
       setUsers(res.data.results ?? res.data);
     } catch (err) {
       if (import.meta.env.DEV) console.warn("Active users fetch failed:", err);
@@ -166,9 +169,9 @@ const ActiveUsersPanel = ({ onClose }) => {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-px bg-gray-800 border-b border-gray-800">
           {[
-            { label: "Admins",   count: roleCounts.admin,   color: "text-violet-400" },
-            { label: "Teachers", count: roleCounts.teacher, color: "text-blue-400"   },
-            { label: "Students", count: roleCounts.student, color: "text-emerald-400"},
+            { label: "Admins",   count: roleCounts.admin,   color: "text-violet-400"  },
+            { label: "Teachers", count: roleCounts.teacher, color: "text-blue-400"    },
+            { label: "Students", count: roleCounts.student, color: "text-emerald-400" },
           ].map(({ label, count, color }) => (
             <div key={label} className="bg-gray-900 px-3 py-3 text-center">
               <p className={`text-lg font-black tabular-nums ${color}`}>{count}</p>
@@ -301,18 +304,16 @@ const LogoutConfirm = ({ onConfirm, onCancel }) => (
 const Sidebar = ({ collapsed, onToggle }) => {
   const user = useMemo(() => getUser(), []);
 
-  const [pendingCount,     setPendingCount]     = useState(0);
-  const [showActiveUsers,  setShowActiveUsers]  = useState(false);
-  const [showLogoutModal,  setShowLogoutModal]  = useState(false);
-  const [activeUserCount,  setActiveUserCount]  = useState(0);
+  const [pendingCount,    setPendingCount]    = useState(0);
+  const [showActiveUsers, setShowActiveUsers] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [activeUserCount, setActiveUserCount] = useState(0);
 
-  // Persist collapsed state
   const handleToggle = useCallback(() => {
     onToggle?.();
     localStorage.setItem("sidebar-collapsed", String(!collapsed));
   }, [collapsed, onToggle]);
 
-  // Fetch pending approvals (filtered to pending only)
   const loadApprovals = useCallback(async () => {
     try {
       const res = await API.get("/admin-approvals/");
@@ -323,12 +324,12 @@ const Sidebar = ({ collapsed, onToggle }) => {
     }
   }, []);
 
-  // Fetch active user count for badge
+  // ← fixed: was /auth/active-users/
   const loadActiveUsers = useCallback(async () => {
     try {
-      const res = await API.get("/auth/active-users/");
-      const records = res.data.results ?? res.data;
-      setActiveUserCount(records.length);
+      const res = await API.get(ACTIVE_USERS_URL);
+      const count = res.data.count ?? (res.data.results ?? res.data).length;
+      setActiveUserCount(count);
     } catch (err) {
       if (import.meta.env.DEV) console.warn("Active users badge failed:", err);
     }
@@ -345,8 +346,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
     };
   }, [loadApprovals, loadActiveUsers]);
 
-  const badges = { approvals: pendingCount };
-
+  const badges  = { approvals: pendingCount };
   const initials = (user?.username || user?.email || "A")[0].toUpperCase();
 
   return (
@@ -428,7 +428,6 @@ const Sidebar = ({ collapsed, onToggle }) => {
             </>
           )}
 
-          {/* Collapsed tooltip */}
           {collapsed && (
             <span className="absolute left-full ml-3 px-2 py-1 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg transition-opacity">
               Active Users
