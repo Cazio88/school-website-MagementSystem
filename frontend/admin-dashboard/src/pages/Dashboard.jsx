@@ -13,8 +13,8 @@ import {
   FaExclamationTriangle,
   FaArrowRight,
   FaSync,
-  FaPlus,
   FaGraduationCap,
+  FaUserCheck,          // ← new
 } from "react-icons/fa";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -139,6 +139,7 @@ const Dashboard = () => {
   const [stats, setStats]           = useState(null);
   const [feeStats, setFeeStats]     = useState(null);
   const [attStats, setAttStats]     = useState(null);
+  const [activeUsers, setActiveUsers] = useState(null);   // ← new
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -153,10 +154,11 @@ const Dashboard = () => {
     setError("");
 
     try {
-      const [dashRes, feeRes, attRes] = await Promise.allSettled([
+      const [dashRes, feeRes, attRes, activeRes] = await Promise.allSettled([
         getDashboard(),
         API.get("/accounts/dashboard/"),
         API.get(`/attendance/?date=${today}`),
+        API.get("/accounts/active-users/"),   // ← new
       ]);
 
       if (dashRes.status === "fulfilled") setStats(dashRes.value);
@@ -167,6 +169,10 @@ const Dashboard = () => {
           (r) => r.status === "present" || r.status === "late"
         ).length;
         setAttStats({ present, total: records.length });
+      }
+      // ← new: set active users count
+      if (activeRes.status === "fulfilled") {
+        setActiveUsers(activeRes.value.data.active_users);
       }
     } catch {
       setError("Failed to load dashboard data.");
@@ -202,6 +208,10 @@ const Dashboard = () => {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-36" />)}
+        </div>
+        {/* extra skeleton card for active users row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Skeleton className="h-36" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-36" />)}
@@ -311,7 +321,23 @@ const Dashboard = () => {
           </div>
         </section>
 
-        {/* ── Section 2: Finance & Attendance ── */}
+        {/* ── Section 2: Active Users (new) ── */}
+        <section>
+          <SectionLabel>System activity</SectionLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard
+              index={0}
+              label="Active Users"
+              value={activeUsers ?? "—"}
+              icon={<FaUserCheck className="text-teal-500 text-sm" />}
+              iconBg="bg-teal-50"
+              borderColor="bg-teal-500"
+              sub="Staff currently logged in"
+            />
+          </div>
+        </section>
+
+        {/* ── Section 3: Finance & Attendance ── */}
         <section>
           <SectionLabel>Finance &amp; Attendance</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -356,7 +382,7 @@ const Dashboard = () => {
           </div>
         </section>
 
-        {/* ── Section 3: Fee Collection Progress ── */}
+        {/* ── Section 4: Fee Collection Progress ── */}
         {feeStats && (
           <section>
             <SectionLabel>Fee collection progress</SectionLabel>
@@ -425,7 +451,7 @@ const Dashboard = () => {
           </section>
         )}
 
-        {/* ── Section 4: Quick Actions ── */}
+        {/* ── Section 5: Quick Actions ── */}
         <section>
           <SectionLabel>Quick actions</SectionLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
