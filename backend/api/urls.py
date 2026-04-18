@@ -29,8 +29,9 @@ from api.views.accounts_view import (
     IncomeLedgerView,
     FeeCollectionReportView,
     DefaultersListView,
-    ActiveUsersView,  
+    # ActiveUsersView removed — now lives in active_users_view.py
 )
+from api.views.active_users_view import ActiveUsersView   # ← correct import
 
 # ─── Router ───────────────────────────────────────────────────────────────────
 router = DefaultRouter()
@@ -84,9 +85,9 @@ urlpatterns = [
     path("dashboard/", DashboardView.as_view()),
 
     # ── Accounts ──────────────────────────────────────────────────────────────
-    path("accounts/dashboard/",  AccountsDashboardView.as_view()),
-    path("accounts/ledger/",     IncomeLedgerView.as_view()),
-    path("accounts/collection/", FeeCollectionReportView.as_view()),
-    path("accounts/defaulters/", DefaultersListView.as_view()),
-    path("accounts/active-users/", ActiveUsersView.as_view()),   
+    path("accounts/dashboard/",   AccountsDashboardView.as_view()),
+    path("accounts/ledger/",      IncomeLedgerView.as_view()),
+    path("accounts/collection/",  FeeCollectionReportView.as_view()),
+    path("accounts/defaulters/",  DefaultersListView.as_view()),
+    path("accounts/active-users/", ActiveUsersView.as_view()),
 ]
