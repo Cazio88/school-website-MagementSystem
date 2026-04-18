@@ -29,6 +29,7 @@ from api.views.accounts_view import (
     IncomeLedgerView,
     FeeCollectionReportView,
     DefaultersListView,
+    ActiveUsersView,  
 )
 
 # ─── Router ───────────────────────────────────────────────────────────────────
@@ -87,4 +88,5 @@ urlpatterns = [
     path("accounts/ledger/",     IncomeLedgerView.as_view()),
     path("accounts/collection/", FeeCollectionReportView.as_view()),
     path("accounts/defaulters/", DefaultersListView.as_view()),
+    path("accounts/active-users/", ActiveUsersView.as_view()),   
 ]
