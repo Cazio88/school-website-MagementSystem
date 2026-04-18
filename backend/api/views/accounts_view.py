@@ -7,46 +7,13 @@ from rest_framework.response import Response
 from django.db.models import Sum, Count, Q
 
 from apps.fees.models import Fee, PaymentTransaction
-from django.contrib.sessions.models import Session
-from django.contrib.auth import get_user_model
-from django.utils import timezone
 
-User = get_user_model()
 TERM_LABELS = {
     "term1": "Term 1",
     "term2": "Term 2",
     "term3": "Term 3",
 }
 
-class ActiveUsersView(APIView):
-    """Returns count of currently logged-in users (valid sessions)."""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        # Get all non-expired sessions
-        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
-
-        user_ids = set()
-        for session in active_sessions:
-            data = session.get_decoded()
-            uid = data.get("_auth_user_id")
-            if uid:
-                user_ids.add(uid)
-
-        # Optionally filter to only staff/teachers
-        active_users = User.objects.filter(id__in=user_ids, is_staff=True)
-
-        return Response({
-            "active_users": active_users.count(),
-            "users": [
-                {
-                    "id": u.id,
-                    "name": u.get_full_name() or u.username,
-                    "email": u.email,
-                }
-                for u in active_users
-            ]
-        })
 
 class AccountsDashboardView(APIView):
     """Overall financial summary across all classes and terms."""
