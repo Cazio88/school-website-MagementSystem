@@ -336,11 +336,17 @@ const Sidebar = ({ collapsed, onToggle }) => {
   }, []);
 
   useEffect(() => {
-    loadApprovals();
-    loadActiveUsers();
+    // Small delay so the app has time to refresh an expired token before
+    // the sidebar fires its background requests.
+    const initTimer = setTimeout(() => {
+      loadApprovals();
+      loadActiveUsers();
+    }, 1000);
+
     const approvalsTimer  = setInterval(loadApprovals,   60_000);
     const activeUserTimer = setInterval(loadActiveUsers,  30_000);
     return () => {
+      clearTimeout(initTimer);
       clearInterval(approvalsTimer);
       clearInterval(activeUserTimer);
     };
