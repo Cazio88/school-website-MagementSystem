@@ -1,6 +1,5 @@
 # api/views/active_users_view.py
 from datetime import timedelta
-
 from django.utils.timezone import now
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
@@ -11,7 +10,7 @@ from rest_framework import serializers
 User = get_user_model()
 
 # How long before a user is considered "offline"
-ONLINE_THRESHOLD_MINUTES = 5
+ONLINE_THRESHOLD_MINUTES = 480  # 8 hours — covers a full school day
 
 
 class ActiveUserSerializer(serializers.ModelSerializer):
@@ -23,7 +22,6 @@ class ActiveUserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email", "role", "last_login", "is_online"]
 
     def get_role(self, obj):
-        # Adapt this to however your project stores roles
         if obj.is_superuser or obj.is_staff:
             return "admin"
         role = getattr(obj, "role", None)
@@ -40,29 +38,29 @@ class ActiveUserSerializer(serializers.ModelSerializer):
 
 class ActiveUsersView(APIView):
     """
-    GET /api/auth/active-users/
-
-    Returns all users who have been active within the last 5 minutes.
+    GET /api/accounts/active-users/
+    Returns all users who have logged in within the threshold window.
     Admin-only endpoint.
     """
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
         threshold = now() - timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
+
+        # All users active within the threshold — no is_staff filter
         active_users = (
-            User.objects.filter(last_login__gte=threshold)
-            .exclude(pk=request.user.pk)   # optionally exclude self
+            User.objects
+            .filter(last_login__gte=threshold)
+            .exclude(pk=request.user.pk)   # exclude self, added back below
             .order_by("-last_login")
         )
 
-        # Also include the current admin user at the top
+        # Put the current admin at the top
         current_user = User.objects.filter(pk=request.user.pk).first()
-        queryset = list(active_users)
-        if current_user:
-            queryset = [current_user] + queryset
+        queryset = ([current_user] if current_user else []) + list(active_users)
 
         serializer = ActiveUserSerializer(queryset, many=True)
         return Response({
-            "count": len(queryset),
+            "count":   len(queryset),
             "results": serializer.data,
         })
