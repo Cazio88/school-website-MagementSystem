@@ -4,30 +4,22 @@ from django.utils.timezone import now
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
 
 User = get_user_model()
 
-# How long before a user is considered "offline"
+# Users who logged in within this window are considered "active"
 ONLINE_THRESHOLD_MINUTES = 480  # 8 hours — covers a full school day
 
 
 class ActiveUserSerializer(serializers.ModelSerializer):
-    role = serializers.SerializerMethodField()
+    role      = serializers.CharField()   # reads the actual role field directly
     is_online = serializers.SerializerMethodField()
 
     class Meta:
-        model = User
+        model  = User
         fields = ["id", "username", "email", "role", "last_login", "is_online"]
-
-    def get_role(self, obj):
-        if obj.is_superuser or obj.is_staff:
-            return "admin"
-        role = getattr(obj, "role", None)
-        if role:
-            return str(role)
-        return "user"
 
     def get_is_online(self, obj):
         if not obj.last_login:
@@ -39,25 +31,29 @@ class ActiveUserSerializer(serializers.ModelSerializer):
 class ActiveUsersView(APIView):
     """
     GET /api/accounts/active-users/
-    Returns all users who have logged in within the threshold window.
-    Admin-only endpoint.
+    Returns all users who logged in within the threshold window.
+    Restricted to admin role only.
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Only admins should see this
+        if request.user.role != "admin":
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin access required.")
+
         threshold = now() - timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
 
-        # All users active within the threshold — no is_staff filter
-        active_users = (
+        # All users active within threshold — no role filter, no is_staff filter
+        other_users = (
             User.objects
             .filter(last_login__gte=threshold)
-            .exclude(pk=request.user.pk)   # exclude self, added back below
+            .exclude(pk=request.user.pk)
             .order_by("-last_login")
         )
 
-        # Put the current admin at the top
-        current_user = User.objects.filter(pk=request.user.pk).first()
-        queryset = ([current_user] if current_user else []) + list(active_users)
+        # Always put the current admin at the top
+        queryset = [request.user] + list(other_users)
 
         serializer = ActiveUserSerializer(queryset, many=True)
         return Response({
