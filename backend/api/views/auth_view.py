@@ -8,6 +8,7 @@ from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
 
 from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth.models import update_last_login       # ← new
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -85,6 +86,9 @@ class LoginView(APIView):
                 {"error": "Account is disabled"},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        # ← update last_login so active user tracking works
+        update_last_login(None, user)
 
         refresh = RefreshToken.for_user(user)
         profile = {}
