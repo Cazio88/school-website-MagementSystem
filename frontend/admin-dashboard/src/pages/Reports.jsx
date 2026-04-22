@@ -58,6 +58,9 @@ const getStudentName = (s) =>
   s?.admission_number ||
   "Unknown";
 
+// Round a numeric value; return "-" if null/undefined
+const fmt = (v) => (v == null ? "-" : Math.round(v));
+
 const Reports = () => {
   const [classes, setClasses]                 = useState([]);
   const [students, setStudents]               = useState([]);
@@ -240,8 +243,8 @@ const Reports = () => {
           {/* Stats Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 border-b">
             {[
-              { label: "Total Marks",   value: report.total_score   ?? "-" },
-              { label: "Average Mark",  value: report.average_score ?? "-" },
+              { label: "Total Marks",   value: fmt(report.total_score)   },
+              { label: "Average Mark",  value: fmt(report.average_score) },
               {
                 label: "Position",
                 value: report.show_position
@@ -296,10 +299,10 @@ const Reports = () => {
                     return (
                       <tr key={i} className={`border-t ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
                         <td className="p-2 font-medium">{sub.subject}</td>
-                        <td className="p-2 text-center">{sub.reopen ?? "-"}</td>
-                        <td className="p-2 text-center">{sub.ca     ?? "-"}</td>
-                        <td className="p-2 text-center">{sub.exams  ?? "-"}</td>
-                        <td className="p-2 text-center font-bold text-blue-700">{sub.score}</td>
+                        <td className="p-2 text-center">{fmt(sub.reopen)}</td>
+                        <td className="p-2 text-center">{fmt(sub.ca)}</td>
+                        <td className="p-2 text-center">{fmt(sub.exams)}</td>
+                        <td className="p-2 text-center font-bold text-blue-700">{fmt(sub.score)}</td>
                         {report.show_position && (
                           <td className="p-2 text-center font-semibold">{sub.subject_position ?? "-"}</td>
                         )}
@@ -401,7 +404,6 @@ const Reports = () => {
                   />
                 </div>
 
-                {/* ── Vacation & Resumption dates ── */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Vacation Date</label>
