@@ -1,12 +1,9 @@
 // apps/attendance/components/Attendance.jsx
-import { useEffect, useReducer, useCallback, useMemo, useRef } from "react";
+import { useEffect, useReducer, useCallback, useMemo, useRef, useState } from "react";
 import API from "../services/api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// BUG FIX: was a module-level constant, so it froze at page-load time.
-// Using a function ensures the date is always "today" even if the tab is left
-// open past midnight.
 const todayStr = () => new Date().toISOString().split("T")[0];
 
 const STATUS_OPTIONS = [
@@ -17,8 +14,9 @@ const STATUS_OPTIONS = [
     active: "bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-md",
     inactive:
       "bg-gray-100 text-gray-500 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200",
-    row: "bg-emerald-50 border-l-4 border-emerald-500",
+    row: "bg-emerald-50/60 border-l-4 border-emerald-400",
     count: "text-emerald-700 bg-emerald-100",
+    dot: "bg-emerald-500",
   },
   {
     value: "absent",
@@ -27,8 +25,9 @@ const STATUS_OPTIONS = [
     active: "bg-red-600 text-white ring-2 ring-red-300 shadow-md",
     inactive:
       "bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-700 hover:border-red-200",
-    row: "bg-red-50 border-l-4 border-red-500",
+    row: "bg-red-50/60 border-l-4 border-red-400",
     count: "text-red-700 bg-red-100",
+    dot: "bg-red-500",
   },
   {
     value: "late",
@@ -37,8 +36,9 @@ const STATUS_OPTIONS = [
     active: "bg-amber-500 text-white ring-2 ring-amber-300 shadow-md",
     inactive:
       "bg-gray-100 text-gray-500 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200",
-    row: "bg-amber-50 border-l-4 border-amber-400",
+    row: "bg-amber-50/60 border-l-4 border-amber-400",
     count: "text-amber-700 bg-amber-100",
+    dot: "bg-amber-400",
   },
 ];
 
@@ -59,21 +59,21 @@ const getRateMeta = (rate) => {
   if (rate === null)
     return { color: "text-gray-400", bar: "bg-gray-300", label: "—" };
   if (rate >= 80)
-    return {
-      color: "text-emerald-700 font-bold",
-      bar: "bg-emerald-500",
-      label: `${rate}%`,
-    };
+    return { color: "text-emerald-700 font-semibold", bar: "bg-emerald-500", label: `${rate}%` };
   if (rate >= 60)
-    return {
-      color: "text-amber-600 font-bold",
-      bar: "bg-amber-400",
-      label: `${rate}%`,
-    };
-  return { color: "text-red-600 font-bold", bar: "bg-red-500", label: `${rate}%` };
+    return { color: "text-amber-600 font-semibold", bar: "bg-amber-400", label: `${rate}%` };
+  return { color: "text-red-600 font-semibold", bar: "bg-red-500", label: `${rate}%` };
 };
 
 const isToday = (dateStr) => dateStr === todayStr();
+
+const formatDate = (dateStr) =>
+  new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
@@ -82,11 +82,8 @@ const initialState = {
   classes: [],
   selectedClass: "",
   selectedDate: todayStr(),
-  // attendance: { [studentId]: status | null }
-  // null  = no record yet (past date, unset)
-  // string = recorded or locally changed
   attendance: {},
-  existingIds: {}, // { [studentId]: attendanceRecordId }
+  existingIds: {},
   summaryData: [],
   activeTab: TABS[0],
   loadingStudents: false,
@@ -102,16 +99,13 @@ const reducer = (state, action) => {
   switch (action.type) {
     case "SET_CLASSES":
       return { ...state, classes: action.payload };
-
     case "SET_ACTIVE_TAB":
       return { ...state, activeTab: action.payload, error: "", success: "" };
-
     case "SET_STATUS":
       return {
         ...state,
         attendance: { ...state.attendance, [action.studentId]: action.status },
       };
-
     case "SET_CLASS":
       return {
         ...state,
@@ -119,12 +113,10 @@ const reducer = (state, action) => {
         students: [],
         attendance: {},
         existingIds: {},
-        // BUG FIX: clear stale summary when class changes
         summaryData: [],
         error: "",
         success: "",
       };
-
     case "SET_DATE":
       return {
         ...state,
@@ -132,16 +124,12 @@ const reducer = (state, action) => {
         students: [],
         attendance: {},
         existingIds: {},
-        // BUG FIX: also clear summaryData on date change so Summary tab doesn't
-        // show stale data while the new fetch is in-flight
         summaryData: [],
         error: "",
         success: "",
       };
-
     case "FETCH_STUDENTS_START":
       return { ...state, loadingStudents: true, error: "", success: "" };
-
     case "FETCH_STUDENTS_DONE":
       return {
         ...state,
@@ -150,50 +138,33 @@ const reducer = (state, action) => {
         attendance: action.attendance,
         existingIds: action.existingIds,
       };
-
     case "FETCH_SUMMARY_START":
       return { ...state, loadingSummary: true };
-
     case "FETCH_SUMMARY_DONE":
       return { ...state, loadingSummary: false, summaryData: action.payload };
-
     case "SAVING_START":
       return { ...state, saving: true, error: "", success: "" };
-
     case "SAVING_DONE":
-      return { ...state, saving: false, success: "Attendance saved successfully." };
-
+      return { ...state, saving: false, success: action.payload || "Attendance saved successfully." };
     case "SAVING_ERROR":
       return { ...state, saving: false, error: action.payload };
-
     case "REFRESHING_START":
       return { ...state, refreshing: true, error: "", success: "" };
-
-    // REFRESH_DONE re-fetches from server (via action.students / action.attendance)
-    // instead of blindly clearing existingIds, so any records that failed to delete
-    // are still tracked correctly.
     case "REFRESH_DONE": {
       const freshAttendance = {};
-      state.students.forEach((s) => {
-        freshAttendance[s.id] = "present";
-      });
+      state.students.forEach((s) => { freshAttendance[s.id] = "present"; });
       return {
         ...state,
         refreshing: false,
-        // BUG FIX: clear existingIds only after confirmed server deletions;
-        // the fresh re-fetch in handleRefreshAllPresent populates this correctly.
         attendance: freshAttendance,
         existingIds: {},
         success: "All students reset to Present. Review and save.",
       };
     }
-
     case "REFRESH_ERROR":
       return { ...state, refreshing: false, error: action.payload };
-
     case "DELETING_START":
       return { ...state, deletingId: action.payload };
-
     case "DELETING_DONE": {
       const attendance = { ...state.attendance };
       const existingIds = { ...state.existingIds };
@@ -201,30 +172,16 @@ const reducer = (state, action) => {
       delete existingIds[action.studentId];
       return { ...state, deletingId: null, attendance, existingIds, success: "Record deleted." };
     }
-
-    // BUG FIX: was re-using DELETING_START with null payload to clear deletingId
-    // on error — semantically wrong and could mask the real error state.
     case "DELETING_ERROR":
       return { ...state, deletingId: null, error: action.payload };
-
     case "SET_ERROR":
-      return {
-        ...state,
-        error: action.payload,
-        saving: false,
-        loadingStudents: false,
-        refreshing: false,
-      };
-
+      return { ...state, error: action.payload, saving: false, loadingStudents: false, refreshing: false };
     case "SET_SUCCESS":
       return { ...state, success: action.payload };
-
     case "MERGE_IDS":
       return { ...state, existingIds: { ...state.existingIds, ...action.payload } };
-
-    case "CLEAR_SUCCESS":
-      return { ...state, success: "" };
-
+    case "CLEAR_MESSAGES":
+      return { ...state, success: "", error: "" };
     default:
       return state;
   }
@@ -232,49 +189,49 @@ const reducer = (state, action) => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const Alert = ({ type, message }) => {
+const Alert = ({ type, message, onDismiss }) => {
   const styles =
     type === "error"
       ? "bg-red-50 border border-red-200 text-red-700"
       : "bg-emerald-50 border border-emerald-200 text-emerald-700";
   return (
-    <div className={`mb-5 px-4 py-3 rounded-lg text-sm font-medium ${styles}`}>
-      {message}
+    <div className={`mb-5 px-4 py-3 rounded-xl text-sm font-medium flex items-start justify-between gap-3 ${styles}`}>
+      <span>{message}</span>
+      <button
+        onClick={onDismiss}
+        className="opacity-50 hover:opacity-100 transition-opacity shrink-0 mt-0.5"
+        aria-label="Dismiss"
+      >
+        ✕
+      </button>
     </div>
   );
 };
 
 const Spinner = ({ text = "Loading..." }) => (
-  <div className="flex items-center gap-2 text-gray-400 py-6 text-sm">
-    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v8H4z"
-      />
+  <div className="flex items-center gap-3 text-gray-400 py-10 text-sm justify-center">
+    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
     </svg>
     {text}
   </div>
 );
 
-const CountBadge = ({ opt, count }) => (
-  <span
-    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${opt.count}`}
-  >
-    {opt.icon} {opt.label}: {count}
-  </span>
-);
+const CountBadge = ({ opt, count, total }) => {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${opt.count}`}>
+      <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
+      <span>{opt.label}</span>
+      <span className="font-bold">{count}</span>
+      {total > 0 && <span className="opacity-60 font-normal">{pct}%</span>}
+    </div>
+  );
+};
 
 const StatusToggle = ({ currentStatus, studentId, onStatusChange, disabled }) => (
-  <div className="flex gap-1.5 justify-center flex-wrap" role="group" aria-label="Attendance status">
+  <div className="flex gap-1 justify-center flex-wrap" role="group" aria-label="Attendance status">
     {STATUS_OPTIONS.map(({ value, label, icon, active, inactive }) => (
       <button
         key={value}
@@ -282,7 +239,7 @@ const StatusToggle = ({ currentStatus, studentId, onStatusChange, disabled }) =>
         disabled={disabled}
         aria-pressed={currentStatus === value}
         aria-label={label}
-        className={`px-3 py-1 rounded-md text-xs font-semibold border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
+        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
           currentStatus === value ? active : `border-transparent ${inactive}`
         }`}
       >
@@ -294,11 +251,16 @@ const StatusToggle = ({ currentStatus, studentId, onStatusChange, disabled }) =>
 
 const RateBar = ({ rate }) => {
   const { color, bar, label } = getRateMeta(rate);
-  if (rate === null)
-    return <span className="text-gray-400 text-xs">No records</span>;
+  if (rate === null) return <span className="text-gray-400 text-xs">No records</span>;
   return (
     <div className="flex items-center gap-2 justify-center">
-      <div className="w-20 bg-gray-200 rounded-full h-1.5" role="progressbar" aria-valuenow={rate} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className="w-20 bg-gray-200 rounded-full h-1.5"
+        role="progressbar"
+        aria-valuenow={rate}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div
           className={`h-1.5 rounded-full transition-all duration-500 ${bar}`}
           style={{ width: `${rate}%` }}
@@ -313,107 +275,181 @@ const DateModeBanner = ({ selectedDate, hasAnyRecord, studentCount }) => {
   const today = isToday(selectedDate);
   if (!selectedDate || studentCount === 0) return null;
 
-  if (today && !hasAnyRecord) {
-    return (
-      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm">
-        <span className="text-lg leading-none">📋</span>
-        <div>
-          <span className="font-semibold">Today's attendance</span> — no records yet.
-          All students are pre-set to{" "}
-          <span className="font-semibold">Present</span>. Adjust and save.
-        </div>
-      </div>
-    );
-  }
+  const configs = {
+    todayNew: {
+      bg: "bg-blue-50 border-blue-200 text-blue-800",
+      icon: "📋",
+      title: "Today's attendance",
+      body: "No records yet. All students are pre-set to Present. Adjust and save.",
+    },
+    todayExisting: {
+      bg: "bg-emerald-50 border-emerald-200 text-emerald-800",
+      icon: "✅",
+      title: "Attendance recorded for today.",
+      body: "Edit any status and save, or use Reset All to Present to start over.",
+    },
+    pastExisting: {
+      bg: "bg-amber-50 border-amber-200 text-amber-800",
+      icon: "📅",
+      title: "Editing past attendance",
+      body: `${formatDate(selectedDate)}. Changes will update existing records.`,
+    },
+    pastNew: {
+      bg: "bg-gray-50 border-gray-200 text-gray-600",
+      icon: "🗓",
+      title: "No records for this date.",
+      body: `${formatDate(selectedDate)}. Assign statuses and save to create records.`,
+    },
+  };
 
-  if (today && hasAnyRecord) {
-    return (
-      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
-        <span className="text-lg leading-none">✅</span>
-        <div>
-          <span className="font-semibold">Today's attendance is recorded.</span>{" "}
-          Edit any status and save, or use{" "}
-          <span className="font-semibold">Reset All to Present</span> to start over.
-        </div>
-      </div>
-    );
-  }
+  const key =
+    today && !hasAnyRecord ? "todayNew" :
+    today && hasAnyRecord ? "todayExisting" :
+    !today && hasAnyRecord ? "pastExisting" : "pastNew";
 
-  if (!today && hasAnyRecord) {
-    return (
-      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-        <span className="text-lg leading-none">📅</span>
-        <div>
-          <span className="font-semibold">Editing past attendance</span> for{" "}
-          <span className="font-semibold">
-            {new Date(selectedDate + "T00:00:00").toLocaleDateString(undefined, {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </span>
-          . Changes will update existing records.
-        </div>
-      </div>
-    );
-  }
+  const { bg, icon, title, body } = configs[key];
 
-  if (!today && !hasAnyRecord) {
-    return (
-      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 text-sm">
-        <span className="text-lg leading-none">🗓</span>
-        <div>
-          <span className="font-semibold">No attendance recorded</span> for{" "}
-          <span className="font-semibold">
-            {new Date(selectedDate + "T00:00:00").toLocaleDateString(undefined, {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </span>
-          . Students without a record are shown unset — assign statuses and save
-          to create records.
-        </div>
+  return (
+    <div className={`mb-5 flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${bg}`}>
+      <span className="text-base leading-none mt-0.5">{icon}</span>
+      <div>
+        <span className="font-semibold">{title}</span>{" "}
+        <span className="opacity-80">{body}</span>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 };
+
+// ─── Quick-mark toolbar ───────────────────────────────────────────────────────
+
+const QuickMarkBar = ({ students, onMarkAll, disabled }) => (
+  <div className="flex items-center gap-2 mb-4">
+    <span className="text-xs text-gray-400 font-medium mr-1">Mark all:</span>
+    {STATUS_OPTIONS.map((opt) => (
+      <button
+        key={opt.value}
+        onClick={() => onMarkAll(opt.value)}
+        disabled={disabled}
+        className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all disabled:opacity-40 ${opt.inactive} border-transparent`}
+      >
+        {opt.icon} All {opt.label}
+      </button>
+    ))}
+  </div>
+);
+
+// ─── Search / filter bar ─────────────────────────────────────────────────────
+
+const SearchBar = ({ value, onChange, placeholder }) => (
+  <div className="relative">
+    <svg
+      className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" />
+    </svg>
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full border border-gray-200 bg-white text-gray-800 pl-9 pr-3 py-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-gray-300"
+    />
+    {value && (
+      <button
+        onClick={() => onChange("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-xs"
+        aria-label="Clear search"
+      >
+        ✕
+      </button>
+    )}
+  </div>
+);
+
+// ─── Progress ring for summary ────────────────────────────────────────────────
+
+const ProgressRing = ({ rate, size = 36 }) => {
+  if (rate === null) return <span className="text-gray-300 text-xs">—</span>;
+  const r = (size - 6) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (rate / 100) * circ;
+  const color = rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444";
+  return (
+    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={3} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={3}
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.5s ease" }}
+        />
+      </svg>
+      <span
+        className="absolute text-[10px] font-semibold tabular-nums"
+        style={{ color }}
+      >
+        {rate}%
+      </span>
+    </div>
+  );
+};
+
+// ─── Confirm dialog ───────────────────────────────────────────────────────────
+
+const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 p-6">
+      <p className="text-sm text-gray-700 mb-6 leading-relaxed">{message}</p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const Attendance = () => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [summarySearch, setSummarySearch] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState(null); // { message, onConfirm }
+
   const {
-    students,
-    classes,
-    selectedClass,
-    selectedDate,
-    attendance,
-    existingIds,
-    summaryData,
-    activeTab,
-    loadingStudents,
-    loadingSummary,
-    saving,
-    refreshing,
-    deletingId,
-    error,
-    success,
+    students, classes, selectedClass, selectedDate,
+    attendance, existingIds, summaryData, activeTab,
+    loadingStudents, loadingSummary, saving, refreshing,
+    deletingId, error, success,
   } = state;
 
-  // Auto-clear success messages after 4 s so they don't linger forever
   const successTimer = useRef(null);
   useEffect(() => {
     if (success) {
       clearTimeout(successTimer.current);
-      successTimer.current = setTimeout(
-        () => dispatch({ type: "CLEAR_SUCCESS" }),
-        4000
-      );
+      successTimer.current = setTimeout(() => dispatch({ type: "CLEAR_MESSAGES" }), 5000);
     }
     return () => clearTimeout(successTimer.current);
   }, [success]);
@@ -440,34 +476,22 @@ const Attendance = () => {
       const studentList = studRes.data.results ?? studRes.data;
       const existing = attRes.data.results ?? attRes.data;
       const isDateToday = isToday(date);
-
       const newAttendance = {};
       const newIds = {};
 
       studentList.forEach((s) => {
         const record = existing.find(
-          (a) =>
-            String(a.student) === String(s.id) ||
-            String(a.student_id) === String(s.id)
+          (a) => String(a.student) === String(s.id) || String(a.student_id) === String(s.id)
         );
         if (record) {
           newAttendance[s.id] = record.status;
           newIds[s.id] = record.id;
-        } else if (isDateToday) {
-          // Today, no record yet — pre-fill as "present" for convenience
-          newAttendance[s.id] = "present";
         } else {
-          // Past date, no record — leave unset so teacher knows nothing was recorded
-          newAttendance[s.id] = null;
+          newAttendance[s.id] = isDateToday ? "present" : null;
         }
       });
 
-      dispatch({
-        type: "FETCH_STUDENTS_DONE",
-        students: studentList,
-        attendance: newAttendance,
-        existingIds: newIds,
-      });
+      dispatch({ type: "FETCH_STUDENTS_DONE", students: studentList, attendance: newAttendance, existingIds: newIds });
     } catch {
       dispatch({ type: "SET_ERROR", payload: "Failed to load students." });
     }
@@ -479,9 +503,6 @@ const Attendance = () => {
     try {
       const [studRes, attRes] = await Promise.all([
         API.get(`/students/?school_class=${classId}`),
-        // BUG FIX: add school_class filter (was missing — fetched ALL attendance)
-        // and request a high page-size limit to reduce pagination issues on large
-        // datasets. For very large schools you may want server-side aggregation.
         API.get(`/attendance/?school_class=${classId}&page_size=2000`),
       ]);
       const classStudents = studRes.data.results ?? studRes.data;
@@ -489,17 +510,22 @@ const Attendance = () => {
 
       const summary = classStudents.map((student) => {
         const sr = records.filter(
-          (a) =>
-            String(a.student) === String(student.id) ||
-            String(a.student_id) === String(student.id)
+          (a) => String(a.student) === String(student.id) || String(a.student_id) === String(student.id)
         );
         const total = sr.length;
         const present = sr.filter((a) => a.status === "present").length;
         const absent = sr.filter((a) => a.status === "absent").length;
         const late = sr.filter((a) => a.status === "late").length;
-        const rate =
-          total > 0 ? Math.round(((present + late) / total) * 100) : null;
+        const rate = total > 0 ? Math.round(((present + late) / total) * 100) : null;
         return { student, total, present, absent, late, rate };
+      });
+
+      // Sort by rate ascending (lowest attendance first) so at-risk students appear on top
+      summary.sort((a, b) => {
+        if (a.rate === null && b.rate === null) return 0;
+        if (a.rate === null) return 1;
+        if (b.rate === null) return -1;
+        return a.rate - b.rate;
       });
 
       dispatch({ type: "FETCH_SUMMARY_DONE", payload: summary });
@@ -510,117 +536,87 @@ const Attendance = () => {
 
   // ── Effects ────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetchClasses();
-  }, [fetchClasses]);
+  useEffect(() => { fetchClasses(); }, [fetchClasses]);
 
   useEffect(() => {
     if (selectedClass && selectedDate) fetchStudents(selectedClass, selectedDate);
   }, [selectedClass, selectedDate, fetchStudents]);
 
   useEffect(() => {
-    if (activeTab === "Student Summary" && selectedClass)
-      fetchSummary(selectedClass);
+    if (activeTab === "Student Summary" && selectedClass) fetchSummary(selectedClass);
   }, [activeTab, selectedClass, fetchSummary]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  /**
-   * Reset all to present (today only).
-   *
-   * BUG FIX (original): silently swallowed per-record delete failures with
-   * `.catch(() => null)`, then cleared existingIds locally, causing the next
-   * save to POST instead of PATCH on any records that weren't actually deleted
-   * — resulting in a unique-constraint 400 from the server.
-   *
-   * Fix: collect failed deletes, warn the teacher, and re-fetch the real
-   * server state so existingIds is always accurate.
-   */
-  const handleRefreshAllPresent = async () => {
-    if (
-      !window.confirm(
-        "This will delete all recorded attendance for today and reset everyone to Present. Continue?"
-      )
-    )
-      return;
+  const handleMarkAll = useCallback((status) => {
+    students.forEach((s) => {
+      dispatch({ type: "SET_STATUS", studentId: s.id, status });
+    });
+  }, [students]);
 
-    dispatch({ type: "REFRESHING_START" });
-    try {
-      const ids = Object.values(existingIds);
-      const results = await Promise.allSettled(
-        ids.map((id) => API.delete(`/attendance/${id}/`))
-      );
-
-      const failed = results.filter((r) => r.status === "rejected").length;
-
-      if (failed > 0) {
-        // Re-fetch to sync real server state before reporting the partial failure
-        await fetchStudents(selectedClass, selectedDate);
-        dispatch({
-          type: "REFRESH_ERROR",
-          payload: `${failed} record(s) could not be deleted. The list has been refreshed — please try again.`,
-        });
-        return;
-      }
-
-      dispatch({ type: "REFRESH_DONE" });
-    } catch {
-      dispatch({
-        type: "REFRESH_ERROR",
-        payload: "Failed to reset attendance. Please try again.",
-      });
-    }
+  const handleRefreshAllPresent = () => {
+    setConfirmDialog({
+      message: "This will delete all recorded attendance for today and reset everyone to Present. This cannot be undone.",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        dispatch({ type: "REFRESHING_START" });
+        try {
+          const ids = Object.values(existingIds);
+          const results = await Promise.allSettled(
+            ids.map((id) => API.delete(`/attendance/${id}/`))
+          );
+          const failed = results.filter((r) => r.status === "rejected").length;
+          if (failed > 0) {
+            await fetchStudents(selectedClass, selectedDate);
+            dispatch({
+              type: "REFRESH_ERROR",
+              payload: `${failed} record(s) could not be deleted. The list has been refreshed — please try again.`,
+            });
+            return;
+          }
+          dispatch({ type: "REFRESH_DONE" });
+        } catch {
+          dispatch({ type: "REFRESH_ERROR", payload: "Failed to reset attendance. Please try again." });
+        }
+      },
+    });
   };
 
-  const handleDeleteAttendance = async (studentId) => {
+  const handleDeleteAttendance = (studentId) => {
     const id = existingIds[studentId];
-    if (!id || !window.confirm("Delete this attendance record?")) return;
-    dispatch({ type: "DELETING_START", payload: studentId });
-    try {
-      await API.delete(`/attendance/${id}/`);
-      dispatch({ type: "DELETING_DONE", studentId });
-    } catch {
-      // BUG FIX: was dispatching DELETING_START with null — use dedicated action
-      dispatch({
-        type: "DELETING_ERROR",
-        payload: "Failed to delete attendance record.",
-      });
-    }
+    if (!id) return;
+    setConfirmDialog({
+      message: "Delete this attendance record? This cannot be undone.",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        dispatch({ type: "DELETING_START", payload: studentId });
+        try {
+          await API.delete(`/attendance/${id}/`);
+          dispatch({ type: "DELETING_DONE", studentId });
+        } catch {
+          dispatch({ type: "DELETING_ERROR", payload: "Failed to delete attendance record." });
+        }
+      },
+    });
   };
 
-  /**
-   * Save attendance.
-   * - Students with a null status (unset on a past date) are skipped.
-   * - PATCH existing records, POST new ones.
-   */
   const submitAttendance = async () => {
     if (!selectedClass || !selectedDate) {
-      dispatch({
-        type: "SET_ERROR",
-        payload: "Please select both a class and a date.",
-      });
+      dispatch({ type: "SET_ERROR", payload: "Please select both a class and a date." });
       return;
     }
     if (students.length === 0) {
-      dispatch({
-        type: "SET_ERROR",
-        payload: "No students to save attendance for.",
-      });
+      dispatch({ type: "SET_ERROR", payload: "No students to save attendance for." });
       return;
     }
 
     const studentsToSave = students.filter(
       (s) => attendance[s.id] !== null && attendance[s.id] !== undefined
     );
-
-    // BUG FIX: warn the teacher how many unset students will be skipped
     const unsetCount = students.length - studentsToSave.length;
+
     if (studentsToSave.length === 0) {
-      dispatch({
-        type: "SET_ERROR",
-        payload:
-          "No statuses assigned. Please mark at least one student before saving.",
-      });
+      dispatch({ type: "SET_ERROR", payload: "No statuses assigned. Please mark at least one student before saving." });
       return;
     }
 
@@ -631,7 +627,6 @@ const Attendance = () => {
           const studentId = student.id;
           const status = attendance[studentId];
           const existingId = existingIds[studentId];
-
           if (existingId) {
             const res = await API.patch(`/attendance/${existingId}/`, { status });
             return { studentId, id: res.data.id };
@@ -653,23 +648,17 @@ const Attendance = () => {
       });
       dispatch({ type: "MERGE_IDS", payload: newIds });
 
-      const successMsg =
+      const msg =
         unsetCount > 0
           ? `Attendance saved. ${unsetCount} student(s) with no status were skipped.`
           : "Attendance saved successfully.";
-      dispatch({ type: "SAVING_DONE" });
-      // Override the generic message if we need to mention skipped students
-      if (unsetCount > 0) {
-        dispatch({ type: "SET_SUCCESS", payload: successMsg });
-      }
+      dispatch({ type: "SAVING_DONE", payload: msg });
 
       if (activeTab === "Student Summary") fetchSummary(selectedClass);
     } catch (err) {
       const msg =
         err.response?.data?.detail ||
-        Object.values(err.response?.data ?? {})
-          .flat()
-          .join(" ") ||
+        Object.values(err.response?.data ?? {}).flat().join(" ") ||
         "Error saving attendance.";
       dispatch({ type: "SAVING_ERROR", payload: msg });
     }
@@ -686,58 +675,96 @@ const Attendance = () => {
     return base;
   }, [attendance]);
 
-  const hasAnyRecord = useMemo(
-    () => Object.keys(existingIds).length > 0,
-    [existingIds]
-  );
-
-  // BUG FIX: compute reactively at render time instead of using a stale constant
+  const hasAnyRecord = useMemo(() => Object.keys(existingIds).length > 0, [existingIds]);
   const dateIsToday = isToday(selectedDate);
-
-  // BUG FIX: compute max date reactively so the date picker stays correct if
-  // the browser tab is kept open past midnight
   const maxDate = todayStr();
+  const savedCount = Object.keys(existingIds).length;
+  const totalStudents = students.length;
+
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery.trim()) return students;
+    const q = searchQuery.toLowerCase();
+    return students.filter(
+      (s) =>
+        getStudentName(s).toLowerCase().includes(q) ||
+        (s.admission_number || "").toLowerCase().includes(q)
+    );
+  }, [students, searchQuery]);
+
+  const filteredSummary = useMemo(() => {
+    if (!summarySearch.trim()) return summaryData;
+    const q = summarySearch.toLowerCase();
+    return summaryData.filter((row) => getStudentName(row.student).toLowerCase().includes(q));
+  }, [summaryData, summarySearch]);
+
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    if (summaryData.length === 0) return null;
+    const withRate = summaryData.filter((r) => r.rate !== null);
+    const avgRate = withRate.length > 0
+      ? Math.round(withRate.reduce((acc, r) => acc + r.rate, 0) / withRate.length)
+      : null;
+    const atRisk = summaryData.filter((r) => r.rate !== null && r.rate < 60).length;
+    return { avgRate, atRisk };
+  }, [summaryData]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {confirmDialog && (
+        <ConfirmDialog
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
       {/* Header */}
-      <div className="mb-7">
-        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
-          Attendance
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Mark and review student attendance by class and date.
-        </p>
+      <div className="mb-7 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Attendance</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            Mark and review student attendance by class and date.
+          </p>
+        </div>
+        {selectedClass && totalStudents > 0 && activeTab === TABS[0] && (
+          <div className="text-right shrink-0">
+            <div className="text-xs text-gray-400 mb-0.5">Saved</div>
+            <div className="text-lg font-bold text-gray-700 tabular-nums">
+              {savedCount}
+              <span className="text-sm font-normal text-gray-400"> / {totalStudents}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Alerts */}
-      {error && <Alert type="error" message={error} />}
-      {success && <Alert type="success" message={success} />}
+      {error && (
+        <Alert type="error" message={error} onDismiss={() => dispatch({ type: "CLEAR_MESSAGES" })} />
+      )}
+      {success && (
+        <Alert type="success" message={success} onDismiss={() => dispatch({ type: "CLEAR_MESSAGES" })} />
+      )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6 items-end">
         <div className="flex flex-col gap-1">
           <label
             htmlFor="class-select"
-            className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+            className="text-xs font-semibold text-gray-400 uppercase tracking-wide"
           >
             Class
           </label>
           <select
             id="class-select"
             value={selectedClass}
-            onChange={(e) =>
-              dispatch({ type: "SET_CLASS", payload: e.target.value })
-            }
-            className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 min-w-[160px]"
+            onChange={(e) => dispatch({ type: "SET_CLASS", payload: e.target.value })}
+            className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 min-w-[160px]"
           >
             <option value="">Select a class</option>
             {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
@@ -745,7 +772,7 @@ const Attendance = () => {
         <div className="flex flex-col gap-1">
           <label
             htmlFor="date-input"
-            className="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+            className="text-xs font-semibold text-gray-400 uppercase tracking-wide"
           >
             Date
           </label>
@@ -754,31 +781,25 @@ const Attendance = () => {
             type="date"
             value={selectedDate}
             max={maxDate}
-            onChange={(e) =>
-              dispatch({ type: "SET_DATE", payload: e.target.value })
-            }
-            className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+            onChange={(e) => dispatch({ type: "SET_DATE", payload: e.target.value })}
+            className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>
 
         {selectedDate && (
-          <div className="flex flex-col gap-1 justify-end">
-            <span
-              className={`px-3 py-2 rounded-lg text-xs font-semibold ${
-                dateIsToday
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-500"
-              }`}
-            >
-              {dateIsToday ? "📅 Today" : "🗓 Past date"}
-            </span>
-          </div>
+          <span
+            className={`px-3 py-2 rounded-xl text-xs font-semibold ${
+              dateIsToday ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {dateIsToday ? "Today" : "Past date"}
+          </span>
         )}
       </div>
 
       {/* Tabs */}
       {selectedClass && (
-        <div className="flex border-b border-gray-200 mb-6 gap-1" role="tablist">
+        <div className="flex border-b border-gray-100 mb-6 gap-1" role="tablist">
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -788,7 +809,7 @@ const Attendance = () => {
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
                 activeTab === tab
                   ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  : "border-transparent text-gray-400 hover:text-gray-600"
               }`}
             >
               {tab}
@@ -803,15 +824,17 @@ const Attendance = () => {
           {loadingStudents && <Spinner text="Loading students..." />}
 
           {!loadingStudents && selectedClass && students.length === 0 && (
-            <p className="text-sm text-gray-500 py-6">
-              No students found for this class.
-            </p>
+            <div className="text-center py-14 text-gray-400">
+              <div className="text-4xl mb-3">👥</div>
+              <p className="text-sm">No students found for this class.</p>
+            </div>
           )}
 
           {!selectedClass && (
-            <p className="text-sm text-gray-400 py-6">
-              Select a class and date to begin.
-            </p>
+            <div className="text-center py-14 text-gray-400">
+              <div className="text-4xl mb-3">📚</div>
+              <p className="text-sm">Select a class and date to begin.</p>
+            </div>
           )}
 
           {students.length > 0 && !loadingStudents && (
@@ -822,160 +845,170 @@ const Attendance = () => {
                 studentCount={students.length}
               />
 
-              {/* Count badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
+              {/* Stats row */}
+              <div className="flex flex-wrap gap-2 mb-4 items-center">
                 {STATUS_OPTIONS.map((opt) => (
-                  <CountBadge
-                    key={opt.value}
-                    opt={opt}
-                    count={counts[opt.value] || 0}
-                  />
+                  <CountBadge key={opt.value} opt={opt} count={counts[opt.value] || 0} total={totalStudents} />
                 ))}
                 {counts.unset > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
-                    — Unset: {counts.unset}
-                    <span className="text-gray-400 font-normal">(will be skipped on save)</span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-400">
+                    <span className="w-2 h-2 rounded-full bg-gray-300" />
+                    Unset: {counts.unset}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
-                  Total: {students.length}
+                <span className="ml-auto text-xs text-gray-400 font-medium tabular-nums">
+                  {totalStudents} students
                 </span>
               </div>
 
-              {/* Attendance table */}
-              <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                      <th className="px-4 py-3 text-left w-8">#</th>
-                      <th className="px-4 py-3 text-left">Student</th>
-                      <th className="px-4 py-3 text-left">Admission No.</th>
-                      <th className="px-4 py-3 text-center">Status</th>
-                      <th className="px-4 py-3 text-center w-20">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {students.map((student, index) => {
-                      const status = attendance[student.id];
-                      const statusMeta = status ? getStatusMeta(status) : null;
-                      const isUnset = status === null || status === undefined;
-
-                      return (
-                        <tr
-                          key={student.id}
-                          className={`transition-colors ${
-                            isUnset
-                              ? "bg-white hover:bg-gray-50"
-                              : statusMeta?.row || "hover:bg-gray-50"
-                          }`}
-                        >
-                          <td className="px-4 py-3 text-gray-400">{index + 1}</td>
-                          <td className="px-4 py-3 font-medium text-gray-800">
-                            {getStudentName(student)}
-                            {existingIds[student.id] && (
-                              <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
-                                saved
-                              </span>
-                            )}
-                            {isUnset && (
-                              <span className="ml-2 text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full font-semibold">
-                                not recorded
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-gray-400">
-                            {student.admission_number || "—"}
-                          </td>
-                          <td className="px-4 py-3">
-                            <StatusToggle
-                              currentStatus={status}
-                              studentId={student.id}
-                              onStatusChange={(id, s) =>
-                                dispatch({
-                                  type: "SET_STATUS",
-                                  studentId: id,
-                                  status: s,
-                                })
-                              }
-                              disabled={saving || refreshing}
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {existingIds[student.id] && (
-                              <button
-                                onClick={() =>
-                                  handleDeleteAttendance(student.id)
-                                }
-                                disabled={
-                                  deletingId === student.id ||
-                                  saving ||
-                                  refreshing
-                                }
-                                aria-label={`Delete attendance record for ${getStudentName(student)}`}
-                                className="text-xs px-2.5 py-1 rounded-md border border-red-200 text-red-500 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors disabled:opacity-40"
-                              >
-                                {deletingId === student.id ? "…" : "Delete"}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              {/* Quick mark + search */}
+              <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
+                <QuickMarkBar students={students} onMarkAll={handleMarkAll} disabled={saving || refreshing} />
+                <div className="w-52">
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search students…"
+                  />
+                </div>
               </div>
+
+              {/* No search results */}
+              {filteredStudents.length === 0 && searchQuery && (
+                <p className="text-sm text-gray-400 py-4 text-center">
+                  No students match "{searchQuery}".
+                </p>
+              )}
+
+              {/* Attendance table */}
+              {filteredStudents.length > 0 && (
+                <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50/80 text-gray-400 text-xs uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left w-8">#</th>
+                        <th className="px-4 py-3 text-left">Student</th>
+                        <th className="px-4 py-3 text-left hidden sm:table-cell">Adm. No.</th>
+                        <th className="px-4 py-3 text-center">Status</th>
+                        <th className="px-4 py-3 text-center w-20"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {filteredStudents.map((student, index) => {
+                        const status = attendance[student.id];
+                        const statusMeta = status ? getStatusMeta(status) : null;
+                        const isUnset = status === null || status === undefined;
+                        const isSaved = !!existingIds[student.id];
+
+                        return (
+                          <tr
+                            key={student.id}
+                            className={`transition-colors ${
+                              isUnset ? "bg-white hover:bg-gray-50" : statusMeta?.row || "hover:bg-gray-50"
+                            }`}
+                          >
+                            <td className="px-4 py-3 text-gray-300 text-xs">{index + 1}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 ${
+                                    isUnset
+                                      ? "bg-gray-100 text-gray-400"
+                                      : statusMeta
+                                      ? `${statusMeta.count}`
+                                      : "bg-gray-100 text-gray-400"
+                                  }`}
+                                >
+                                  {getStudentName(student).charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-800 leading-tight">
+                                    {getStudentName(student)}
+                                  </div>
+                                  {isSaved && (
+                                    <span className="text-[10px] text-emerald-600 font-semibold">
+                                      ✓ saved
+                                    </span>
+                                  )}
+                                  {isUnset && (
+                                    <span className="text-[10px] text-gray-300 font-medium">
+                                      not recorded
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-gray-400 text-xs hidden sm:table-cell">
+                              {student.admission_number || "—"}
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusToggle
+                                currentStatus={status}
+                                studentId={student.id}
+                                onStatusChange={(id, s) =>
+                                  dispatch({ type: "SET_STATUS", studentId: id, status: s })
+                                }
+                                disabled={saving || refreshing}
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {isSaved && (
+                                <button
+                                  onClick={() => handleDeleteAttendance(student.id)}
+                                  disabled={deletingId === student.id || saving || refreshing}
+                                  aria-label={`Delete attendance record for ${getStudentName(student)}`}
+                                  className="text-xs px-2.5 py-1 rounded-lg border border-red-100 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors disabled:opacity-40"
+                                >
+                                  {deletingId === student.id ? "…" : "Delete"}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Action bar */}
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   onClick={submitAttendance}
                   disabled={saving || refreshing}
-                  className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold px-6 py-2.5 rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                  className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-sm font-semibold px-6 py-2.5 rounded-xl shadow-sm disabled:opacity-50 transition-all flex items-center gap-2"
                 >
-                  {saving ? "Saving…" : "Save Attendance"}
+                  {saving ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Saving…
+                    </>
+                  ) : (
+                    "Save Attendance"
+                  )}
                 </button>
 
                 {dateIsToday && (
                   <button
                     onClick={handleRefreshAllPresent}
                     disabled={saving || refreshing}
-                    className="flex items-center gap-2 bg-white border border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-700 hover:text-amber-800 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 text-gray-600 hover:text-amber-800 text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm disabled:opacity-50 transition-all"
                   >
                     {refreshing ? (
                       <>
-                        <svg
-                          className="animate-spin h-3.5 w-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8v8H4z"
-                          />
-                        </svg>{" "}
+                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
                         Resetting…
                       </>
                     ) : (
-                      <>
-                        <span aria-hidden="true">↺</span> Reset All to Present
-                      </>
+                      <>↺ Reset All to Present</>
                     )}
                   </button>
-                )}
-
-                {(saving || refreshing) && (
-                  <span className="text-sm text-gray-400" aria-live="polite">
-                    Please wait…
-                  </span>
                 )}
               </div>
             </>
@@ -987,70 +1020,122 @@ const Attendance = () => {
       {activeTab === "Student Summary" && (
         <>
           {!selectedClass && (
-            <p className="text-sm text-gray-400 py-6">
-              Select a class to view the attendance summary.
-            </p>
+            <div className="text-center py-14 text-gray-400">
+              <div className="text-4xl mb-3">📊</div>
+              <p className="text-sm">Select a class to view the attendance summary.</p>
+            </div>
           )}
           {loadingSummary && <Spinner text="Loading summary..." />}
 
           {!loadingSummary && selectedClass && summaryData.length === 0 && (
-            <p className="text-sm text-gray-500 py-6">
-              No attendance records found for this class yet.
-            </p>
+            <div className="text-center py-14 text-gray-400">
+              <div className="text-4xl mb-3">🗃️</div>
+              <p className="text-sm">No attendance records found for this class yet.</p>
+            </div>
           )}
 
           {!loadingSummary && summaryData.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                    <th className="px-4 py-3 text-left w-8">#</th>
-                    <th className="px-4 py-3 text-left">Student</th>
-                    <th className="px-4 py-3 text-center text-emerald-700">
-                      Present
-                    </th>
-                    <th className="px-4 py-3 text-center text-red-600">
-                      Absent
-                    </th>
-                    <th className="px-4 py-3 text-center text-amber-600">
-                      Late
-                    </th>
-                    <th className="px-4 py-3 text-center">Total</th>
-                    <th className="px-4 py-3 text-center">Attendance Rate</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {summaryData.map(
-                    ({ student, present, absent, late, total, rate }, index) => (
-                      <tr
-                        key={student.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-4 py-3 text-gray-400">{index + 1}</td>
-                        <td className="px-4 py-3 font-medium text-gray-800">
-                          {getStudentName(student)}
-                        </td>
-                        <td className="px-4 py-3 text-center text-emerald-700 font-semibold">
-                          {present}
-                        </td>
-                        <td className="px-4 py-3 text-center text-red-600 font-semibold">
-                          {absent}
-                        </td>
-                        <td className="px-4 py-3 text-center text-amber-600 font-semibold">
-                          {late}
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-500">
-                          {total}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <RateBar rate={rate} />
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {/* Summary stat cards */}
+              {summaryStats && (
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="text-xs text-gray-400 mb-1">Students</div>
+                    <div className="text-2xl font-bold text-gray-700">{summaryData.length}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="text-xs text-gray-400 mb-1">Avg attendance</div>
+                    <div
+                      className={`text-2xl font-bold ${
+                        summaryStats.avgRate >= 80
+                          ? "text-emerald-600"
+                          : summaryStats.avgRate >= 60
+                          ? "text-amber-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {summaryStats.avgRate !== null ? `${summaryStats.avgRate}%` : "—"}
+                    </div>
+                  </div>
+                  <div className="bg-red-50 rounded-xl p-4">
+                    <div className="text-xs text-red-400 mb-1">At risk (&lt;60%)</div>
+                    <div className="text-2xl font-bold text-red-600">{summaryStats.atRisk}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Search */}
+              <div className="mb-4 w-64">
+                <SearchBar
+                  value={summarySearch}
+                  onChange={setSummarySearch}
+                  placeholder="Search students…"
+                />
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50/80 text-gray-400 text-xs uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left w-8">#</th>
+                      <th className="px-4 py-3 text-left">Student</th>
+                      <th className="px-4 py-3 text-center text-emerald-600">Present</th>
+                      <th className="px-4 py-3 text-center text-red-500">Absent</th>
+                      <th className="px-4 py-3 text-center text-amber-500">Late</th>
+                      <th className="px-4 py-3 text-center">Total</th>
+                      <th className="px-4 py-3 text-center">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredSummary.map(({ student, present, absent, late, total, rate }, index) => {
+                      const isAtRisk = rate !== null && rate < 60;
+                      return (
+                        <tr
+                          key={student.id}
+                          className={`transition-colors ${isAtRisk ? "bg-red-50/40" : "hover:bg-gray-50"}`}
+                        >
+                          <td className="px-4 py-3 text-gray-300 text-xs">{index + 1}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 ${
+                                  isAtRisk ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-500"
+                                }`}
+                              >
+                                {getStudentName(student).charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-800 leading-tight">
+                                  {getStudentName(student)}
+                                </div>
+                                {isAtRisk && (
+                                  <span className="text-[10px] text-red-500 font-semibold">at risk</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center text-emerald-600 font-semibold">{present}</td>
+                          <td className="px-4 py-3 text-center text-red-500 font-semibold">{absent}</td>
+                          <td className="px-4 py-3 text-center text-amber-500 font-semibold">{late}</td>
+                          <td className="px-4 py-3 text-center text-gray-400">{total}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center">
+                              <ProgressRing rate={rate} size={38} />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {filteredSummary.length === 0 && summarySearch && (
+                <p className="text-sm text-gray-400 py-4 text-center">
+                  No students match "{summarySearch}".
+                </p>
+              )}
+            </>
           )}
         </>
       )}
