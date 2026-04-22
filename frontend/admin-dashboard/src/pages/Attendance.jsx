@@ -56,20 +56,25 @@ const getRateMeta = (rate) => {
   return               { color: "text-red-600 font-bold",          bar: "bg-red-500",     label: `${rate}%` };
 };
 
+const isToday = (dateStr) => dateStr === todayStr();
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 const initialState = {
-  students:       [],
-  classes:        [],
-  selectedClass:  "",
-  selectedDate:   todayStr(),
-  attendance:     {},   // { [studentId]: status }
-  existingIds:    {},   // { [studentId]: attendanceRecordId }
-  summaryData:    [],
-  activeTab:      TABS[0],
+  students:        [],
+  classes:         [],
+  selectedClass:   "",
+  selectedDate:    todayStr(),
+  // attendance: { [studentId]: status | null }
+  // null means "no record yet"; string means recorded (or locally changed)
+  attendance:      {},
+  existingIds:     {},   // { [studentId]: attendanceRecordId }
+  summaryData:     [],
+  activeTab:       TABS[0],
   loadingStudents: false,
   loadingSummary:  false,
   saving:          false,
+  refreshing:      false,
   deletingId:      null,
   error:           "",
   success:         "",
@@ -77,11 +82,11 @@ const initialState = {
 
 const reducer = (state, action) => {
   switch (action.type) {
-    case "SET_CLASSES":        return { ...state, classes: action.payload };
-    case "SET_ACTIVE_TAB":     return { ...state, activeTab: action.payload, error: "", success: "" };
-    case "SET_STATUS":         return { ...state, attendance: { ...state.attendance, [action.studentId]: action.status } };
-    case "SET_CLASS":          return { ...state, selectedClass: action.payload, students: [], attendance: {}, existingIds: {}, summaryData: [], error: "", success: "" };
-    case "SET_DATE":           return { ...state, selectedDate: action.payload };
+    case "SET_CLASSES":          return { ...state, classes: action.payload };
+    case "SET_ACTIVE_TAB":       return { ...state, activeTab: action.payload, error: "", success: "" };
+    case "SET_STATUS":           return { ...state, attendance: { ...state.attendance, [action.studentId]: action.status } };
+    case "SET_CLASS":            return { ...state, selectedClass: action.payload, students: [], attendance: {}, existingIds: {}, summaryData: [], error: "", success: "" };
+    case "SET_DATE":             return { ...state, selectedDate: action.payload, students: [], attendance: {}, existingIds: {}, error: "", success: "" };
     case "FETCH_STUDENTS_START": return { ...state, loadingStudents: true, error: "", success: "" };
     case "FETCH_STUDENTS_DONE":  return { ...state, loadingStudents: false, students: action.students, attendance: action.attendance, existingIds: action.existingIds };
     case "FETCH_SUMMARY_START":  return { ...state, loadingSummary: true };
@@ -89,15 +94,26 @@ const reducer = (state, action) => {
     case "SAVING_START":         return { ...state, saving: true, error: "", success: "" };
     case "SAVING_DONE":          return { ...state, saving: false, success: "Attendance saved successfully." };
     case "SAVING_ERROR":         return { ...state, saving: false, error: action.payload };
+    case "REFRESHING_START":     return { ...state, refreshing: true, error: "", success: "" };
+    // REFRESH_DONE resets all attendance to "present" and clears existing IDs so
+    // everything is re-saved as new records (old ones deleted server-side first).
+    case "REFRESH_DONE": {
+      const freshAttendance = {};
+      const freshIds = {};
+      state.students.forEach((s) => { freshAttendance[s.id] = "present"; });
+      return { ...state, refreshing: false, attendance: freshAttendance, existingIds: freshIds, success: "All students reset to Present. Review and save." };
+    }
+    case "REFRESH_ERROR":        return { ...state, refreshing: false, error: action.payload };
     case "DELETING_START":       return { ...state, deletingId: action.payload };
     case "DELETING_DONE": {
       const attendance = { ...state.attendance };
       const existingIds = { ...state.existingIds };
-      delete attendance[action.studentId];
+      // Keep the student row but mark as "no record"
+      attendance[action.studentId] = null;
       delete existingIds[action.studentId];
       return { ...state, deletingId: null, attendance, existingIds, success: "Record deleted." };
     }
-    case "SET_ERROR":   return { ...state, error: action.payload, saving: false, loadingStudents: false };
+    case "SET_ERROR":   return { ...state, error: action.payload, saving: false, loadingStudents: false, refreshing: false };
     case "SET_SUCCESS": return { ...state, success: action.payload };
     case "MERGE_IDS":   return { ...state, existingIds: { ...state.existingIds, ...action.payload } };
     default:            return state;
@@ -129,13 +145,14 @@ const CountBadge = ({ opt, count }) => (
   </span>
 );
 
-const StatusToggle = ({ currentStatus, studentId, onStatusChange }) => (
+const StatusToggle = ({ currentStatus, studentId, onStatusChange, disabled }) => (
   <div className="flex gap-1.5 justify-center flex-wrap">
     {STATUS_OPTIONS.map(({ value, label, icon, active, inactive }) => (
       <button
         key={value}
-        onClick={() => onStatusChange(studentId, value)}
-        className={`px-3 py-1 rounded-md text-xs font-semibold border transition-all duration-150 ${
+        onClick={() => !disabled && onStatusChange(studentId, value)}
+        disabled={disabled}
+        className={`px-3 py-1 rounded-md text-xs font-semibold border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
           currentStatus === value ? active : `border-transparent ${inactive}`
         }`}
       >
@@ -158,6 +175,65 @@ const RateBar = ({ rate }) => {
   );
 };
 
+// Banner shown at the top of the Mark Attendance tab to communicate the mode
+const DateModeBanner = ({ selectedDate, hasAnyRecord, studentCount }) => {
+  const today = isToday(selectedDate);
+  if (!selectedDate || studentCount === 0) return null;
+
+  if (today && !hasAnyRecord) {
+    return (
+      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm">
+        <span className="text-lg leading-none">📋</span>
+        <div>
+          <span className="font-semibold">Today's attendance</span> — no records yet.
+          All students are pre-set to <span className="font-semibold">Present</span>. Adjust and save.
+        </div>
+      </div>
+    );
+  }
+
+  if (today && hasAnyRecord) {
+    return (
+      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+        <span className="text-lg leading-none">✅</span>
+        <div>
+          <span className="font-semibold">Today's attendance is recorded.</span>{" "}
+          Edit any status and save, or use <span className="font-semibold">Reset All to Present</span> to start over.
+        </div>
+      </div>
+    );
+  }
+
+  // Past date
+  if (!today && hasAnyRecord) {
+    return (
+      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <span className="text-lg leading-none">📅</span>
+        <div>
+          <span className="font-semibold">Editing past attendance</span> for{" "}
+          <span className="font-semibold">{new Date(selectedDate + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>.
+          Changes will update existing records.
+        </div>
+      </div>
+    );
+  }
+
+  if (!today && !hasAnyRecord) {
+    return (
+      <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 text-sm">
+        <span className="text-lg leading-none">🗓</span>
+        <div>
+          <span className="font-semibold">No attendance recorded</span> for{" "}
+          <span className="font-semibold">{new Date(selectedDate + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>.
+          Students without a record are shown unset — assign statuses and save to create records.
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const Attendance = () => {
@@ -165,7 +241,7 @@ const Attendance = () => {
   const {
     students, classes, selectedClass, selectedDate,
     attendance, existingIds, summaryData, activeTab,
-    loadingStudents, loadingSummary, saving, deletingId,
+    loadingStudents, loadingSummary, saving, refreshing, deletingId,
     error, success,
   } = state;
 
@@ -188,20 +264,31 @@ const Attendance = () => {
         API.get(`/students/?school_class=${classId}`),
         API.get(`/attendance/?date=${date}&school_class=${classId}`),
       ]);
-      const filtered = studRes.data.results ?? studRes.data;
-      const existing = attRes.data.results ?? attRes.data;
+      const studentList = studRes.data.results ?? studRes.data;
+      const existing    = attRes.data.results   ?? attRes.data;
+      const isDateToday = isToday(date);
 
       const newAttendance = {};
-      const newIds = {};
-      filtered.forEach((s) => {
+      const newIds        = {};
+
+      studentList.forEach((s) => {
         const record = existing.find(
           (a) => String(a.student) === String(s.id) || String(a.student_id) === String(s.id)
         );
-        newAttendance[s.id] = record?.status ?? "present";
-        if (record) newIds[s.id] = record.id;
+        if (record) {
+          // Existing record — show its real status
+          newAttendance[s.id] = record.status;
+          newIds[s.id]        = record.id;
+        } else if (isDateToday) {
+          // Today, no record yet — pre-fill as "present" for convenience
+          newAttendance[s.id] = "present";
+        } else {
+          // Past date, no record — leave unset so teacher knows nothing was recorded
+          newAttendance[s.id] = null;
+        }
       });
 
-      dispatch({ type: "FETCH_STUDENTS_DONE", students: filtered, attendance: newAttendance, existingIds: newIds });
+      dispatch({ type: "FETCH_STUDENTS_DONE", students: studentList, attendance: newAttendance, existingIds: newIds });
     } catch {
       dispatch({ type: "SET_ERROR", payload: "Failed to load students." });
     }
@@ -248,6 +335,27 @@ const Attendance = () => {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  /**
+   * Refresh all present (today only).
+   * Deletes every existing record for today's date in this class, then
+   * resets all local statuses to "present" so the teacher can re-mark and save.
+   */
+  const handleRefreshAllPresent = async () => {
+    if (!window.confirm("This will delete all recorded attendance for today and reset everyone to Present. Continue?")) return;
+
+    dispatch({ type: "REFRESHING_START" });
+    try {
+      // Delete all existing records for today in parallel
+      const deletePromises = Object.values(existingIds).map((id) =>
+        API.delete(`/attendance/${id}/`).catch(() => null) // ignore individual errors
+      );
+      await Promise.all(deletePromises);
+      dispatch({ type: "REFRESH_DONE" });
+    } catch {
+      dispatch({ type: "REFRESH_ERROR", payload: "Failed to reset attendance. Please try again." });
+    }
+  };
+
   const handleDeleteAttendance = async (studentId) => {
     const id = existingIds[studentId];
     if (!id || !window.confirm("Delete this attendance record?")) return;
@@ -262,8 +370,9 @@ const Attendance = () => {
   };
 
   /**
-   * Bug fix: original code always POST-ed, causing duplicates for already-saved records.
-   * Now we PATCH existing records and only POST new ones.
+   * Save attendance.
+   * - Students with a null status (unset on a past date) are skipped.
+   * - PATCH existing records, POST new ones.
    */
   const submitAttendance = async () => {
     if (!selectedClass || !selectedDate) {
@@ -274,20 +383,26 @@ const Attendance = () => {
       dispatch({ type: "SET_ERROR", payload: "No students to save attendance for." });
       return;
     }
+
+    // Filter to students who have a status assigned
+    const studentsToSave = students.filter((s) => attendance[s.id] !== null && attendance[s.id] !== undefined);
+    if (studentsToSave.length === 0) {
+      dispatch({ type: "SET_ERROR", payload: "No statuses assigned. Please mark at least one student." });
+      return;
+    }
+
     dispatch({ type: "SAVING_START" });
     try {
       const results = await Promise.all(
-        students.map(async (student) => {
+        studentsToSave.map(async (student) => {
           const studentId  = student.id;
-          const status     = attendance[studentId] ?? "present";
+          const status     = attendance[studentId];
           const existingId = existingIds[studentId];
 
           if (existingId) {
-            // Update existing record
             const res = await API.patch(`/attendance/${existingId}/`, { status });
             return { studentId, id: res.data.id };
           } else {
-            // Create new record
             const res = await API.post("/attendance/", {
               student:      studentId,
               school_class: selectedClass,
@@ -301,7 +416,9 @@ const Attendance = () => {
 
       // Merge newly created IDs back so subsequent saves use PATCH
       const newIds = {};
-      results.forEach(({ studentId, id }) => { if (!existingIds[studentId]) newIds[studentId] = id; });
+      results.forEach(({ studentId, id }) => {
+        if (!existingIds[studentId]) newIds[studentId] = id;
+      });
       dispatch({ type: "MERGE_IDS", payload: newIds });
       dispatch({ type: "SAVING_DONE" });
 
@@ -317,10 +434,21 @@ const Attendance = () => {
 
   // ── Derived data ───────────────────────────────────────────────────────────
 
-  const counts = useMemo(
-    () => Object.values(attendance).reduce((acc, s) => ({ ...acc, [s]: (acc[s] || 0) + 1 }), {}),
-    [attendance]
+  const counts = useMemo(() => {
+    const base = { present: 0, absent: 0, late: 0, unset: 0 };
+    Object.values(attendance).forEach((s) => {
+      if (s === null || s === undefined) base.unset++;
+      else if (base[s] !== undefined) base[s]++;
+    });
+    return base;
+  }, [attendance]);
+
+  const hasAnyRecord = useMemo(
+    () => Object.keys(existingIds).length > 0,
+    [existingIds]
   );
+
+  const dateIsToday = isToday(selectedDate);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -359,6 +487,18 @@ const Attendance = () => {
             className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>
+        {/* Date mode pill */}
+        {selectedDate && (
+          <div className="flex flex-col gap-1 justify-end">
+            <span className={`px-3 py-2 rounded-lg text-xs font-semibold ${
+              dateIsToday
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-500"
+            }`}>
+              {dateIsToday ? "📅 Today" : "🗓 Past date"}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -395,11 +535,23 @@ const Attendance = () => {
 
           {students.length > 0 && !loadingStudents && (
             <>
+              {/* Contextual banner */}
+              <DateModeBanner
+                selectedDate={selectedDate}
+                hasAnyRecord={hasAnyRecord}
+                studentCount={students.length}
+              />
+
               {/* Count badges */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {STATUS_OPTIONS.map((opt) => (
                   <CountBadge key={opt.value} opt={opt} count={counts[opt.value] || 0} />
                 ))}
+                {counts.unset > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+                    — Unset: {counts.unset}
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
                   Total: {students.length}
                 </span>
@@ -419,11 +571,16 @@ const Attendance = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {students.map((student, index) => {
-                      const statusMeta = getStatusMeta(attendance[student.id]);
+                      const status     = attendance[student.id];
+                      const statusMeta = status ? getStatusMeta(status) : null;
+                      const isUnset    = status === null || status === undefined;
+
                       return (
                         <tr
                           key={student.id}
-                          className={`transition-colors ${statusMeta?.row || "hover:bg-gray-50"}`}
+                          className={`transition-colors ${
+                            isUnset ? "bg-white hover:bg-gray-50" : (statusMeta?.row || "hover:bg-gray-50")
+                          }`}
                         >
                           <td className="px-4 py-3 text-gray-400">{index + 1}</td>
                           <td className="px-4 py-3 font-medium text-gray-800">
@@ -433,20 +590,26 @@ const Attendance = () => {
                                 saved
                               </span>
                             )}
+                            {isUnset && (
+                              <span className="ml-2 text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full font-semibold">
+                                not recorded
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-gray-400">{student.admission_number || "—"}</td>
                           <td className="px-4 py-3">
                             <StatusToggle
-                              currentStatus={attendance[student.id]}
+                              currentStatus={status}
                               studentId={student.id}
-                              onStatusChange={(id, status) => dispatch({ type: "SET_STATUS", studentId: id, status })}
+                              onStatusChange={(id, s) => dispatch({ type: "SET_STATUS", studentId: id, status: s })}
+                              disabled={saving || refreshing}
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
                             {existingIds[student.id] && (
                               <button
                                 onClick={() => handleDeleteAttendance(student.id)}
-                                disabled={deletingId === student.id}
+                                disabled={deletingId === student.id || saving || refreshing}
                                 className="text-xs px-2.5 py-1 rounded-md border border-red-200 text-red-500 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors disabled:opacity-40"
                               >
                                 {deletingId === student.id ? "…" : "Delete"}
@@ -460,16 +623,33 @@ const Attendance = () => {
                 </table>
               </div>
 
-              {/* Save button */}
-              <div className="mt-5 flex items-center gap-4">
+              {/* Action bar */}
+              <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   onClick={submitAttendance}
-                  disabled={saving}
+                  disabled={saving || refreshing}
                   className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold px-6 py-2.5 rounded-lg shadow-sm disabled:opacity-50 transition-colors"
                 >
                   {saving ? "Saving…" : "Save Attendance"}
                 </button>
-                {saving && <span className="text-sm text-gray-400">Please wait…</span>}
+
+                {/* Refresh all present — only shown for today */}
+                {dateIsToday && (
+                  <button
+                    onClick={handleRefreshAllPresent}
+                    disabled={saving || refreshing}
+                    className="flex items-center gap-2 bg-white border border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-700 hover:text-amber-800 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                  >
+                    {refreshing
+                      ? <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg> Resetting…</>
+                      : <><span>↺</span> Reset All to Present</>
+                    }
+                  </button>
+                )}
+
+                {(saving || refreshing) && (
+                  <span className="text-sm text-gray-400">Please wait…</span>
+                )}
               </div>
             </>
           )}
