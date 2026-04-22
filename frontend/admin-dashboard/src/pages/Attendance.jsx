@@ -1,264 +1,521 @@
-import { useEffect, useState } from "react";
+// apps/attendance/components/Attendance.jsx
+import { useEffect, useReducer, useCallback, useMemo } from "react";
 import API from "../services/api";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const todayStr = () => new Date().toISOString().split("T")[0];
 
-const getStudentName = (student) =>
-  student?.student_name ||
-  (student?.first_name || student?.last_name ? `${student.first_name || ""} ${student.last_name || ""}`.trim() : null) ||
-  student?.username || student?.admission_number || "Unknown";
-
 const STATUS_OPTIONS = [
-  { value: "present", label: "✓ Present", active: "bg-green-600 ring-2 ring-green-800 ring-offset-1 font-bold",       inactive: "bg-gray-100 text-gray-500 hover:bg-green-50  hover:text-green-700"  },
-  { value: "absent",  label: "✗ Absent",  active: "bg-red-600 ring-2 ring-red-800 ring-offset-1 font-bold text-white", inactive: "bg-gray-100 text-gray-500 hover:bg-red-50    hover:text-red-700"    },
-  { value: "late",    label: "⏱ Late",    active: "bg-yellow-500 ring-2 ring-yellow-700 ring-offset-1 font-bold text-gray-900", inactive: "bg-gray-100 text-gray-500 hover:bg-yellow-50 hover:text-yellow-700" },
+  {
+    value: "present",
+    label: "Present",
+    icon: "✓",
+    active: "bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-md",
+    inactive: "bg-gray-100 text-gray-500 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200",
+    row: "bg-emerald-50 border-l-4 border-emerald-500",
+    count: "text-emerald-700 bg-emerald-100",
+  },
+  {
+    value: "absent",
+    label: "Absent",
+    icon: "✗",
+    active: "bg-red-600 text-white ring-2 ring-red-300 shadow-md",
+    inactive: "bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-700 hover:border-red-200",
+    row: "bg-red-50 border-l-4 border-red-500",
+    count: "text-red-700 bg-red-100",
+  },
+  {
+    value: "late",
+    label: "Late",
+    icon: "⏱",
+    active: "bg-amber-500 text-white ring-2 ring-amber-300 shadow-md",
+    inactive: "bg-gray-100 text-gray-500 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200",
+    row: "bg-amber-50 border-l-4 border-amber-400",
+    count: "text-amber-700 bg-amber-100",
+  },
 ];
-
-const ROW_HIGHLIGHT = {
-  present: "bg-green-50  border-l-4 border-green-500",
-  absent:  "bg-red-50    border-l-4 border-red-500",
-  late:    "bg-yellow-50 border-l-4 border-yellow-400",
-};
 
 const TABS = ["Mark Attendance", "Student Summary"];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const getStudentName = (student) =>
+  student?.student_name ||
+  [student?.first_name, student?.last_name].filter(Boolean).join(" ").trim() ||
+  student?.username ||
+  student?.admission_number ||
+  "Unknown";
+
+const getStatusMeta = (value) => STATUS_OPTIONS.find((s) => s.value === value);
+
+const getRateMeta = (rate) => {
+  if (rate === null) return { color: "text-gray-400", bar: "bg-gray-300", label: "—" };
+  if (rate >= 80)    return { color: "text-emerald-700 font-bold", bar: "bg-emerald-500", label: `${rate}%` };
+  if (rate >= 60)    return { color: "text-amber-600 font-bold",   bar: "bg-amber-400",   label: `${rate}%` };
+  return               { color: "text-red-600 font-bold",          bar: "bg-red-500",     label: `${rate}%` };
+};
+
+// ─── Reducer ──────────────────────────────────────────────────────────────────
+
+const initialState = {
+  students:       [],
+  classes:        [],
+  selectedClass:  "",
+  selectedDate:   todayStr(),
+  attendance:     {},   // { [studentId]: status }
+  existingIds:    {},   // { [studentId]: attendanceRecordId }
+  summaryData:    [],
+  activeTab:      TABS[0],
+  loadingStudents: false,
+  loadingSummary:  false,
+  saving:          false,
+  deletingId:      null,
+  error:           "",
+  success:         "",
+};
+
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "SET_CLASSES":        return { ...state, classes: action.payload };
+    case "SET_ACTIVE_TAB":     return { ...state, activeTab: action.payload, error: "", success: "" };
+    case "SET_STATUS":         return { ...state, attendance: { ...state.attendance, [action.studentId]: action.status } };
+    case "SET_CLASS":          return { ...state, selectedClass: action.payload, students: [], attendance: {}, existingIds: {}, summaryData: [], error: "", success: "" };
+    case "SET_DATE":           return { ...state, selectedDate: action.payload };
+    case "FETCH_STUDENTS_START": return { ...state, loadingStudents: true, error: "", success: "" };
+    case "FETCH_STUDENTS_DONE":  return { ...state, loadingStudents: false, students: action.students, attendance: action.attendance, existingIds: action.existingIds };
+    case "FETCH_SUMMARY_START":  return { ...state, loadingSummary: true };
+    case "FETCH_SUMMARY_DONE":   return { ...state, loadingSummary: false, summaryData: action.payload };
+    case "SAVING_START":         return { ...state, saving: true, error: "", success: "" };
+    case "SAVING_DONE":          return { ...state, saving: false, success: "Attendance saved successfully." };
+    case "SAVING_ERROR":         return { ...state, saving: false, error: action.payload };
+    case "DELETING_START":       return { ...state, deletingId: action.payload };
+    case "DELETING_DONE": {
+      const attendance = { ...state.attendance };
+      const existingIds = { ...state.existingIds };
+      delete attendance[action.studentId];
+      delete existingIds[action.studentId];
+      return { ...state, deletingId: null, attendance, existingIds, success: "Record deleted." };
+    }
+    case "SET_ERROR":   return { ...state, error: action.payload, saving: false, loadingStudents: false };
+    case "SET_SUCCESS": return { ...state, success: action.payload };
+    case "MERGE_IDS":   return { ...state, existingIds: { ...state.existingIds, ...action.payload } };
+    default:            return state;
+  }
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+const Alert = ({ type, message }) => {
+  const styles = type === "error"
+    ? "bg-red-50 border border-red-200 text-red-700"
+    : "bg-emerald-50 border border-emerald-200 text-emerald-700";
+  return <div className={`mb-5 px-4 py-3 rounded-lg text-sm font-medium ${styles}`}>{message}</div>;
+};
+
+const Spinner = ({ text = "Loading..." }) => (
+  <div className="flex items-center gap-2 text-gray-400 py-6 text-sm">
+    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+    </svg>
+    {text}
+  </div>
+);
+
+const CountBadge = ({ opt, count }) => (
+  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${opt.count}`}>
+    {opt.icon} {opt.label}: {count}
+  </span>
+);
+
+const StatusToggle = ({ currentStatus, studentId, onStatusChange }) => (
+  <div className="flex gap-1.5 justify-center flex-wrap">
+    {STATUS_OPTIONS.map(({ value, label, icon, active, inactive }) => (
+      <button
+        key={value}
+        onClick={() => onStatusChange(studentId, value)}
+        className={`px-3 py-1 rounded-md text-xs font-semibold border transition-all duration-150 ${
+          currentStatus === value ? active : `border-transparent ${inactive}`
+        }`}
+      >
+        {icon} {label}
+      </button>
+    ))}
+  </div>
+);
+
+const RateBar = ({ rate }) => {
+  const { color, bar, label } = getRateMeta(rate);
+  if (rate === null) return <span className="text-gray-400 text-xs">No records</span>;
+  return (
+    <div className="flex items-center gap-2 justify-center">
+      <div className="w-20 bg-gray-200 rounded-full h-1.5">
+        <div className={`h-1.5 rounded-full transition-all duration-500 ${bar}`} style={{ width: `${rate}%` }} />
+      </div>
+      <span className={`text-xs tabular-nums ${color}`}>{label}</span>
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 const Attendance = () => {
-  const [students, setStudents]               = useState([]);
-  const [classes, setClasses]                 = useState([]);
-  const [selectedClass, setSelectedClass]     = useState("");
-  const [selectedDate, setSelectedDate]       = useState(todayStr());
-  const [attendance, setAttendance]           = useState({});
-  const [existingIds, setExistingIds]         = useState({});
-  const [loadingStudents, setLoadingStudents] = useState(false);
-  const [saving, setSaving]                   = useState(false);
-  const [deletingId, setDeletingId]           = useState(null);
-  const [error, setError]                     = useState("");
-  const [success, setSuccess]                 = useState("");
-  const [activeTab, setActiveTab]             = useState("Mark Attendance");
-  const [summaryData, setSummaryData]         = useState([]);
-  const [loadingSummary, setLoadingSummary]   = useState(false);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const {
+    students, classes, selectedClass, selectedDate,
+    attendance, existingIds, summaryData, activeTab,
+    loadingStudents, loadingSummary, saving, deletingId,
+    error, success,
+  } = state;
 
-  useEffect(() => { fetchClasses(); }, []);
-  useEffect(() => { if (selectedClass && selectedDate) fetchStudents(selectedClass); }, [selectedClass, selectedDate]);
-  useEffect(() => { if (activeTab === "Student Summary" && selectedClass) fetchSummary(selectedClass); }, [activeTab, selectedClass]);
+  // ── Data fetching ──────────────────────────────────────────────────────────
 
-  const fetchClasses = async () => { try { const res = await API.get("/classes/"); setClasses(res.data.results || res.data); } catch { setError("Failed to load classes."); } };
-
-  const fetchStudents = async (classId) => {
-    if (!classId) return;
-    setLoadingStudents(true); setError(""); setSuccess("");
+  const fetchClasses = useCallback(async () => {
     try {
-      const res = await API.get(`/students/?school_class=${classId}`);
-      const filtered = res.data.results || res.data;
-      setStudents(filtered);
-      const attRes = await API.get(`/attendance/?date=${selectedDate}&school_class=${classId}`);
-      const existing = attRes.data.results || attRes.data;
-      const defaults = {}; const ids = {};
+      const res = await API.get("/classes/");
+      dispatch({ type: "SET_CLASSES", payload: res.data.results ?? res.data });
+    } catch {
+      dispatch({ type: "SET_ERROR", payload: "Failed to load classes." });
+    }
+  }, []);
+
+  const fetchStudents = useCallback(async (classId, date) => {
+    if (!classId || !date) return;
+    dispatch({ type: "FETCH_STUDENTS_START" });
+    try {
+      const [studRes, attRes] = await Promise.all([
+        API.get(`/students/?school_class=${classId}`),
+        API.get(`/attendance/?date=${date}&school_class=${classId}`),
+      ]);
+      const filtered = studRes.data.results ?? studRes.data;
+      const existing = attRes.data.results ?? attRes.data;
+
+      const newAttendance = {};
+      const newIds = {};
       filtered.forEach((s) => {
-        const record = existing.find((a) => String(a.student) === String(s.id) || String(a.student_id) === String(s.id));
-        defaults[s.id] = record ? record.status : "present";
-        if (record) ids[s.id] = record.id;
+        const record = existing.find(
+          (a) => String(a.student) === String(s.id) || String(a.student_id) === String(s.id)
+        );
+        newAttendance[s.id] = record?.status ?? "present";
+        if (record) newIds[s.id] = record.id;
       });
-      setAttendance(defaults); setExistingIds(ids);
-    } catch { setError("Failed to load students."); }
-    finally { setLoadingStudents(false); }
-  };
 
-  const fetchSummary = async (classId) => {
+      dispatch({ type: "FETCH_STUDENTS_DONE", students: filtered, attendance: newAttendance, existingIds: newIds });
+    } catch {
+      dispatch({ type: "SET_ERROR", payload: "Failed to load students." });
+    }
+  }, []);
+
+  const fetchSummary = useCallback(async (classId) => {
     if (!classId) return;
-    setLoadingSummary(true);
+    dispatch({ type: "FETCH_SUMMARY_START" });
     try {
-      const studRes = await API.get(`/students/?school_class=${classId}`);
-      const classStudents = studRes.data.results || studRes.data;
-      const attRes = await API.get(`/attendance/?school_class=${classId}`);
-      const records = attRes.data.results || attRes.data;
+      const [studRes, attRes] = await Promise.all([
+        API.get(`/students/?school_class=${classId}`),
+        API.get(`/attendance/?school_class=${classId}`),
+      ]);
+      const classStudents = studRes.data.results ?? studRes.data;
+      const records       = attRes.data.results  ?? attRes.data;
+
       const summary = classStudents.map((student) => {
-        const sr = records.filter((a) => String(a.student) === String(student.id));
-        const total = sr.length;
+        const sr      = records.filter((a) => String(a.student) === String(student.id));
+        const total   = sr.length;
         const present = sr.filter((a) => a.status === "present").length;
         const absent  = sr.filter((a) => a.status === "absent").length;
         const late    = sr.filter((a) => a.status === "late").length;
         const rate    = total > 0 ? Math.round(((present + late) / total) * 100) : null;
         return { student, total, present, absent, late, rate };
       });
-      setSummaryData(summary);
-    } catch { setError("Failed to load attendance summary."); }
-    finally { setLoadingSummary(false); }
-  };
 
-  const handleClassChange = (e) => {
-    const classId = e.target.value;
-    setSelectedClass(classId); setStudents([]); setAttendance({});
-    setExistingIds({}); setSummaryData([]); setError(""); setSuccess("");
-  };
+      dispatch({ type: "FETCH_SUMMARY_DONE", payload: summary });
+    } catch {
+      dispatch({ type: "SET_ERROR", payload: "Failed to load attendance summary." });
+    }
+  }, []);
 
-  const handleStatusChange = (studentId, newStatus) => setAttendance((prev) => ({ ...prev, [studentId]: newStatus }));
+  // ── Effects ────────────────────────────────────────────────────────────────
+
+  useEffect(() => { fetchClasses(); }, [fetchClasses]);
+
+  useEffect(() => {
+    if (selectedClass && selectedDate) fetchStudents(selectedClass, selectedDate);
+  }, [selectedClass, selectedDate, fetchStudents]);
+
+  useEffect(() => {
+    if (activeTab === "Student Summary" && selectedClass) fetchSummary(selectedClass);
+  }, [activeTab, selectedClass, fetchSummary]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleDeleteAttendance = async (studentId) => {
     const id = existingIds[studentId];
-    if (!id) return;
-    if (!window.confirm("Delete this student's attendance record for the selected date?")) return;
-    setDeletingId(studentId); setError("");
+    if (!id || !window.confirm("Delete this attendance record?")) return;
+    dispatch({ type: "DELETING_START", payload: studentId });
     try {
       await API.delete(`/attendance/${id}/`);
-      setAttendance((prev) => { const n = { ...prev }; delete n[studentId]; return n; });
-      setExistingIds((prev) => { const n = { ...prev }; delete n[studentId]; return n; });
-      setSuccess("Attendance record deleted.");
-    } catch { setError("Failed to delete attendance record."); }
-    finally { setDeletingId(null); }
+      dispatch({ type: "DELETING_DONE", studentId });
+    } catch {
+      dispatch({ type: "SET_ERROR", payload: "Failed to delete attendance record." });
+      dispatch({ type: "DELETING_START", payload: null });
+    }
   };
 
+  /**
+   * Bug fix: original code always POST-ed, causing duplicates for already-saved records.
+   * Now we PATCH existing records and only POST new ones.
+   */
   const submitAttendance = async () => {
-    setError(""); setSuccess("");
-    if (!selectedClass || !selectedDate) { setError("Please select both a class and a date."); return; }
-    if (students.length === 0) { setError("No students to save attendance for."); return; }
-    setSaving(true);
+    if (!selectedClass || !selectedDate) {
+      dispatch({ type: "SET_ERROR", payload: "Please select both a class and a date." });
+      return;
+    }
+    if (students.length === 0) {
+      dispatch({ type: "SET_ERROR", payload: "No students to save attendance for." });
+      return;
+    }
+    dispatch({ type: "SAVING_START" });
     try {
-      const payload = Object.keys(attendance).map((studentId) => ({
-        student: studentId, school_class: selectedClass, date: selectedDate, status: attendance[studentId],
-      }));
-      await Promise.all(payload.map((record) => API.post("/attendance/", record)));
-      setSuccess("Attendance saved successfully.");
-      fetchStudents(selectedClass);
+      const results = await Promise.all(
+        students.map(async (student) => {
+          const studentId  = student.id;
+          const status     = attendance[studentId] ?? "present";
+          const existingId = existingIds[studentId];
+
+          if (existingId) {
+            // Update existing record
+            const res = await API.patch(`/attendance/${existingId}/`, { status });
+            return { studentId, id: res.data.id };
+          } else {
+            // Create new record
+            const res = await API.post("/attendance/", {
+              student:      studentId,
+              school_class: selectedClass,
+              date:         selectedDate,
+              status,
+            });
+            return { studentId, id: res.data.id };
+          }
+        })
+      );
+
+      // Merge newly created IDs back so subsequent saves use PATCH
+      const newIds = {};
+      results.forEach(({ studentId, id }) => { if (!existingIds[studentId]) newIds[studentId] = id; });
+      dispatch({ type: "MERGE_IDS", payload: newIds });
+      dispatch({ type: "SAVING_DONE" });
+
       if (activeTab === "Student Summary") fetchSummary(selectedClass);
     } catch (err) {
-      setError(err.response?.data?.detail || Object.values(err.response?.data || {}).flat().join(" ") || "Error saving attendance.");
-    } finally { setSaving(false); }
+      const msg =
+        err.response?.data?.detail ||
+        Object.values(err.response?.data ?? {}).flat().join(" ") ||
+        "Error saving attendance.";
+      dispatch({ type: "SAVING_ERROR", payload: msg });
+    }
   };
 
-  const counts = Object.values(attendance).reduce((acc, s) => ({ ...acc, [s]: (acc[s] || 0) + 1 }), {});
-  const getRateColor = (rate) => { if (rate === null) return "text-gray-400"; if (rate >= 80) return "text-green-600 font-semibold"; if (rate >= 60) return "text-yellow-600 font-semibold"; return "text-red-600 font-semibold"; };
-  const getRateBar   = (rate) => { if (rate === null) return "bg-gray-200"; if (rate >= 80) return "bg-green-500"; if (rate >= 60) return "bg-yellow-400"; return "bg-red-500"; };
+  // ── Derived data ───────────────────────────────────────────────────────────
+
+  const counts = useMemo(
+    () => Object.values(attendance).reduce((acc, s) => ({ ...acc, [s]: (acc[s] || 0) + 1 }), {}),
+    [attendance]
+  );
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Attendance</h1>
-      {error   && <div className="mb-4 p-3 bg-red-100   text-red-700   border border-red-300   rounded">{error}</div>}
-      {success && <div className="mb-4 p-3 bg-green-100 text-green-700 border border-green-300 rounded">{success}</div>}
-
-      <div className="flex gap-4 mb-6 flex-wrap">
-        <select value={selectedClass} onChange={handleClassChange} className="border p-2 rounded min-w-[160px]">
-          <option value="">Select Class</option>
-          {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="border p-2 rounded" />
+    <div className="p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="mb-7">
+        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Attendance</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Mark and review student attendance by class and date.</p>
       </div>
 
+      {/* Alerts */}
+      {error   && <Alert type="error"   message={error}   />}
+      {success && <Alert type="success" message={success} />}
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Class</label>
+          <select
+            value={selectedClass}
+            onChange={(e) => dispatch({ type: "SET_CLASS", payload: e.target.value })}
+            className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 min-w-[160px]"
+          >
+            <option value="">Select a class</option>
+            {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</label>
+          <input
+            type="date"
+            value={selectedDate}
+            max={todayStr()}
+            onChange={(e) => dispatch({ type: "SET_DATE", payload: e.target.value })}
+            className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+      </div>
+
+      {/* Tabs */}
       {selectedClass && (
-        <div className="flex border-b mb-6">
+        <div className="flex border-b border-gray-200 mb-6 gap-1">
           {TABS.map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+            <button
+              key={tab}
+              onClick={() => dispatch({ type: "SET_ACTIVE_TAB", payload: tab })}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+                activeTab === tab
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
               {tab}
             </button>
           ))}
         </div>
       )}
 
+      {/* ── Tab: Mark Attendance ── */}
       {activeTab === "Mark Attendance" && (
         <>
-          {loadingStudents && <p className="text-gray-500 mb-4">Loading students...</p>}
-          {!loadingStudents && selectedClass && students.length === 0 && <p className="text-red-500 mb-4">No students found for this class.</p>}
-          {students.length > 0 && (
+          {loadingStudents && <Spinner text="Loading students..." />}
+
+          {!loadingStudents && selectedClass && students.length === 0 && (
+            <p className="text-sm text-gray-500 py-6">No students found for this class.</p>
+          )}
+
+          {!selectedClass && (
+            <p className="text-sm text-gray-400 py-6">Select a class and date to begin.</p>
+          )}
+
+          {students.length > 0 && !loadingStudents && (
             <>
-              <div className="flex gap-4 mb-4 text-sm font-medium">
-                <span className="text-green-700">Present: {counts.present || 0}</span>
-                <span className="text-red-600">Absent: {counts.absent || 0}</span>
-                <span className="text-yellow-600">Late: {counts.late || 0}</span>
-                <span className="text-gray-500">Total: {students.length}</span>
+              {/* Count badges */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {STATUS_OPTIONS.map((opt) => (
+                  <CountBadge key={opt.value} opt={opt} count={counts[opt.value] || 0} />
+                ))}
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                  Total: {students.length}
+                </span>
               </div>
-              <table className="w-full border rounded shadow">
-                <thead className="bg-gray-200">
-                  <tr>
-                    <th className="p-2 text-left">#</th>
-                    <th className="p-2 text-left">Student</th>
-                    <th className="p-2 text-left">Admission No</th>
-                    <th className="p-2 text-center">Status</th>
-                    <th className="p-2 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map((student, index) => (
-                    <tr key={student.id} className={`border-t transition-colors ${ROW_HIGHLIGHT[attendance[student.id]] || "hover:bg-gray-50"}`}>
-                      <td className="p-2 text-gray-400 text-sm">{index + 1}</td>
-                      <td className="p-2 font-medium">
-                        {getStudentName(student)}
-                        {existingIds[student.id] && <span className="ml-1.5 text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">saved</span>}
-                      </td>
-                      <td className="p-2 text-gray-500 text-sm">{student.admission_number || "-"}</td>
-                      <td className="p-2">
-                        <div className="flex gap-2 justify-center">
-                          {STATUS_OPTIONS.map(({ value, label, active, inactive }) => (
-                            <button key={value} onClick={() => handleStatusChange(student.id, value)}
-                              className={`px-3 py-1 rounded text-sm transition-all ${attendance[student.id] === value ? `${active} text-white` : inactive}`}>
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="p-2 text-center">
-                        {existingIds[student.id] && (
-                          <button onClick={() => handleDeleteAttendance(student.id)} disabled={deletingId === student.id}
-                            className="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-2 py-1 rounded text-xs transition-colors border border-red-100 hover:border-red-600 disabled:opacity-50">
-                            {deletingId === student.id ? "…" : "Delete"}
-                          </button>
-                        )}
-                      </td>
+
+              {/* Attendance table */}
+              <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left w-8">#</th>
+                      <th className="px-4 py-3 text-left">Student</th>
+                      <th className="px-4 py-3 text-left">Admission No.</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-center w-20">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <button onClick={submitAttendance} disabled={saving}
-                className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50 transition-colors">
-                {saving ? "Saving..." : "Save Attendance"}
-              </button>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {students.map((student, index) => {
+                      const statusMeta = getStatusMeta(attendance[student.id]);
+                      return (
+                        <tr
+                          key={student.id}
+                          className={`transition-colors ${statusMeta?.row || "hover:bg-gray-50"}`}
+                        >
+                          <td className="px-4 py-3 text-gray-400">{index + 1}</td>
+                          <td className="px-4 py-3 font-medium text-gray-800">
+                            {getStudentName(student)}
+                            {existingIds[student.id] && (
+                              <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
+                                saved
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">{student.admission_number || "—"}</td>
+                          <td className="px-4 py-3">
+                            <StatusToggle
+                              currentStatus={attendance[student.id]}
+                              studentId={student.id}
+                              onStatusChange={(id, status) => dispatch({ type: "SET_STATUS", studentId: id, status })}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {existingIds[student.id] && (
+                              <button
+                                onClick={() => handleDeleteAttendance(student.id)}
+                                disabled={deletingId === student.id}
+                                className="text-xs px-2.5 py-1 rounded-md border border-red-200 text-red-500 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors disabled:opacity-40"
+                              >
+                                {deletingId === student.id ? "…" : "Delete"}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Save button */}
+              <div className="mt-5 flex items-center gap-4">
+                <button
+                  onClick={submitAttendance}
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold px-6 py-2.5 rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                >
+                  {saving ? "Saving…" : "Save Attendance"}
+                </button>
+                {saving && <span className="text-sm text-gray-400">Please wait…</span>}
+              </div>
             </>
           )}
         </>
       )}
 
+      {/* ── Tab: Student Summary ── */}
       {activeTab === "Student Summary" && (
         <>
-          {!selectedClass && <p className="text-gray-500">Select a class to view attendance summary.</p>}
-          {loadingSummary && <p className="text-gray-500">Loading summary...</p>}
-          {!loadingSummary && summaryData.length > 0 && (
-            <table className="w-full border rounded shadow">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="p-2 text-left">#</th>
-                  <th className="p-2 text-left">Student</th>
-                  <th className="p-2 text-center text-green-700">Present</th>
-                  <th className="p-2 text-center text-red-600">Absent</th>
-                  <th className="p-2 text-center text-yellow-600">Late</th>
-                  <th className="p-2 text-center">Total Days</th>
-                  <th className="p-2 text-center">Attendance Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryData.map(({ student, present, absent, late, total, rate }, index) => (
-                  <tr key={student.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 text-gray-400 text-sm">{index + 1}</td>
-                    <td className="p-2 font-medium">{getStudentName(student)}</td>
-                    <td className="p-2 text-center text-green-700 font-semibold">{present}</td>
-                    <td className="p-2 text-center text-red-600  font-semibold">{absent}</td>
-                    <td className="p-2 text-center text-yellow-600 font-semibold">{late}</td>
-                    <td className="p-2 text-center text-gray-600">{total}</td>
-                    <td className="p-2 text-center">
-                      {rate === null ? <span className="text-gray-400 text-sm">No records</span> : (
-                        <div className="flex items-center gap-2 justify-center">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div className={`h-2 rounded-full ${getRateBar(rate)}`} style={{ width: `${rate}%` }} />
-                          </div>
-                          <span className={`text-sm ${getRateColor(rate)}`}>{rate}%</span>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {!selectedClass && <p className="text-sm text-gray-400 py-6">Select a class to view the attendance summary.</p>}
+          {loadingSummary && <Spinner text="Loading summary..." />}
+
+          {!loadingSummary && selectedClass && summaryData.length === 0 && (
+            <p className="text-sm text-gray-500 py-6">No attendance records found for this class yet.</p>
           )}
-          {!loadingSummary && selectedClass && summaryData.length === 0 && <p className="text-gray-500">No attendance records found for this class yet.</p>}
+
+          {!loadingSummary && summaryData.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left w-8">#</th>
+                    <th className="px-4 py-3 text-left">Student</th>
+                    <th className="px-4 py-3 text-center text-emerald-700">Present</th>
+                    <th className="px-4 py-3 text-center text-red-600">Absent</th>
+                    <th className="px-4 py-3 text-center text-amber-600">Late</th>
+                    <th className="px-4 py-3 text-center">Total</th>
+                    <th className="px-4 py-3 text-center">Attendance Rate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {summaryData.map(({ student, present, absent, late, total, rate }, index) => (
+                    <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-gray-400">{index + 1}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{getStudentName(student)}</td>
+                      <td className="px-4 py-3 text-center text-emerald-700 font-semibold">{present}</td>
+                      <td className="px-4 py-3 text-center text-red-600  font-semibold">{absent}</td>
+                      <td className="px-4 py-3 text-center text-amber-600 font-semibold">{late}</td>
+                      <td className="px-4 py-3 text-center text-gray-500">{total}</td>
+                      <td className="px-4 py-3 text-center"><RateBar rate={rate} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </div>
