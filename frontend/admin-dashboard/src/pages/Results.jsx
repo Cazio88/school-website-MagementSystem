@@ -87,7 +87,38 @@ const GRADE_SCALE_B16 = [
 ];
 
 /* ─────────────────────────────────────────────
-   Styles (CSS-in-JS via <style> tag injected once)
+   Score Breakdown Helpers
+───────────────────────────────────────────── */
+
+// Reopen: reopen_raw/15 + rda/10 → total/25 → scaled to /20
+const calcReopenScore = (breakdown) => {
+  const reopen = parseFloat(breakdown.reopen_raw) || 0;
+  const rda    = parseFloat(breakdown.rda)        || 0;
+  const raw    = reopen + rda; // out of 25
+  return Math.round((raw / 25) * 20 * 10) / 10;
+};
+
+// CA/MGT:
+//   homework: hw1+hw2+hw3+hw4 out of 20
+//   classwork: cw1+cw2+cw3+cw4 out of 40
+//   classtest: ct1+ct2+ct3+ct4 out of 50
+//   total raw = 110, scale to /40
+const calcCAScore = (breakdown) => {
+  const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  const raw = hw + cw + ct; // out of 110
+  return Math.round((raw / 110) * 40 * 10) / 10;
+};
+
+// Exams: raw out of 100 → scaled to /40
+const calcExamsScore = (breakdown) => {
+  const raw = parseFloat(breakdown.exam_raw) || 0;
+  return Math.round((raw / 100) * 40 * 10) / 10;
+};
+
+/* ─────────────────────────────────────────────
+   Styles
 ───────────────────────────────────────────── */
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -100,7 +131,6 @@ const STYLES = `
 
   .res-body { padding: 24px 28px; max-width: 1300px; }
 
-  /* Filter bar */
   .res-filters { background:#fff; border-radius:14px; padding:18px 20px; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; box-shadow:0 1px 3px rgba(0,0,0,.07); margin-bottom:20px; }
   .res-filter-group { display:flex; flex-direction:column; gap:5px; }
   .res-filter-group label { font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.6px; }
@@ -108,13 +138,11 @@ const STYLES = `
   .res-select:focus { border-color:#3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
   .res-select-active { border-color: #3b82f6; background-color: #f0f7ff; }
 
-  /* Tabs */
   .res-tabs { display:flex; gap:4px; background:#fff; border-radius:10px; padding:4px; width:fit-content; box-shadow:0 1px 3px rgba(0,0,0,.07); margin-bottom:20px; }
   .res-tab { padding:7px 18px; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; border:none; background:transparent; color:#64748b; transition: all .15s; }
   .res-tab:hover { color:#1e293b; background:#f8fafc; }
   .res-tab-active { background:#0f172a; color:#fff; font-weight:600; }
 
-  /* Toast */
   .res-toast { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
   .res-toast-item { padding:12px 16px; border-radius:10px; font-size:13.5px; font-weight:500; display:flex; align-items:center; gap:10px; box-shadow:0 4px 20px rgba(0,0,0,.12); animation: slideIn .2s ease; min-width:280px; max-width:380px; }
   .res-toast-success { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
@@ -122,7 +150,6 @@ const STYLES = `
   .res-toast-info    { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
   @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
 
-  /* Info bar above table */
   .res-info-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
   .res-info-bar-left { display:flex; align-items:center; gap:10px; }
   .res-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; }
@@ -130,7 +157,6 @@ const STYLES = `
   .res-badge-green { background:#f0fdf4; color:#166534; }
   .res-badge-amber { background:#fffbeb; color:#92400e; }
 
-  /* Table card */
   .res-table-card { background:#fff; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.07); overflow:hidden; }
   .res-table { width:100%; border-collapse:collapse; font-size:13.5px; }
   .res-table thead tr { background:#0f172a; }
@@ -142,57 +168,54 @@ const STYLES = `
   .res-table td { padding:10px 14px; text-align:center; color:#334155; }
   .res-table td:nth-child(2) { text-align:left; }
 
-  /* Score input */
-  .res-input { width:60px; border:1.5px solid #e2e8f0; border-radius:7px; padding:6px 6px; text-align:center; font-family:'DM Mono',monospace; font-size:13px; color:#1e293b; outline:none; transition:border-color .15s,box-shadow .15s; background:#fff; }
-  .res-input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
-  .res-input:hover { border-color:#94a3b8; }
-  .res-input-filled { border-color:#93c5fd; background:#f0f7ff; }
-  .res-input-max { border-color:#86efac; background:#f0fdf4; }
+  /* Score cell buttons */
+  .res-score-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .res-score-btn {
+    min-width:64px; padding:6px 10px; border-radius:8px; font-family:'DM Mono',monospace;
+    font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid #e2e8f0;
+    background:#fff; color:#1e293b; transition:all .15s; text-align:center;
+    display:flex; align-items:center; justify-content:center; gap:4px;
+  }
+  .res-score-btn:hover { border-color:#3b82f6; background:#eff6ff; color:#1d4ed8; }
+  .res-score-btn-filled { border-color:#93c5fd; background:#f0f7ff; color:#1d4ed8; }
+  .res-score-btn-max { border-color:#86efac; background:#f0fdf4; color:#166534; }
+  .res-score-btn-empty { border-color:#e2e8f0; color:#94a3b8; font-weight:400; }
+  .res-score-breakdown { font-size:10px; color:#94a3b8; font-family:'DM Mono',monospace; white-space:nowrap; }
 
-  /* Grade pill */
   .res-grade { display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; font-family:'DM Mono',monospace; }
 
-  /* Saved badge */
   .res-saved-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#3b82f6; margin-right:5px; vertical-align:middle; }
-
-  /* Total cell */
   .res-total { font-family:'DM Mono',monospace; font-weight:700; font-size:14px; color:#1d4ed8; }
   .res-total-dash { color:#cbd5e1; }
 
-  /* Action button */
   .res-btn-delete { padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:500; border:1.5px solid #fca5a5; color:#dc2626; background:transparent; cursor:pointer; transition:all .15s; }
   .res-btn-delete:hover { background:#dc2626; color:#fff; border-color:#dc2626; }
   .res-btn-delete:disabled { opacity:.4; cursor:not-allowed; }
 
-  /* Save button */
   .res-btn-save { display:flex; align-items:center; gap:8px; background:#0f172a; color:#fff; border:none; border-radius:9px; padding:10px 24px; font-size:14px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s; }
   .res-btn-save:hover:not(:disabled) { background:#1e293b; transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.25); }
   .res-btn-save:disabled { opacity:.5; cursor:not-allowed; }
   .res-btn-save-wrap { display:flex; align-items:center; justify-content:space-between; margin-top:16px; flex-wrap:wrap; gap:12px; }
 
-  /* Grade legend */
   .res-legend { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; padding:14px 16px; background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   .res-legend-item { display:flex; align-items:center; gap:5px; padding:3px 8px; background:#f8fafc; border-radius:6px; font-size:11.5px; }
   .res-legend-range { font-family:'DM Mono',monospace; color:#64748b; font-size:11px; }
   .res-legend-grade { font-weight:700; font-family:'DM Mono',monospace; }
 
-  /* Empty / loading */
   .res-empty { background:#fff; border-radius:14px; padding:56px 20px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.07); }
   .res-empty-icon { font-size:40px; margin-bottom:12px; }
   .res-empty h3 { color:#1e293b; font-weight:600; margin:0 0 6px; }
   .res-empty p  { color:#94a3b8; font-size:14px; margin:0; }
 
-  /* Loading skeleton */
   .res-skeleton-row td { padding:12px 14px; }
   .res-skeleton { height:14px; border-radius:6px; background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; }
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
-  /* Subject loading overlay */
   .res-loading-overlay { display:flex; align-items:center; gap:10px; padding:16px 0; color:#64748b; font-size:13.5px; }
   .res-spinner { width:18px; height:18px; border:2px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; animation:spin .6s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg); } }
 
-  /* Summary table */
+  /* Summary */
   .res-summary-table { width:100%; border-collapse:collapse; font-size:13.5px; }
   .res-summary-table thead tr { background:#0f172a; }
   .res-summary-table thead th { padding:11px 14px; color:#94a3b8; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.7px; }
@@ -202,8 +225,6 @@ const STYLES = `
   .res-rank-1 { color:#d97706; font-weight:800; }
   .res-rank-2 { color:#94a3b8; font-weight:700; }
   .res-rank-3 { color:#c2692c; font-weight:700; }
-
-  /* Expand row */
   .res-expand-inner { padding:16px; background:#f8fafc; }
   .res-sub-table { width:100%; border-collapse:collapse; font-size:12.5px; background:#fff; border-radius:10px; overflow:hidden; }
   .res-sub-table thead { background:#1e293b; }
@@ -213,11 +234,87 @@ const STYLES = `
   .res-sub-table tbody td { padding:8px 12px; text-align:center; color:#475569; }
   .res-sub-table tbody td:first-child { text-align:left; font-weight:500; color:#1e293b; }
 
-  /* Responsive */
+  /* ── MODAL ── */
+  .res-modal-backdrop {
+    position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(4px);
+    z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;
+    animation: fadeIn .18s ease;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .res-modal {
+    background:#fff; border-radius:18px; width:100%; max-width:500px;
+    box-shadow:0 24px 60px rgba(15,23,42,.25); animation: slideUp .2s ease;
+    overflow:hidden;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .res-modal-header {
+    padding:18px 22px 14px; border-bottom:1px solid #f1f5f9;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .res-modal-header-left { display:flex; flex-direction:column; gap:2px; }
+  .res-modal-title { font-size:15px; font-weight:700; color:#0f172a; margin:0; }
+  .res-modal-subtitle { font-size:12px; color:#94a3b8; margin:0; }
+  .res-modal-close {
+    width:30px; height:30px; border-radius:8px; border:none; background:#f1f5f9;
+    color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:16px; transition:all .15s;
+  }
+  .res-modal-close:hover { background:#e2e8f0; color:#1e293b; }
+  .res-modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:18px; }
+
+  /* Score group within modal */
+  .res-modal-section { display:flex; flex-direction:column; gap:8px; }
+  .res-modal-section-label {
+    font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.7px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .res-modal-section-label span { font-weight:400; color:#94a3b8; font-size:10px; letter-spacing:0; text-transform:none; }
+  .res-modal-inputs { display:flex; gap:8px; flex-wrap:wrap; }
+  .res-modal-field { display:flex; flex-direction:column; gap:4px; flex:1; min-width:70px; }
+  .res-modal-field label { font-size:11px; color:#64748b; font-weight:600; }
+  .res-modal-field input {
+    border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 10px;
+    font-family:'DM Mono',monospace; font-size:14px; font-weight:600; color:#1e293b;
+    text-align:center; outline:none; transition:all .15s; width:100%; box-sizing:border-box;
+    background:#fafafa;
+  }
+  .res-modal-field input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.1); }
+
+  /* Preview bar */
+  .res-modal-preview {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius:12px; padding:14px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .res-modal-preview-item { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .res-modal-preview-value { font-family:'DM Mono',monospace; font-size:20px; font-weight:700; color:#fff; line-height:1; }
+  .res-modal-preview-label { font-size:10px; color:#64748b; font-weight:500; text-transform:uppercase; letter-spacing:.5px; }
+  .res-modal-preview-arrow { color:#475569; font-size:16px; }
+  .res-modal-preview-final { font-family:'DM Mono',monospace; font-size:24px; font-weight:800; color:#3b82f6; line-height:1; }
+  .res-modal-preview-max { font-size:11px; color:#475569; font-weight:500; }
+
+  .res-modal-footer { padding:14px 22px 20px; display:flex; gap:10px; justify-content:flex-end; }
+  .res-modal-btn-cancel {
+    padding:9px 20px; border-radius:9px; border:1.5px solid #e2e8f0;
+    background:#fff; color:#64748b; font-size:13.5px; font-weight:600;
+    font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s;
+  }
+  .res-modal-btn-cancel:hover { border-color:#94a3b8; color:#1e293b; }
+  .res-modal-btn-apply {
+    padding:9px 22px; border-radius:9px; border:none;
+    background:#0f172a; color:#fff; font-size:13.5px; font-weight:600;
+    font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s;
+    display:flex; align-items:center; gap:8px;
+  }
+  .res-modal-btn-apply:hover { background:#1e293b; transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.2); }
+
+  .res-divider { height:1px; background:#f1f5f9; margin:0 -22px; }
+
   @media (max-width: 640px) {
     .res-body { padding:16px; }
     .res-filters { gap:8px; }
     .res-select { min-width:120px; }
+    .res-modal { max-width:100%; }
   }
 `;
 
@@ -236,10 +333,324 @@ function useToast() {
 }
 
 /* ─────────────────────────────────────────────
+   REOPEN MODAL
+   Fields: Re-open /15, RDA /10 → scaled to /20
+───────────────────────────────────────────── */
+function ReopenModal({ studentName, initial, onApply, onClose }) {
+  const [vals, setVals] = useState({
+    reopen_raw: initial?.reopen_raw ?? "",
+    rda:        initial?.rda        ?? "",
+  });
+
+  const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
+  const score = calcReopenScore(vals);
+  const raw   = (parseFloat(vals.reopen_raw) || 0) + (parseFloat(vals.rda) || 0);
+
+  return (
+    <div className="res-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="res-modal">
+        <div className="res-modal-header">
+          <div className="res-modal-header-left">
+            <p className="res-modal-title">Re-Open Score</p>
+            <p className="res-modal-subtitle">{studentName}</p>
+          </div>
+          <button className="res-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="res-modal-body">
+          {/* Preview */}
+          <div className="res-modal-preview">
+            <div className="res-modal-preview-item">
+              <span className="res-modal-preview-value">{raw.toFixed(1)}</span>
+              <span className="res-modal-preview-label">Raw /25</span>
+            </div>
+            <span className="res-modal-preview-arrow">→</span>
+            <div className="res-modal-preview-item">
+              <span className="res-modal-preview-final">{score.toFixed(1)}</span>
+              <span className="res-modal-preview-max">/ 20</span>
+            </div>
+            <div className="res-modal-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
+              <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
+              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>(raw/25)×20</span>
+            </div>
+          </div>
+
+          <div className="res-modal-section">
+            <div className="res-modal-section-label">
+              Re-Open Assessment <span>max 15 marks</span>
+            </div>
+            <div className="res-modal-inputs">
+              <div className="res-modal-field">
+                <label>Re-Open</label>
+                <input type="number" min="0" max="15" step="0.5"
+                  placeholder="0" value={vals.reopen_raw}
+                  onChange={e => set("reopen_raw", Math.min(15, Math.max(0, parseFloat(e.target.value) || 0)))} />
+              </div>
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>+</div>
+              <div className="res-modal-field">
+                <label>RDA</label>
+                <input type="number" min="0" max="10" step="0.5"
+                  placeholder="0" value={vals.rda}
+                  onChange={e => set("rda", Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))} />
+              </div>
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              <div className="res-modal-field">
+                <label style={{color:"#3b82f6"}}>Total /25</label>
+                <input readOnly value={raw.toFixed(1)}
+                  style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default"}} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="res-modal-footer">
+          <button className="res-modal-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="res-modal-btn-apply" onClick={() => onApply(score, vals)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Apply {score.toFixed(1)} / 20
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   CA / MGT MODAL
+   Homework: 4×5 = /20
+   Classwork: 4×10 = /40
+   Classtest: 10+10+10+20 = /50
+   Total raw /110 → scale to /40
+───────────────────────────────────────────── */
+function CAModal({ studentName, initial, onApply, onClose }) {
+  const [vals, setVals] = useState({
+    hw1: initial?.hw1 ?? "", hw2: initial?.hw2 ?? "", hw3: initial?.hw3 ?? "", hw4: initial?.hw4 ?? "",
+    cw1: initial?.cw1 ?? "", cw2: initial?.cw2 ?? "", cw3: initial?.cw3 ?? "", cw4: initial?.cw4 ?? "",
+    ct1: initial?.ct1 ?? "", ct2: initial?.ct2 ?? "", ct3: initial?.ct3 ?? "", ct4: initial?.ct4 ?? "",
+  });
+
+  const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
+  const num  = (k) => parseFloat(vals[k]) || 0;
+
+  const hwTotal = num("hw1") + num("hw2") + num("hw3") + num("hw4");
+  const cwTotal = num("cw1") + num("cw2") + num("cw3") + num("cw4");
+  const ctTotal = num("ct1") + num("ct2") + num("ct3") + num("ct4");
+  const rawTotal = hwTotal + cwTotal + ctTotal;
+  const score = calcCAScore(vals);
+
+  const fieldInput = (k, max) => (
+    <div className="res-modal-field" key={k}>
+      <input type="number" min="0" max={max} step="0.5"
+        placeholder="0" value={vals[k]}
+        onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value) || 0)))} />
+    </div>
+  );
+
+  const totalField = (val, max) => (
+    <div className="res-modal-field">
+      <input readOnly value={val.toFixed(1)}
+        style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default",fontWeight:"700"}} />
+      <label style={{color:"#94a3b8",fontSize:"10px",textAlign:"center"}}>/{max}</label>
+    </div>
+  );
+
+  return (
+    <div className="res-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="res-modal" style={{maxWidth:"560px"}}>
+        <div className="res-modal-header">
+          <div className="res-modal-header-left">
+            <p className="res-modal-title">CA / MGT Score</p>
+            <p className="res-modal-subtitle">{studentName} · Continuous Assessment</p>
+          </div>
+          <button className="res-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="res-modal-body">
+          {/* Preview */}
+          <div className="res-modal-preview">
+            <div className="res-modal-preview-item">
+              <span className="res-modal-preview-value">{rawTotal.toFixed(1)}</span>
+              <span className="res-modal-preview-label">Raw /110</span>
+            </div>
+            <span className="res-modal-preview-arrow">→</span>
+            <div className="res-modal-preview-item">
+              <span className="res-modal-preview-final">{score.toFixed(1)}</span>
+              <span className="res-modal-preview-max">/ 40</span>
+            </div>
+            <div style={{marginLeft:"auto",display:"flex",gap:"12px"}}>
+              <div className="res-modal-preview-item">
+                <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{hwTotal.toFixed(1)}/20</span>
+                <span className="res-modal-preview-label">HW</span>
+              </div>
+              <div className="res-modal-preview-item">
+                <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{cwTotal.toFixed(1)}/40</span>
+                <span className="res-modal-preview-label">CW</span>
+              </div>
+              <div className="res-modal-preview-item">
+                <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{ctTotal.toFixed(1)}/50</span>
+                <span className="res-modal-preview-label">CT</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Homework */}
+          <div className="res-modal-section">
+            <div className="res-modal-section-label">
+              Homework <span>4 × 5 marks = /20</span>
+            </div>
+            <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
+              {["hw1","hw2","hw3","hw4"].map(k => (
+                <div className="res-modal-field" key={k}>
+                  <label>HW {k.slice(2)}</label>
+                  <input type="number" min="0" max="5" step="0.5"
+                    placeholder="0" value={vals[k]}
+                    onChange={e => set(k, Math.min(5, Math.max(0, parseFloat(e.target.value) || 0)))} />
+                </div>
+              ))}
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              {totalField(hwTotal, 20)}
+            </div>
+          </div>
+
+          <div className="res-divider" />
+
+          {/* Classwork */}
+          <div className="res-modal-section">
+            <div className="res-modal-section-label">
+              Classwork <span>4 × 10 marks = /40</span>
+            </div>
+            <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
+              {["cw1","cw2","cw3","cw4"].map(k => (
+                <div className="res-modal-field" key={k}>
+                  <label>CW {k.slice(2)}</label>
+                  <input type="number" min="0" max="10" step="0.5"
+                    placeholder="0" value={vals[k]}
+                    onChange={e => set(k, Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))} />
+                </div>
+              ))}
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              {totalField(cwTotal, 40)}
+            </div>
+          </div>
+
+          <div className="res-divider" />
+
+          {/* Classtest */}
+          <div className="res-modal-section">
+            <div className="res-modal-section-label">
+              Class Test <span>10 + 10 + 10 + 20 = /50</span>
+            </div>
+            <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
+              {[["ct1",10],["ct2",10],["ct3",10],["ct4",20]].map(([k, max]) => (
+                <div className="res-modal-field" key={k}>
+                  <label>CT{k.slice(2)} /{max}</label>
+                  <input type="number" min="0" max={max} step="0.5"
+                    placeholder="0" value={vals[k]}
+                    onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value) || 0)))} />
+                </div>
+              ))}
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              {totalField(ctTotal, 50)}
+            </div>
+          </div>
+        </div>
+
+        <div className="res-modal-footer">
+          <button className="res-modal-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="res-modal-btn-apply" onClick={() => onApply(score, vals)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Apply {score.toFixed(1)} / 40
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   EXAMS MODAL
+   Raw marks /100 → scaled to /40
+───────────────────────────────────────────── */
+function ExamsModal({ studentName, initial, onApply, onClose }) {
+  const [examRaw, setExamRaw] = useState(initial?.exam_raw ?? "");
+  const raw   = parseFloat(examRaw) || 0;
+  const score = Math.round((raw / 100) * 40 * 10) / 10;
+
+  return (
+    <div className="res-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="res-modal" style={{maxWidth:"380px"}}>
+        <div className="res-modal-header">
+          <div className="res-modal-header-left">
+            <p className="res-modal-title">Examination Score</p>
+            <p className="res-modal-subtitle">{studentName}</p>
+          </div>
+          <button className="res-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="res-modal-body">
+          {/* Preview */}
+          <div className="res-modal-preview">
+            <div className="res-modal-preview-item">
+              <span className="res-modal-preview-value">{raw.toFixed(1)}</span>
+              <span className="res-modal-preview-label">Raw /100</span>
+            </div>
+            <span className="res-modal-preview-arrow">→</span>
+            <div className="res-modal-preview-item">
+              <span className="res-modal-preview-final">{score.toFixed(1)}</span>
+              <span className="res-modal-preview-max">/ 40</span>
+            </div>
+            <div className="res-modal-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
+              <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
+              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>(raw/100)×40</span>
+            </div>
+          </div>
+
+          <div className="res-modal-section">
+            <div className="res-modal-section-label">
+              Exam Score <span>enter raw mark out of 100</span>
+            </div>
+            <div className="res-modal-inputs">
+              <div className="res-modal-field" style={{flex:"none",width:"120px"}}>
+                <label>Raw Mark</label>
+                <input type="number" min="0" max="100" step="0.5"
+                  placeholder="0" value={examRaw}
+                  style={{fontSize:"24px",padding:"12px 10px"}}
+                  onChange={e => setExamRaw(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                  autoFocus
+                />
+              </div>
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700",fontSize:"20px"}}>/</div>
+              <div className="res-modal-field" style={{flex:"none",width:"60px"}}>
+                <label>Max</label>
+                <input readOnly value="100"
+                  style={{background:"#f8fafc",color:"#94a3b8",cursor:"default",fontSize:"24px",padding:"12px 10px"}} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="res-modal-footer">
+          <button className="res-modal-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="res-modal-btn-apply" onClick={() => onApply(score, { exam_raw: raw })}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Apply {score.toFixed(1)} / 40
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Main component
 ───────────────────────────────────────────── */
 const Results = () => {
-  // ── inject styles once
   useEffect(() => {
     if (document.getElementById("res-styles")) return;
     const el = document.createElement("style");
@@ -259,8 +670,9 @@ const Results = () => {
   const [selectedYear, setSelectedYear]       = useState(String(YEARS[0]));
   const [selectedSubject, setSelectedSubject] = useState("");
   const [classLevel, setClassLevel]           = useState("basic_7_9");
-  const [scores, setScores]                   = useState({});         // { [studentId]: {reopen,ca,exams} }
-  const [existingIds, setExistingIds]         = useState({});         // { [studentId]: resultId }
+  const [scores, setScores]                   = useState({});
+  const [breakdowns, setBreakdowns]           = useState({});  // { [studentId]: { reopen: {...}, ca: {...}, exams: {...} } }
+  const [existingIds, setExistingIds]         = useState({});
   const [saving, setSaving]                   = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingScores, setLoadingScores]     = useState(false);
@@ -269,7 +681,9 @@ const Results = () => {
   const [loadingSummary, setLoadingSummary]   = useState(false);
   const [expandedStudent, setExpandedStudent] = useState(null);
 
-  // Track what's currently loaded so we don't double-fetch
+  // Modal state: { type: 'reopen'|'ca'|'exams', studentId, studentName }
+  const [modal, setModal] = useState(null);
+
   const loadedRef = useRef({ class: "", subject: "", term: "", year: "" });
 
   /* ── Initial data ── */
@@ -288,7 +702,7 @@ const Results = () => {
       .finally(() => setLoadingStudents(false));
   }, [selectedClass]);
 
-  /* ── Load existing scores whenever filters are fully set ── */
+  /* ── Load existing scores ── */
   const loadExistingScores = useCallback(async (studentsOverride) => {
     if (!selectedClass || !selectedTerm || !selectedSubject) return;
     const studentList = studentsOverride || students;
@@ -308,7 +722,6 @@ const Results = () => {
         ids[r.student] = r.id;
       });
 
-      // Build fresh score state: saved values OR empty
       const next = {};
       studentList.forEach(s => {
         next[s.id] = map[s.id] || { reopen: "", ca: "", exams: "" };
@@ -328,27 +741,16 @@ const Results = () => {
     }
   }, [selectedClass, selectedTerm, selectedSubject, selectedYear, students]);
 
-  /* ── Reload scores when subject / term / year changes (clears old data first) ── */
   useEffect(() => {
-    if (!selectedSubject) {
-      setScores({});
-      setExistingIds({});
-      return;
-    }
-    // Clear immediately so UI shows empty while fetching
-    setScores({});
-    setExistingIds({});
-    if (selectedClass && students.length) {
-      loadExistingScores();
-    }
+    if (!selectedSubject) { setScores({}); setExistingIds({}); return; }
+    setScores({}); setExistingIds({});
+    if (selectedClass && students.length) loadExistingScores();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubject, selectedTerm, selectedYear]);
 
-  /* ── When students load (after class change), reload scores if subject already set ── */
   useEffect(() => {
     if (students.length && selectedSubject && selectedClass && selectedTerm) {
-      setScores({});
-      setExistingIds({});
+      setScores({}); setExistingIds({});
       loadExistingScores(students);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -369,24 +771,35 @@ const Results = () => {
     const id = e.target.value;
     setSelectedClass(id);
     setSelectedSubject("");
-    setScores({});
-    setExistingIds({});
-    setStudents([]);
-    setSummary([]);
-    setExpandedStudent(null);
+    setScores({}); setExistingIds({});
+    setStudents([]); setSummary([]);
+    setExpandedStudent(null); setBreakdowns({});
     const found = classes.find(c => String(c.id) === String(id));
     setClassLevel(found?.level || "basic_7_9");
   };
 
-  const handleSubjectChange = (e) => {
-    // Changing subject: clear scores right away, then load will refill
-    setSelectedSubject(e.target.value);
+  const handleSubjectChange = (e) => setSelectedSubject(e.target.value);
+
+  /* ── Modal apply handlers ── */
+  const applyReopen = (score, breakdown) => {
+    const { studentId } = modal;
+    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), reopen: score } }));
+    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), reopen: breakdown } }));
+    setModal(null);
   };
 
-  const handleScoreChange = (studentId, field, value) => {
-    const max = field === "reopen" ? 20 : 40;
-    const clamped = value === "" ? "" : Math.min(max, Math.max(0, parseFloat(value) || 0));
-    setScores(prev => ({ ...prev, [studentId]: { ...prev[studentId], [field]: clamped } }));
+  const applyCA = (score, breakdown) => {
+    const { studentId } = modal;
+    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), ca: score } }));
+    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), ca: breakdown } }));
+    setModal(null);
+  };
+
+  const applyExams = (score, breakdown) => {
+    const { studentId } = modal;
+    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), exams: score } }));
+    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), exams: breakdown } }));
+    setModal(null);
   };
 
   const handleDeleteResult = async (studentId) => {
@@ -398,6 +811,7 @@ const Results = () => {
       await API.delete(`/results/${id}/`);
       setScores(prev => ({ ...prev, [studentId]: { reopen: "", ca: "", exams: "" } }));
       setExistingIds(prev => { const n = { ...prev }; delete n[studentId]; return n; });
+      setBreakdowns(prev => { const n = { ...prev }; delete n[studentId]; return n; });
       toast("Result deleted.", "info");
     } catch {
       toast("Failed to delete result.", "error");
@@ -430,7 +844,6 @@ const Results = () => {
       } else {
         toast(`Saved ${res.data.saved} record(s) with ${errCount} error(s).`, "info");
       }
-      // Refresh to get up-to-date IDs
       await loadExistingScores();
     } catch (err) {
       toast(err.response?.data?.detail || "Error saving results.", "error");
@@ -448,13 +861,63 @@ const Results = () => {
   const selectedSubjectName = subjects.find(s => String(s.id)  === String(selectedSubject))?.name || "";
   const selectedTermLabel   = TERMS.find(t   => t.value === selectedTerm)?.label || "";
 
+  /* helper: breakdown label for cell sub-text */
+  const getReopenBreakdown = (studentId) => {
+    const b = breakdowns[studentId]?.reopen;
+    if (!b) return null;
+    const r = parseFloat(b.reopen_raw) || 0;
+    const rda = parseFloat(b.rda) || 0;
+    return `${r}+${rda}`;
+  };
+  const getCABreakdown = (studentId) => {
+    const b = breakdowns[studentId]?.ca;
+    if (!b) return null;
+    const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(b[k])||0), 0);
+    const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(b[k])||0), 0);
+    const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(b[k])||0), 0);
+    return `HW:${hw} CW:${cw} CT:${ct}`;
+  };
+  const getExamsBreakdown = (studentId) => {
+    const b = breakdowns[studentId]?.exams;
+    if (!b) return null;
+    return `raw:${parseFloat(b.exam_raw)||0}/100`;
+  };
+
+  const filtersSet = selectedClass && selectedSubject;
+
   /* ────────────────────────────────────────────
      Render
   ──────────────────────────────────────────── */
   return (
     <div className="res-root">
 
-      {/* Toast container */}
+      {/* Modals */}
+      {modal?.type === "reopen" && (
+        <ReopenModal
+          studentName={modal.studentName}
+          initial={breakdowns[modal.studentId]?.reopen}
+          onApply={applyReopen}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === "ca" && (
+        <CAModal
+          studentName={modal.studentName}
+          initial={breakdowns[modal.studentId]?.ca}
+          onApply={applyCA}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === "exams" && (
+        <ExamsModal
+          studentName={modal.studentName}
+          initial={breakdowns[modal.studentId]?.exams}
+          onApply={applyExams}
+          onClose={() => setModal(null)}
+        />
+      )}
+
+      {/* Toast */}
       <div className="res-toast">
         {toasts.map(t => (
           <div key={t.id} className={`res-toast-item res-toast-${t.type}`}>
@@ -468,7 +931,7 @@ const Results = () => {
       <div className="res-header">
         <div className="res-header-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2">
-            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
           </svg>
         </div>
         <h1>Results Entry</h1>
@@ -546,7 +1009,7 @@ const Results = () => {
               </div>
             )}
 
-            {selectedClass && selectedSubject && (
+            {filtersSet && (
               <>
                 {/* Info bar */}
                 <div className="res-info-bar">
@@ -556,14 +1019,10 @@ const Results = () => {
                       {students.length} students
                     </span>
                     {filledCount > 0 && (
-                      <span className="res-badge res-badge-amber">
-                        ✏ {filledCount} filled
-                      </span>
+                      <span className="res-badge res-badge-amber">✏ {filledCount} filled</span>
                     )}
                     {savedCount > 0 && (
-                      <span className="res-badge res-badge-green">
-                        ✓ {savedCount} saved
-                      </span>
+                      <span className="res-badge res-badge-green">✓ {savedCount} saved</span>
                     )}
                     {loadingScores && (
                       <div className="res-loading-overlay" style={{padding:"0"}}>
@@ -571,6 +1030,10 @@ const Results = () => {
                         <span style={{fontSize:"12px"}}>Loading saved results…</span>
                       </div>
                     )}
+                  </div>
+                  <div style={{fontSize:"12px",color:"#94a3b8",display:"flex",alignItems:"center",gap:"6px"}}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                    Click any score cell to enter breakdown details
                   </div>
                 </div>
 
@@ -602,10 +1065,19 @@ const Results = () => {
                         <tr>
                           <th>#</th>
                           <th style={{textAlign:"left"}}>Student</th>
-                          <th>RE-OPEN<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/ 20</span></th>
-                          <th>CA / MGT<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/ 40</span></th>
-                          <th>EXAMS<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/ 40</span></th>
-                          <th>TOTAL<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/ 100</span></th>
+                          <th>
+                            RE-OPEN<br/>
+                            <span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/20 (click)</span>
+                          </th>
+                          <th>
+                            CA / MGT<br/>
+                            <span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/40 (click)</span>
+                          </th>
+                          <th>
+                            EXAMS<br/>
+                            <span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/40 (click)</span>
+                          </th>
+                          <th>TOTAL<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/100</span></th>
                           <th>GRADE</th>
                           <th>REMARK</th>
                           <th>ACTION</th>
@@ -619,6 +1091,19 @@ const Results = () => {
                           const grade  = dirty ? computeGrade(total, classLevel) : null;
                           const info   = grade ? GRADE_REMARK[grade] : null;
                           const isSaved = !!existingIds[student.id];
+                          const name   = getStudentName(student);
+
+                          const reopenBreak = getReopenBreakdown(student.id);
+                          const caBreak     = getCABreakdown(student.id);
+                          const examsBreak  = getExamsBreakdown(student.id);
+
+                          const rVal = s.reopen;
+                          const cVal = s.ca;
+                          const eVal = s.exams;
+
+                          const rFilled = rVal !== "" && rVal !== 0;
+                          const cFilled = cVal !== "" && cVal !== 0;
+                          const eFilled = eVal !== "" && eVal !== 0;
 
                           return (
                             <tr key={student.id}>
@@ -633,12 +1118,10 @@ const Results = () => {
                                     color:`hsl(${(student.id * 47) % 360},55%,35%)`,
                                     flexShrink:0,
                                   }}>
-                                    {getStudentName(student).charAt(0)}
+                                    {name.charAt(0)}
                                   </div>
                                   <div>
-                                    <div style={{fontWeight:"600",color:"#1e293b",fontSize:"13.5px"}}>
-                                      {getStudentName(student)}
-                                    </div>
+                                    <div style={{fontWeight:"600",color:"#1e293b",fontSize:"13.5px"}}>{name}</div>
                                     {isSaved && (
                                       <div style={{fontSize:"11px",color:"#3b82f6",display:"flex",alignItems:"center",gap:"3px"}}>
                                         <span className="res-saved-dot"/>saved
@@ -647,37 +1130,80 @@ const Results = () => {
                                   </div>
                                 </div>
                               </td>
-                              {["reopen","ca","exams"].map(field => {
-                                const val = s[field];
-                                const max = field === "reopen" ? 20 : 40;
-                                const isMax = val !== "" && parseFloat(val) === max;
-                                const isFilled = val !== "";
-                                return (
-                                  <td key={field}>
-                                    <input
-                                      type="number" min="0" max={max} step="0.5"
-                                      value={val} placeholder="—"
-                                      onChange={e => handleScoreChange(student.id, field, e.target.value)}
-                                      className={`res-input ${isMax ? "res-input-max" : isFilled ? "res-input-filled" : ""}`}
-                                    />
-                                  </td>
-                                );
-                              })}
+
+                              {/* RE-OPEN cell */}
+                              <td>
+                                <div className="res-score-cell">
+                                  <button
+                                    className={`res-score-btn ${rFilled ? (parseFloat(rVal)===20?"res-score-btn-max":"res-score-btn-filled") : "res-score-btn-empty"}`}
+                                    onClick={() => setModal({ type:"reopen", studentId:student.id, studentName:name })}
+                                  >
+                                    {rFilled ? (
+                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>{parseFloat(rVal).toFixed(1)}</>
+                                    ) : (
+                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Enter</>
+                                    )}
+                                  </button>
+                                  {reopenBreak && <span className="res-score-breakdown">{reopenBreak}</span>}
+                                </div>
+                              </td>
+
+                              {/* CA cell */}
+                              <td>
+                                <div className="res-score-cell">
+                                  <button
+                                    className={`res-score-btn ${cFilled ? (parseFloat(cVal)===40?"res-score-btn-max":"res-score-btn-filled") : "res-score-btn-empty"}`}
+                                    onClick={() => setModal({ type:"ca", studentId:student.id, studentName:name })}
+                                  >
+                                    {cFilled ? (
+                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>{parseFloat(cVal).toFixed(1)}</>
+                                    ) : (
+                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Enter</>
+                                    )}
+                                  </button>
+                                  {caBreak && <span className="res-score-breakdown">{caBreak}</span>}
+                                </div>
+                              </td>
+
+                              {/* EXAMS cell */}
+                              <td>
+                                <div className="res-score-cell">
+                                  <button
+                                    className={`res-score-btn ${eFilled ? (parseFloat(eVal)===40?"res-score-btn-max":"res-score-btn-filled") : "res-score-btn-empty"}`}
+                                    onClick={() => setModal({ type:"exams", studentId:student.id, studentName:name })}
+                                  >
+                                    {eFilled ? (
+                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>{parseFloat(eVal).toFixed(1)}</>
+                                    ) : (
+                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Enter</>
+                                    )}
+                                  </button>
+                                  {examsBreak && <span className="res-score-breakdown">{examsBreak}</span>}
+                                </div>
+                              </td>
+
+                              {/* Total */}
                               <td>
                                 {dirty
                                   ? <span className="res-total">{total}</span>
                                   : <span className="res-total-dash">—</span>
                                 }
                               </td>
+
+                              {/* Grade */}
                               <td>
                                 {grade
                                   ? <span className="res-grade" style={{background:`${info.color}18`,color:info.color}}>{grade}</span>
                                   : <span style={{color:"#e2e8f0"}}>—</span>
                                 }
                               </td>
+
+                              {/* Remark */}
                               <td style={{fontSize:"12px",color: info ? info.color : "#cbd5e1"}}>
                                 {info ? info.label : "—"}
                               </td>
+
+                              {/* Action */}
                               <td>
                                 {isSaved && (
                                   <button className="res-btn-delete"
@@ -715,7 +1241,7 @@ const Results = () => {
                   <div className="res-btn-save-wrap">
                     <div style={{fontSize:"13px",color:"#94a3b8"}}>
                       {filledCount === 0
-                        ? "Enter scores above to save"
+                        ? "Click any score cell to enter breakdown details"
                         : `${filledCount} of ${students.length} students have scores entered`}
                     </div>
                     <button className="res-btn-save"
@@ -842,7 +1368,7 @@ const Results = () => {
           </>
         )}
 
-      </div>{/* /res-body */}
+      </div>
     </div>
   );
 };
