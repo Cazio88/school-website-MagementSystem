@@ -75,6 +75,22 @@ const formatDate = (dateStr) =>
     day: "numeric",
   });
 
+// IMPROVEMENT: Paginate through all attendance records for the summary fetch
+// instead of requesting page_size=2000, which is capped server-side and would
+// silently truncate large classes.
+const fetchAllPages = async (url) => {
+  const records = [];
+  let nextUrl = url;
+  while (nextUrl) {
+    const res = await API.get(nextUrl);
+    const page = res.data;
+    records.push(...(page.results ?? page));
+    // Follow the DRF pagination `next` cursor until exhausted.
+    nextUrl = page.next ?? null;
+  }
+  return records;
+};
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 const initialState = {
@@ -106,6 +122,13 @@ const reducer = (state, action) => {
         ...state,
         attendance: { ...state.attendance, [action.studentId]: action.status },
       };
+    // BUG FIX: Dispatch a single action to mark all students at once instead
+    // of N individual SET_STATUS dispatches, each of which triggers a re-render.
+    case "MARK_ALL": {
+      const attendance = {};
+      state.students.forEach((s) => { attendance[s.id] = action.status; });
+      return { ...state, attendance: { ...state.attendance, ...attendance } };
+    }
     case "SET_CLASS":
       return {
         ...state,
@@ -124,7 +147,9 @@ const reducer = (state, action) => {
         students: [],
         attendance: {},
         existingIds: {},
-        summaryData: [],
+        // BUG FIX: Do NOT clear summaryData here. The summary is class-scoped,
+        // not date-scoped. Clearing it on every date change caused a blank
+        // flash whenever the user changed the date while on the Summary tab.
         error: "",
         success: "",
       };
@@ -322,7 +347,7 @@ const DateModeBanner = ({ selectedDate, hasAnyRecord, studentCount }) => {
 
 // ─── Quick-mark toolbar ───────────────────────────────────────────────────────
 
-const QuickMarkBar = ({ students, onMarkAll, disabled }) => (
+const QuickMarkBar = ({ onMarkAll, disabled }) => (
   <div className="flex items-center gap-2 mb-4">
     <span className="text-xs text-gray-400 font-medium mr-1">Mark all:</span>
     {STATUS_OPTIONS.map((opt) => (
@@ -436,7 +461,7 @@ const Attendance = () => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [searchQuery, setSearchQuery] = useState("");
   const [summarySearch, setSummarySearch] = useState("");
-  const [confirmDialog, setConfirmDialog] = useState(null); // { message, onConfirm }
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   const {
     students, classes, selectedClass, selectedDate,
@@ -445,13 +470,21 @@ const Attendance = () => {
     deletingId, error, success,
   } = state;
 
+  // ── Success auto-dismiss ───────────────────────────────────────────────────
+
   const successTimer = useRef(null);
+
+  // BUG FIX: Add a dedicated unmount cleanup so the timer doesn't fire after
+  // the component has been removed from the tree.
+  useEffect(() => {
+    return () => clearTimeout(successTimer.current);
+  }, []);
+
   useEffect(() => {
     if (success) {
       clearTimeout(successTimer.current);
       successTimer.current = setTimeout(() => dispatch({ type: "CLEAR_MESSAGES" }), 5000);
     }
-    return () => clearTimeout(successTimer.current);
   }, [success]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
@@ -501,12 +534,12 @@ const Attendance = () => {
     if (!classId) return;
     dispatch({ type: "FETCH_SUMMARY_START" });
     try {
-      const [studRes, attRes] = await Promise.all([
-        API.get(`/students/?school_class=${classId}`),
-        API.get(`/attendance/?school_class=${classId}&page_size=2000`),
+      // BUG FIX: replaced page_size=2000 with a paginated fetch that follows
+      // the DRF `next` cursor so no records are silently truncated.
+      const [classStudents, records] = await Promise.all([
+        API.get(`/students/?school_class=${classId}`).then((r) => r.data.results ?? r.data),
+        fetchAllPages(`/attendance/?school_class=${classId}&page_size=100`),
       ]);
-      const classStudents = studRes.data.results ?? studRes.data;
-      const records = attRes.data.results ?? attRes.data;
 
       const summary = classStudents.map((student) => {
         const sr = records.filter(
@@ -514,13 +547,12 @@ const Attendance = () => {
         );
         const total = sr.length;
         const present = sr.filter((a) => a.status === "present").length;
-        const absent = sr.filter((a) => a.status === "absent").length;
-        const late = sr.filter((a) => a.status === "late").length;
-        const rate = total > 0 ? Math.round(((present + late) / total) * 100) : null;
+        const absent  = sr.filter((a) => a.status === "absent").length;
+        const late    = sr.filter((a) => a.status === "late").length;
+        const rate    = total > 0 ? Math.round(((present + late) / total) * 100) : null;
         return { student, total, present, absent, late, rate };
       });
 
-      // Sort by rate ascending (lowest attendance first) so at-risk students appear on top
       summary.sort((a, b) => {
         if (a.rate === null && b.rate === null) return 0;
         if (a.rate === null) return 1;
@@ -548,11 +580,11 @@ const Attendance = () => {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  // BUG FIX: dispatch a single MARK_ALL action instead of N SET_STATUS
+  // dispatches, each of which triggered a full re-render of the component.
   const handleMarkAll = useCallback((status) => {
-    students.forEach((s) => {
-      dispatch({ type: "SET_STATUS", studentId: s.id, status });
-    });
-  }, [students]);
+    dispatch({ type: "MARK_ALL", status });
+  }, []);
 
   const handleRefreshAllPresent = () => {
     setConfirmDialog({
@@ -622,7 +654,10 @@ const Attendance = () => {
 
     dispatch({ type: "SAVING_START" });
     try {
-      const results = await Promise.all(
+      // BUG FIX: switched from Promise.all to Promise.allSettled so a single
+      // failed save doesn't abort the remaining students. Partial failures are
+      // reported to the user with a count.
+      const results = await Promise.allSettled(
         studentsToSave.map(async (student) => {
           const studentId = student.id;
           const status = attendance[studentId];
@@ -642,19 +677,29 @@ const Attendance = () => {
         })
       );
 
+      const succeeded = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+
       const newIds = {};
-      results.forEach(({ studentId, id }) => {
+      succeeded.forEach(({ studentId, id }) => {
         if (!existingIds[studentId]) newIds[studentId] = id;
       });
       dispatch({ type: "MERGE_IDS", payload: newIds });
 
-      const msg =
-        unsetCount > 0
-          ? `Attendance saved. ${unsetCount} student(s) with no status were skipped.`
-          : "Attendance saved successfully.";
-      dispatch({ type: "SAVING_DONE", payload: msg });
-
-      if (activeTab === "Student Summary") fetchSummary(selectedClass);
+      let msg = "";
+      if (failedCount > 0 && succeeded.length > 0) {
+        msg = `${succeeded.length} record(s) saved. ${failedCount} failed — please retry.`;
+        dispatch({ type: "SAVING_ERROR", payload: msg });
+      } else if (failedCount > 0) {
+        dispatch({ type: "SAVING_ERROR", payload: "Failed to save attendance. Please try again." });
+      } else {
+        msg =
+          unsetCount > 0
+            ? `Attendance saved. ${unsetCount} student(s) with no status were skipped.`
+            : "Attendance saved successfully.";
+        dispatch({ type: "SAVING_DONE", payload: msg });
+        if (activeTab === "Student Summary") fetchSummary(selectedClass);
+      }
     } catch (err) {
       const msg =
         err.response?.data?.detail ||
@@ -697,7 +742,6 @@ const Attendance = () => {
     return summaryData.filter((row) => getStudentName(row.student).toLowerCase().includes(q));
   }, [summaryData, summarySearch]);
 
-  // Summary stats
   const summaryStats = useMemo(() => {
     if (summaryData.length === 0) return null;
     const withRate = summaryData.filter((r) => r.rate !== null);
@@ -863,7 +907,8 @@ const Attendance = () => {
 
               {/* Quick mark + search */}
               <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
-                <QuickMarkBar students={students} onMarkAll={handleMarkAll} disabled={saving || refreshing} />
+                {/* BUG FIX: removed unused `students` prop from QuickMarkBar */}
+                <QuickMarkBar onMarkAll={handleMarkAll} disabled={saving || refreshing} />
                 <div className="w-52">
                   <SearchBar
                     value={searchQuery}
@@ -1036,7 +1081,6 @@ const Attendance = () => {
 
           {!loadingSummary && summaryData.length > 0 && (
             <>
-              {/* Summary stat cards */}
               {summaryStats && (
                 <div className="grid grid-cols-3 gap-3 mb-6">
                   <div className="bg-gray-50 rounded-xl p-4">
@@ -1064,7 +1108,6 @@ const Attendance = () => {
                 </div>
               )}
 
-              {/* Search */}
               <div className="mb-4 w-64">
                 <SearchBar
                   value={summarySearch}
