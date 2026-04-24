@@ -1,5 +1,5 @@
 // apps/teacher/components/TeacherPortal.jsx
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { getUser, logout } from "../../services/auth";
 import API from "../../services/api";
 import AnnouncementsFeed from "../AnnouncementsFeed";
@@ -76,8 +76,8 @@ const STATUS_CONFIG = {
   late:    { dot: "bg-amber-400",   pill: "bg-amber-50  text-amber-700  ring-1 ring-amber-200",      label: "Late"    },
 };
 
-// BUG FIX: define todayStr once at module level so it's available to the date
-// input's max attribute and the future-date guard without duplication.
+// todayStr is defined once at module level so both the date input's max
+// attribute and the saveAttendance future-date guard share the same value.
 const todayStr = new Date().toISOString().split("T")[0];
 
 // ─────────────────────────────────────────────
@@ -106,6 +106,14 @@ const gradeFromTotal = (total, level = "basic_7_9") => {
     if (total >= min) return grade;
   }
   return thresholds[thresholds.length - 1][1];
+};
+
+// Clamp a score value to its field's allowed range and return it.
+// Returns the empty string unchanged so blank cells stay blank.
+const clampScore = (value, field) => {
+  if (value === "") return "";
+  const max = field === "reopen" ? 20 : 40;
+  return Math.min(max, Math.max(0, parseFloat(value) || 0));
 };
 
 // ─────────────────────────────────────────────
@@ -166,9 +174,9 @@ const ChangePasswordModal = ({ onClose }) => {
 
   const handleSubmit = async () => {
     setError("");
-    if (!current)        return setError("Enter your current password.");
-    if (next.length < 8) return setError("New password must be at least 8 characters.");
-    if (next !== confirm) return setError("New passwords do not match.");
+    if (!current)         return setError("Enter your current password.");
+    if (next.length < 8)  return setError("New password must be at least 8 characters.");
+    if (next !== confirm)  return setError("New passwords do not match.");
     setSaving(true);
     try {
       await API.post("/auth/change-password/", {
@@ -190,9 +198,17 @@ const ChangePasswordModal = ({ onClose }) => {
     }
   };
 
+  // Close on backdrop click.
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
+
+  // Close on Escape key.
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   return (
     <div
@@ -219,6 +235,7 @@ const ChangePasswordModal = ({ onClose }) => {
           </div>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="text-slate-300 hover:text-slate-500 transition-colors text-2xl leading-none mt-0.5"
           >
             ×
@@ -248,7 +265,9 @@ const ChangePasswordModal = ({ onClose }) => {
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
                 />
                 <button
+                  type="button"
                   onClick={() => setShowCur((v) => !v)}
+                  aria-label={showCur ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <EyeIcon open={showCur} />
@@ -269,7 +288,9 @@ const ChangePasswordModal = ({ onClose }) => {
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
                 />
                 <button
+                  type="button"
                   onClick={() => setShowNew((v) => !v)}
+                  aria-label={showNew ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <EyeIcon open={showNew} />
@@ -306,7 +327,9 @@ const ChangePasswordModal = ({ onClose }) => {
                   }}
                 />
                 <button
+                  type="button"
                   onClick={() => setShowCon((v) => !v)}
+                  aria-label={showCon ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <EyeIcon open={showCon} />
@@ -323,12 +346,14 @@ const ChangePasswordModal = ({ onClose }) => {
 
             <div className="flex gap-3 mt-6">
               <button
+                type="button"
                 onClick={onClose}
                 className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={saving || !!mismatch}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
@@ -353,6 +378,50 @@ const ChangePasswordModal = ({ onClose }) => {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// Submit confirmation modal
+// ─────────────────────────────────────────────
+
+const ConfirmModal = ({ title, body, confirmLabel, onConfirm, onCancel }) => {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        style={{ animation: "tp-slide-up .2s ease" }}
+      >
+        <h2 className="text-base font-black text-slate-800 mb-2">{title}</h2>
+        <p className="text-sm text-slate-500 mb-6">{body}</p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+          >
+            {confirmLabel}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -396,9 +465,9 @@ const Alert = ({ message, type, onDismiss }) => {
     ? "bg-red-50 border-red-200 text-red-700"
     : "bg-emerald-50 border-emerald-200 text-emerald-700";
   return (
-    <div className={`mb-5 flex items-center justify-between px-4 py-3 rounded-xl border text-sm ${s}`}>
+    <div role="alert" className={`mb-5 flex items-center justify-between px-4 py-3 rounded-xl border text-sm ${s}`}>
       <span>{type === "error" ? "⚠ " : "✓ "}{message}</span>
-      <button onClick={onDismiss} className="ml-4 text-lg leading-none opacity-50 hover:opacity-100">×</button>
+      <button onClick={onDismiss} aria-label="Dismiss" className="ml-4 text-lg leading-none opacity-50 hover:opacity-100">×</button>
     </div>
   );
 };
@@ -441,10 +510,11 @@ const TeacherPortal = () => {
 
   const [tab, setTab]                         = useState("Classes");
   const [selectedTerm, setSelectedTerm]       = useState("term1");
-  // IMPROVEMENT: keep selectedYear as a number throughout to avoid parseInt
-  // scattered across the component. URLs stringify it automatically.
+  // Keep selectedYear as a number throughout to avoid parseInt scattered
+  // across the component. URLs stringify it automatically.
   const [selectedYear, setSelectedYear]       = useState(YEARS[0]);
   const [showPwModal, setShowPwModal]         = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   const [classes, setClasses]                         = useState([]);
   const [selectedClass, setSelectedClass]             = useState(user.class_id ? String(user.class_id) : "");
@@ -483,6 +553,45 @@ const TeacherPortal = () => {
   const latestStudentsRef = useRef([]);
   latestStudentsRef.current = students;
 
+  // ── Derived / memoised ──────────────────────────────────────────────────
+
+  const filledCount = useMemo(
+    () =>
+      Object.values(scores).filter(
+        (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
+      ).length,
+    [scores]
+  );
+
+  // Class average over filled students — memoised to avoid recomputing on
+  // every render that doesn't touch scores.
+  const classAvg = useMemo(() => {
+    const filled = Object.values(scores).filter(
+      (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
+    );
+    if (!filled.length) return null;
+    const sum = filled.reduce((acc, v) => acc + computeTotal(v.reopen, v.ca, v.exams), 0);
+    return (sum / filled.length).toFixed(1);
+  }, [scores]);
+
+  const below50Count = useMemo(
+    () =>
+      Object.values(scores).filter((v) => {
+        if (!v || (v.reopen === "" && v.ca === "" && v.exams === "")) return false;
+        return computeTotal(v.reopen, v.ca, v.exams) < 50;
+      }).length,
+    [scores]
+  );
+
+  const attStats = useMemo(
+    () => ({
+      present: Object.values(attendance).filter((v) => v === "present").length,
+      absent:  Object.values(attendance).filter((v) => v === "absent").length,
+      late:    Object.values(attendance).filter((v) => v === "late").length,
+    }),
+    [attendance]
+  );
+
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchClasses  = useCallback(async () => {
@@ -506,11 +615,9 @@ const TeacherPortal = () => {
     finally { setLoadingStudents(false); }
   }, []);
 
-  // BUG FIX: loadAttendance previously read students from latestStudentsRef
-  // at the time the async response arrived. If the teacher switched class
-  // mid-fetch, the stale ref would map the old class's attendance statuses
-  // onto the new class's student IDs. Passing currentStudents as a parameter
-  // ensures the closure always uses the correct list.
+  // loadAttendance receives currentStudents as a parameter so the closure
+  // always uses the correct list, avoiding stale-ref race conditions when
+  // the teacher switches class mid-fetch.
   const loadAttendance = useCallback(async (classId, date, currentStudents) => {
     if (!classId || !currentStudents.length) return;
     try {
@@ -530,15 +637,12 @@ const TeacherPortal = () => {
         `/results/?school_class=${classId}&term=${term}&subject=${subjectId}&year=${year}`
       );
       const records = r.data.results ?? r.data;
-      // Build a fresh scores map from server data for this subject.
-      // Only populate students who have existing records; leave others blank
-      // so the teacher knows they haven't been entered yet.
       const serverMap = Object.fromEntries(
         records.map((rec) => [String(rec.student), { reopen: rec.reopen, ca: rec.ca, exams: rec.exams }])
       );
       setScores(
         Object.fromEntries(
-          (latestStudentsRef.current).map((s) => [
+          latestStudentsRef.current.map((s) => [
             s.id,
             serverMap[String(s.id)] ?? { reopen: "", ca: "", exams: "" },
           ])
@@ -581,8 +685,6 @@ const TeacherPortal = () => {
     else setStudents([]);
   }, [selectedClass, fetchStudents]);
 
-  // BUG FIX: pass students directly instead of relying on the ref so the
-  // closure always sees the right student list (no stale-ref race condition).
   useEffect(() => {
     if (tab === "Attendance" && selectedClass && students.length > 0)
       loadAttendance(selectedClass, attDate, students);
@@ -607,13 +709,15 @@ const TeacherPortal = () => {
   }, []);
 
   const saveAttendance = async () => {
-    // BUG FIX: the original always used POST, which hit the unique_together
-    // constraint (student, school_class, date) on any re-save and threw a 400
-    // for every student. We now fetch existing records first and PATCH those,
-    // POST only the missing ones — the same upsert pattern used in Attendance.jsx.
-    //
-    // BUG FIX: switched to Promise.allSettled so one student's failure doesn't
-    // abort the rest of the saves.
+    // Guard: reject future dates client-side so the teacher gets immediate
+    // feedback rather than a cryptic 400 from the server.
+    if (attDate > todayStr) {
+      setError("Cannot record attendance for a future date.");
+      return;
+    }
+
+    // Upsert pattern: PATCH existing records, POST only new ones.
+    // Promise.allSettled ensures one student's failure doesn't abort the rest.
     setSavingAtt(true); setError(""); setSuccess("");
     try {
       const existingRes = await API.get(
@@ -653,9 +757,21 @@ const TeacherPortal = () => {
   };
 
   const handleScoreChange = useCallback((studentId, field, value) => {
-    const max     = field === "reopen" ? 20 : 40;
-    const numeric = value === "" ? "" : Math.min(max, Math.max(0, parseFloat(value) || 0));
-    setScores((p) => ({ ...p, [studentId]: { ...p[studentId], [field]: numeric } }));
+    setScores((p) => ({
+      ...p,
+      [studentId]: { ...p[studentId], [field]: clampScore(value, field) },
+    }));
+  }, []);
+
+  // FIX: strip non-numeric characters on paste so pasting "40.5abc" doesn't
+  // produce NaN in the score map.
+  const handleScorePaste = useCallback((studentId, field, e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/[^0-9.]/g, "");
+    setScores((p) => ({
+      ...p,
+      [studentId]: { ...p[studentId], [field]: clampScore(pasted, field) },
+    }));
   }, []);
 
   const submitResults = async () => {
@@ -678,14 +794,12 @@ const TeacherPortal = () => {
     setSaving(true); setError("");
     try {
       const r = await API.post("/results/bulk/", records);
-      // The bulk endpoint returns { saved, errors } with HTTP 207 on partial failure.
       if (r.data.errors?.length > 0) {
         setError(
           `${r.data.saved} saved, ${r.data.errors.length} failed. Check scores and try again.`
         );
       } else {
         setSuccess(`Saved ${r.data.saved} result(s) successfully.`);
-        // Reload from server so displayed scores reflect what was actually stored.
         loadExistingScores(selectedClass, selectedTerm, selectedSubject, selectedYear);
       }
     }
@@ -709,9 +823,8 @@ const TeacherPortal = () => {
 
   const downloadPDF = async () => {
     setDownloading(true); setError("");
-    // BUG FIX: the original code called revokeObjectURL after link.click().
-    // If click() threw, the blob URL was never revoked — a memory leak.
-    // Moving revokeObjectURL into a finally block guarantees cleanup.
+    // revokeObjectURL is in a finally block to guarantee cleanup even if
+    // link.click() throws.
     let url;
     try {
       const r = await API.get(
@@ -737,34 +850,36 @@ const TeacherPortal = () => {
     setSelectedClass(classId);
     const found = classes.find((c) => String(c.id) === String(classId));
     setSelectedClassName(found?.name ?? "");
-    // Capture level so gradeFromTotal uses the right scale for this class.
     setSelectedClassLevel(found?.level ?? "basic_7_9");
+    // FIX: also reset selectedSubject so a stale subject from the previous
+    // class doesn't silently pre-populate the Results filter on the new class.
+    setSelectedSubject("");
     setStudents([]); setScores({}); setAttendance({}); setSummary([]);
     setReport(null); setSelectedStudent(""); setExpandedStudent(null);
     setRemarks({ conduct: "", interest: "", teacher_remark: "" });
     setRemarksSaved(false); setError(""); setSuccess("");
   };
 
-  // ── Derived ──────────────────────────────────────────────────────────────
-
-  const filledCount = Object.values(scores).filter(
-    (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
-  ).length;
-
-  const attStats = {
-    present: Object.values(attendance).filter((v) => v === "present").length,
-    absent:  Object.values(attendance).filter((v) => v === "absent").length,
-    late:    Object.values(attendance).filter((v) => v === "late").length,
-  };
-
   // ─────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────
+
+  const isB16 = selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg";
 
   return (
     <div className="min-h-screen bg-slate-50">
 
       {showPwModal && <ChangePasswordModal onClose={() => setShowPwModal(false)} />}
+
+      {showSubmitConfirm && (
+        <ConfirmModal
+          title="Save Results?"
+          body={`You are about to save ${filledCount} result${filledCount !== 1 ? "s" : ""} for ${selectedClassName}. This will overwrite any existing scores for the selected subject and term.`}
+          confirmLabel={`Save ${filledCount} Result${filledCount !== 1 ? "s" : ""}`}
+          onConfirm={() => { setShowSubmitConfirm(false); submitResults(); }}
+          onCancel={() => setShowSubmitConfirm(false)}
+        />
+      )}
 
       {/* ── Header ── */}
       <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-30">
@@ -781,18 +896,19 @@ const TeacherPortal = () => {
             </div>
           </div>
 
-          <nav className="hidden sm:flex items-center gap-1">
+          <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
             {TABS.map(({ key, icon, label }) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
+                aria-current={tab === key ? "page" : undefined}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   tab === key
                     ? "bg-blue-50 text-blue-600"
                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                <span className="text-base">{icon}</span>
+                <span className="text-base" aria-hidden="true">{icon}</span>
                 <span className="hidden md:inline">{label}</span>
               </button>
             ))}
@@ -814,20 +930,22 @@ const TeacherPortal = () => {
           </div>
         </div>
 
-        <div className="sm:hidden flex border-t border-slate-100 overflow-x-auto">
+        {/* Mobile tab bar */}
+        <nav className="sm:hidden flex border-t border-slate-100 overflow-x-auto" aria-label="Main navigation">
           {TABS.map(({ key, icon, label }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
+              aria-current={tab === key ? "page" : undefined}
               className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium border-b-2 transition-all min-w-[60px] ${
                 tab === key ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400"
               }`}
             >
-              <span className="text-lg">{icon}</span>
+              <span className="text-lg" aria-hidden="true">{icon}</span>
               {label}
             </button>
           ))}
-        </div>
+        </nav>
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
@@ -887,10 +1005,8 @@ const TeacherPortal = () => {
             {tab === "Attendance" && (
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Date</label>
-                {/* BUG FIX: added max={todayStr} so teachers cannot record
-                    attendance for future dates. The model rejects future dates
-                    server-side but previously the UI gave no indication of why
-                    the save failed. Also removed latestStudentsRef — no longer needed. */}
+                {/* max={todayStr} prevents selecting a future date in the picker.
+                    A client-side guard in saveAttendance catches any bypass. */}
                 <input
                   type="date"
                   value={attDate}
@@ -901,6 +1017,7 @@ const TeacherPortal = () => {
               </div>
             )}
 
+            {/* Password button shown inline on mobile since the header hides it */}
             <div className="sm:hidden ml-auto">
               <button
                 onClick={() => setShowPwModal(true)}
@@ -985,7 +1102,7 @@ const TeacherPortal = () => {
               <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center flex-wrap gap-2">
                 <p className="font-bold text-slate-700 text-sm">{selectedClassName} — {attDate}</p>
                 <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">
-                  Tap to cycle statuses
+                  Tap to cycle: Present → Absent → Late
                 </span>
               </div>
               {loadingStudents ? (
@@ -1009,9 +1126,16 @@ const TeacherPortal = () => {
                             <td className="px-4 py-3 text-center">
                               <button
                                 onClick={() => toggleStatus(s.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    toggleStatus(s.id);
+                                  }
+                                }}
+                                aria-label={`${s.student_name}: ${cfg.label}. Press to change.`}
                                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all active:scale-95 ${cfg.pill}`}
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} aria-hidden="true" />
                                 {cfg.label}
                               </button>
                             </td>
@@ -1062,24 +1186,12 @@ const TeacherPortal = () => {
                   <KpiCard
                     label="Class Avg"
                     color="text-slate-700"
-                    value={(() => {
-                      const filled = Object.values(scores).filter(
-                        (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
-                      );
-                      if (!filled.length) return "—";
-                      const avg = filled.reduce(
-                        (sum, v) => sum + computeTotal(v.reopen, v.ca, v.exams), 0
-                      ) / filled.length;
-                      return avg.toFixed(1);
-                    })()}
+                    value={classAvg ?? "—"}
                   />
                   <KpiCard
                     label="Below 50%"
                     color="text-red-600"
-                    value={Object.values(scores).filter((v) => {
-                      if (!v || (v.reopen === "" && v.ca === "" && v.exams === "")) return false;
-                      return computeTotal(v.reopen, v.ca, v.exams) < 50;
-                    }).length}
+                    value={below50Count}
                   />
                 </div>
 
@@ -1088,16 +1200,13 @@ const TeacherPortal = () => {
                     <span className="font-bold text-blue-600">{filledCount}</span>
                     {" "}of{" "}
                     <span className="font-semibold">{students.length}</span> students filled
-                    {/* Show which grading scale is active so teachers know what to expect */}
                     <span className="ml-2 text-xs text-slate-400">
-                      ({selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg"
-                        ? "A–E5 scale"
-                        : "1–9 scale"})
+                      ({isB16 ? "A–E5 scale" : "1–9 scale"})
                     </span>
                   </p>
                   {filledCount > 0 && (
                     <button
-                      onClick={submitResults}
+                      onClick={() => setShowSubmitConfirm(true)}
                       disabled={saving}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
                     >
@@ -1144,10 +1253,9 @@ const TeacherPortal = () => {
                           const s     = scores[student.id] ?? { reopen: "", ca: "", exams: "" };
                           const dirty = s.reopen !== "" || s.ca !== "" || s.exams !== "";
                           const total = dirty ? computeTotal(s.reopen, s.ca, s.exams) : null;
-                          // Use level-aware grading — Basic 1–6 / Nursery gets A–E5,
-                          // Basic 7–9 gets numeric 1–9, matching the server exactly.
                           const grade = total !== null ? gradeFromTotal(total, selectedClassLevel) : null;
-                          const isSaved = typeof s.reopen === "number"; // server values come back as numbers
+                          // Server values come back as numbers; empty strings mean unsaved.
+                          const isSaved = typeof s.reopen === "number";
                           return (
                             <tr
                               key={student.id}
@@ -1170,6 +1278,7 @@ const TeacherPortal = () => {
                                     value={s[field]}
                                     placeholder="—"
                                     onChange={(e) => handleScoreChange(student.id, field, e.target.value)}
+                                    onPaste={(e) => handleScorePaste(student.id, field, e)}
                                     className="w-16 border border-slate-200 rounded-xl py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 hover:bg-white transition-colors"
                                   />
                                 </td>
@@ -1194,16 +1303,13 @@ const TeacherPortal = () => {
                     </table>
                   </div>
 
-                  {/* Grade scale key at the bottom of the table */}
+                  {/* Grade scale key */}
                   <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
                       Grade Scale
                     </p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1">
-                      {(selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg"
-                        ? GRADE_SCALE_B16
-                        : GRADE_SCALE_B79
-                      ).map((g) => (
+                      {(isB16 ? GRADE_SCALE_B16 : GRADE_SCALE_B79).map((g) => (
                         <span key={g.grade} className="text-[11px] text-slate-500">
                           {g.range}: <b>{g.grade}</b> {g.label}
                         </span>
@@ -1289,11 +1395,14 @@ const TeacherPortal = () => {
                     </div>
                     {report.photo ? (
                       <img
-                        src={report.photo} alt="student"
+                        src={report.photo} alt="Student photo"
                         className="w-20 h-20 rounded-xl border-2 border-white/30 object-cover flex-shrink-0"
                       />
                     ) : (
-                      <div className="w-20 h-20 rounded-xl border-2 border-white/20 bg-white/10 flex items-center justify-center text-3xl font-black flex-shrink-0">
+                      <div
+                        aria-hidden="true"
+                        className="w-20 h-20 rounded-xl border-2 border-white/20 bg-white/10 flex items-center justify-center text-3xl font-black flex-shrink-0"
+                      >
                         {report.student?.[0] ?? "?"}
                       </div>
                     )}
@@ -1377,7 +1486,7 @@ const TeacherPortal = () => {
                               {report.attendance} / {report.attendance_total}
                             </span>
                           </div>
-                          <div className="w-full bg-slate-200 rounded-full h-2">
+                          <div className="w-full bg-slate-200 rounded-full h-2" role="progressbar" aria-valuenow={report.attendance_percent ?? 0} aria-valuemin={0} aria-valuemax={100}>
                             <div
                               className={`h-2 rounded-full transition-all ${
                                 report.attendance_percent >= 80
