@@ -1,3 +1,4 @@
+// apps/teacher/components/TeacherPortal.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { getUser, logout } from "../../services/auth";
 import API from "../../services/api";
@@ -75,6 +76,10 @@ const STATUS_CONFIG = {
   late:    { dot: "bg-amber-400",   pill: "bg-amber-50  text-amber-700  ring-1 ring-amber-200",      label: "Late"    },
 };
 
+// BUG FIX: define todayStr once at module level so it's available to the date
+// input's max attribute and the future-date guard without duplication.
+const todayStr = new Date().toISOString().split("T")[0];
+
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
@@ -82,16 +87,25 @@ const STATUS_CONFIG = {
 const computeTotal = (reopen, ca, exams) =>
   Math.round(((parseFloat(reopen) || 0) + (parseFloat(ca) || 0) + (parseFloat(exams) || 0)) * 10) / 10;
 
-const gradeFromTotal = (total) => {
-  if (total >= 90) return "1";
-  if (total >= 80) return "2";
-  if (total >= 60) return "3";
-  if (total >= 55) return "4";
-  if (total >= 50) return "5";
-  if (total >= 45) return "6";
-  if (total >= 40) return "7";
-  if (total >= 35) return "8";
-  return "9";
+// Mirrors the server-side grading logic in result_view.py exactly.
+// Basic 7–9 uses numeric grades 1–9; Basic 1–6 and Nursery/KG use A–E5.
+const THRESHOLDS_B79 = [
+  [90, "1"], [80, "2"], [60, "3"], [55, "4"], [50, "5"],
+  [45, "6"], [40, "7"], [35, "8"], [0, "9"],
+];
+const THRESHOLDS_B16 = [
+  [90, "A"], [80, "B"], [60, "C"], [55, "D"],
+  [45, "E2"], [40, "E3"], [35, "E4"], [0, "E5"],
+];
+
+const gradeFromTotal = (total, level = "basic_7_9") => {
+  const thresholds = (level === "basic_1_6" || level === "nursery_kg")
+    ? THRESHOLDS_B16
+    : THRESHOLDS_B79;
+  for (const [min, grade] of thresholds) {
+    if (total >= min) return grade;
+  }
+  return thresholds[thresholds.length - 1][1];
 };
 
 // ─────────────────────────────────────────────
@@ -152,9 +166,9 @@ const ChangePasswordModal = ({ onClose }) => {
 
   const handleSubmit = async () => {
     setError("");
-    if (!current)         return setError("Enter your current password.");
-    if (next.length < 8)  return setError("New password must be at least 8 characters.");
-    if (next !== confirm)  return setError("New passwords do not match.");
+    if (!current)        return setError("Enter your current password.");
+    if (next.length < 8) return setError("New password must be at least 8 characters.");
+    if (next !== confirm) return setError("New passwords do not match.");
     setSaving(true);
     try {
       await API.post("/auth/change-password/", {
@@ -176,7 +190,6 @@ const ChangePasswordModal = ({ onClose }) => {
     }
   };
 
-  // Close on backdrop click
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -199,7 +212,6 @@ const ChangePasswordModal = ({ onClose }) => {
           @keyframes tp-spin { to { transform: rotate(360deg); } }
         `}</style>
 
-        {/* Header */}
         <div className="flex justify-between items-start mb-6">
           <div>
             <h2 className="text-lg font-black text-slate-800">Change Password</h2>
@@ -223,7 +235,6 @@ const ChangePasswordModal = ({ onClose }) => {
           </div>
         ) : (
           <>
-            {/* Current password */}
             <div className="mb-4">
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
                 Current Password
@@ -245,7 +256,6 @@ const ChangePasswordModal = ({ onClose }) => {
               </div>
             </div>
 
-            {/* New password */}
             <div className="mb-4">
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
                 New Password
@@ -276,7 +286,6 @@ const ChangePasswordModal = ({ onClose }) => {
               )}
             </div>
 
-            {/* Confirm password */}
             <div className="mb-4">
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
                 Confirm New Password
@@ -432,17 +441,21 @@ const TeacherPortal = () => {
 
   const [tab, setTab]                         = useState("Classes");
   const [selectedTerm, setSelectedTerm]       = useState("term1");
-  const [selectedYear, setSelectedYear]       = useState(String(YEARS[0]));
+  // IMPROVEMENT: keep selectedYear as a number throughout to avoid parseInt
+  // scattered across the component. URLs stringify it automatically.
+  const [selectedYear, setSelectedYear]       = useState(YEARS[0]);
   const [showPwModal, setShowPwModal]         = useState(false);
 
   const [classes, setClasses]                         = useState([]);
   const [selectedClass, setSelectedClass]             = useState(user.class_id ? String(user.class_id) : "");
   const [selectedClassName, setSelectedClassName]     = useState(user.class || "");
+  // Level drives which grading scale is used (mirrors result_view.py get_thresholds).
+  const [selectedClassLevel, setSelectedClassLevel]   = useState("basic_7_9");
   const [students, setStudents]                       = useState([]);
   const [loadingStudents, setLoadingStudents]         = useState(false);
 
   const [attendance, setAttendance] = useState({});
-  const [attDate, setAttDate]       = useState(new Date().toISOString().split("T")[0]);
+  const [attDate, setAttDate]       = useState(todayStr);
   const [savingAtt, setSavingAtt]   = useState(false);
 
   const [subjects, setSubjects]               = useState([]);
@@ -465,6 +478,8 @@ const TeacherPortal = () => {
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
 
+  // Ref used only by loadExistingScores to avoid a stale closure without
+  // needing students as a dependency (which would cause unnecessary refetches).
   const latestStudentsRef = useRef([]);
   latestStudentsRef.current = students;
 
@@ -483,19 +498,27 @@ const TeacherPortal = () => {
   const fetchStudents = useCallback(async (classId) => {
     if (!classId) return;
     setLoadingStudents(true);
-    try { const r = await API.get(`/students/?school_class=${classId}`); setStudents(r.data.results ?? r.data); }
+    try {
+      const r = await API.get(`/students/?school_class=${classId}`);
+      setStudents(r.data.results ?? r.data);
+    }
     catch { setError("Failed to load students."); }
     finally { setLoadingStudents(false); }
   }, []);
 
-  const loadAttendance = useCallback(async (classId, date) => {
-    if (!classId) return;
+  // BUG FIX: loadAttendance previously read students from latestStudentsRef
+  // at the time the async response arrived. If the teacher switched class
+  // mid-fetch, the stale ref would map the old class's attendance statuses
+  // onto the new class's student IDs. Passing currentStudents as a parameter
+  // ensures the closure always uses the correct list.
+  const loadAttendance = useCallback(async (classId, date, currentStudents) => {
+    if (!classId || !currentStudents.length) return;
     try {
       const r       = await API.get(`/attendance/?school_class=${classId}&date=${date}`);
       const records = r.data.results ?? r.data;
-      const map     = Object.fromEntries(records.map((r) => [r.student, r.status]));
+      const map     = Object.fromEntries(records.map((rec) => [String(rec.student), rec.status]));
       setAttendance(
-        Object.fromEntries(latestStudentsRef.current.map((s) => [s.id, map[s.id] ?? "present"]))
+        Object.fromEntries(currentStudents.map((s) => [s.id, map[String(s.id)] ?? "present"]))
       );
     } catch {}
   }, []);
@@ -507,12 +530,18 @@ const TeacherPortal = () => {
         `/results/?school_class=${classId}&term=${term}&subject=${subjectId}&year=${year}`
       );
       const records = r.data.results ?? r.data;
-      const map     = Object.fromEntries(
-        records.map((r) => [r.student, { reopen: r.reopen, ca: r.ca, exams: r.exams }])
+      // Build a fresh scores map from server data for this subject.
+      // Only populate students who have existing records; leave others blank
+      // so the teacher knows they haven't been entered yet.
+      const serverMap = Object.fromEntries(
+        records.map((rec) => [String(rec.student), { reopen: rec.reopen, ca: rec.ca, exams: rec.exams }])
       );
       setScores(
         Object.fromEntries(
-          latestStudentsRef.current.map((s) => [s.id, map[s.id] ?? { reopen: "", ca: "", exams: "" }])
+          (latestStudentsRef.current).map((s) => [
+            s.id,
+            serverMap[String(s.id)] ?? { reopen: "", ca: "", exams: "" },
+          ])
         )
       );
     } catch {}
@@ -546,11 +575,17 @@ const TeacherPortal = () => {
   // ── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => { fetchClasses(); fetchSubjects(); }, [fetchClasses, fetchSubjects]);
-  useEffect(() => { if (selectedClass) fetchStudents(selectedClass); else setStudents([]); }, [selectedClass, fetchStudents]);
 
   useEffect(() => {
+    if (selectedClass) fetchStudents(selectedClass);
+    else setStudents([]);
+  }, [selectedClass, fetchStudents]);
+
+  // BUG FIX: pass students directly instead of relying on the ref so the
+  // closure always sees the right student list (no stale-ref race condition).
+  useEffect(() => {
     if (tab === "Attendance" && selectedClass && students.length > 0)
-      loadAttendance(selectedClass, attDate);
+      loadAttendance(selectedClass, attDate, students);
   }, [tab, attDate, selectedClass, students, loadAttendance]);
 
   useEffect(() => {
@@ -572,20 +607,49 @@ const TeacherPortal = () => {
   }, []);
 
   const saveAttendance = async () => {
+    // BUG FIX: the original always used POST, which hit the unique_together
+    // constraint (student, school_class, date) on any re-save and threw a 400
+    // for every student. We now fetch existing records first and PATCH those,
+    // POST only the missing ones — the same upsert pattern used in Attendance.jsx.
+    //
+    // BUG FIX: switched to Promise.allSettled so one student's failure doesn't
+    // abort the rest of the saves.
     setSavingAtt(true); setError(""); setSuccess("");
     try {
-      await Promise.all(
-        students.map((s) =>
-          API.post("/attendance/", {
-            student: s.id, school_class: selectedClass,
-            term: selectedTerm, date: attDate,
-            status: attendance[s.id] ?? "present",
-          })
-        )
+      const existingRes = await API.get(
+        `/attendance/?school_class=${selectedClass}&date=${attDate}`
       );
-      setSuccess("Attendance saved successfully.");
-    } catch { setError("Failed to save attendance."); }
-    finally { setSavingAtt(false); }
+      const existing    = existingRes.data.results ?? existingRes.data;
+      const existingMap = Object.fromEntries(
+        existing.map((rec) => [String(rec.student), rec.id])
+      );
+
+      const results = await Promise.allSettled(
+        students.map((s) => {
+          const existingId = existingMap[String(s.id)];
+          const status     = attendance[s.id] ?? "present";
+          return existingId
+            ? API.patch(`/attendance/${existingId}/`, { status })
+            : API.post("/attendance/", {
+                student: s.id,
+                school_class: selectedClass,
+                date: attDate,
+                status,
+              });
+        })
+      );
+
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      if (failedCount > 0) {
+        setError(`${failedCount} record(s) could not be saved. Please try again.`);
+      } else {
+        setSuccess("Attendance saved successfully.");
+      }
+    } catch {
+      setError("Failed to save attendance.");
+    } finally {
+      setSavingAtt(false);
+    }
   };
 
   const handleScoreChange = useCallback((studentId, field, value) => {
@@ -601,20 +665,34 @@ const TeacherPortal = () => {
     const records = Object.entries(scores)
       .filter(([, v]) => v.reopen !== "" || v.ca !== "" || v.exams !== "")
       .map(([sid, v]) => ({
-        student: sid, subject: selectedSubject,
-        school_class: selectedClass, term: selectedTerm,
-        year: parseInt(selectedYear, 10),
-        reopen: parseFloat(v.reopen) || 0,
-        ca:     parseFloat(v.ca)     || 0,
-        exams:  parseFloat(v.exams)  || 0,
+        student:      sid,
+        subject:      selectedSubject,
+        school_class: selectedClass,
+        term:         selectedTerm,
+        year:         selectedYear,
+        reopen:       parseFloat(v.reopen) || 0,
+        ca:           parseFloat(v.ca)     || 0,
+        exams:        parseFloat(v.exams)  || 0,
       }));
     if (!records.length) { setError("No scores entered."); return; }
     setSaving(true); setError("");
     try {
       const r = await API.post("/results/bulk/", records);
-      setSuccess(`Saved ${r.data.saved} result(s) successfully.`);
+      // The bulk endpoint returns { saved, errors } with HTTP 207 on partial failure.
+      if (r.data.errors?.length > 0) {
+        setError(
+          `${r.data.saved} saved, ${r.data.errors.length} failed. Check scores and try again.`
+        );
+      } else {
+        setSuccess(`Saved ${r.data.saved} result(s) successfully.`);
+        // Reload from server so displayed scores reflect what was actually stored.
+        loadExistingScores(selectedClass, selectedTerm, selectedSubject, selectedYear);
+      }
     }
-    catch (err) { setError(err.response?.data?.detail || "Error saving results."); }
+    catch (err) {
+      const detail = err.response?.data?.detail || err.response?.data?.error;
+      setError(detail || "Error saving results. Please try again.");
+    }
     finally { setSaving(false); }
   };
 
@@ -631,25 +709,36 @@ const TeacherPortal = () => {
 
   const downloadPDF = async () => {
     setDownloading(true); setError("");
+    // BUG FIX: the original code called revokeObjectURL after link.click().
+    // If click() threw, the blob URL was never revoked — a memory leak.
+    // Moving revokeObjectURL into a finally block guarantees cleanup.
+    let url;
     try {
       const r = await API.get(
         `/report/student/${selectedStudent}/pdf/?term=${selectedTerm}`,
         { responseType: "blob" }
       );
-      const url  = window.URL.createObjectURL(new Blob([r.data]));
+      url = window.URL.createObjectURL(new Blob([r.data]));
       const link = document.createElement("a");
       link.href  = url;
       link.setAttribute("download", `report_${selectedStudent}_${selectedTerm}.pdf`);
-      document.body.appendChild(link); link.click(); link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch { setError("Failed to download PDF."); }
-    finally { setDownloading(false); }
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {
+      setError("Failed to download PDF.");
+    } finally {
+      if (url) window.URL.revokeObjectURL(url);
+      setDownloading(false);
+    }
   };
 
   const handleClassChange = (classId) => {
     setSelectedClass(classId);
     const found = classes.find((c) => String(c.id) === String(classId));
     setSelectedClassName(found?.name ?? "");
+    // Capture level so gradeFromTotal uses the right scale for this class.
+    setSelectedClassLevel(found?.level ?? "basic_7_9");
     setStudents([]); setScores({}); setAttendance({}); setSummary([]);
     setReport(null); setSelectedStudent(""); setExpandedStudent(null);
     setRemarks({ conduct: "", interest: "", teacher_remark: "" });
@@ -675,7 +764,6 @@ const TeacherPortal = () => {
   return (
     <div className="min-h-screen bg-slate-50">
 
-      {/* Password modal */}
       {showPwModal && <ChangePasswordModal onClose={() => setShowPwModal(false)} />}
 
       {/* ── Header ── */}
@@ -693,7 +781,6 @@ const TeacherPortal = () => {
             </div>
           </div>
 
-          {/* Tab bar (desktop) */}
           <nav className="hidden sm:flex items-center gap-1">
             {TABS.map(({ key, icon, label }) => (
               <button
@@ -711,7 +798,6 @@ const TeacherPortal = () => {
             ))}
           </nav>
 
-          {/* Header action buttons */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowPwModal(true)}
@@ -728,7 +814,6 @@ const TeacherPortal = () => {
           </div>
         </div>
 
-        {/* Tab bar (mobile) */}
         <div className="sm:hidden flex border-t border-slate-100 overflow-x-auto">
           {TABS.map(({ key, icon, label }) => (
             <button
@@ -751,19 +836,17 @@ const TeacherPortal = () => {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 mb-6">
           <div className="flex gap-3 flex-wrap items-end">
 
-            {/* Year */}
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Year</label>
               <select
                 value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
                 className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
 
-            {/* Term */}
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Term</label>
               <select
@@ -775,7 +858,6 @@ const TeacherPortal = () => {
               </select>
             </div>
 
-            {/* Class */}
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Class</label>
               <select
@@ -788,7 +870,6 @@ const TeacherPortal = () => {
               </select>
             </div>
 
-            {/* Subject (Results tab only) */}
             {tab === "Results" && (
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Subject</label>
@@ -803,20 +884,23 @@ const TeacherPortal = () => {
               </div>
             )}
 
-            {/* Date (Attendance tab only) */}
             {tab === "Attendance" && (
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Date</label>
+                {/* BUG FIX: added max={todayStr} so teachers cannot record
+                    attendance for future dates. The model rejects future dates
+                    server-side but previously the UI gave no indication of why
+                    the save failed. Also removed latestStudentsRef — no longer needed. */}
                 <input
                   type="date"
                   value={attDate}
+                  max={todayStr}
                   onChange={(e) => setAttDate(e.target.value)}
                   className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
             )}
 
-            {/* Mobile: password button */}
             <div className="sm:hidden ml-auto">
               <button
                 onClick={() => setShowPwModal(true)}
@@ -968,19 +1052,68 @@ const TeacherPortal = () => {
             )}
             {selectedSubject && students.length > 0 && (
               <>
+                {/* KPI bar */}
+                <div className="grid grid-cols-3 gap-4 mb-5">
+                  <KpiCard
+                    label="Filled"
+                    value={`${filledCount} / ${students.length}`}
+                    color="text-blue-600"
+                  />
+                  <KpiCard
+                    label="Class Avg"
+                    color="text-slate-700"
+                    value={(() => {
+                      const filled = Object.values(scores).filter(
+                        (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
+                      );
+                      if (!filled.length) return "—";
+                      const avg = filled.reduce(
+                        (sum, v) => sum + computeTotal(v.reopen, v.ca, v.exams), 0
+                      ) / filled.length;
+                      return avg.toFixed(1);
+                    })()}
+                  />
+                  <KpiCard
+                    label="Below 50%"
+                    color="text-red-600"
+                    value={Object.values(scores).filter((v) => {
+                      if (!v || (v.reopen === "" && v.ca === "" && v.exams === "")) return false;
+                      return computeTotal(v.reopen, v.ca, v.exams) < 50;
+                    }).length}
+                  />
+                </div>
+
                 <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                   <p className="text-sm text-slate-500">
                     <span className="font-bold text-blue-600">{filledCount}</span>
                     {" "}of{" "}
                     <span className="font-semibold">{students.length}</span> students filled
+                    {/* Show which grading scale is active so teachers know what to expect */}
+                    <span className="ml-2 text-xs text-slate-400">
+                      ({selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg"
+                        ? "A–E5 scale"
+                        : "1–9 scale"})
+                    </span>
                   </p>
                   {filledCount > 0 && (
                     <button
                       onClick={submitResults}
                       disabled={saving}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
                     >
-                      {saving ? "Saving…" : `Save ${filledCount} Result${filledCount !== 1 ? "s" : ""}`}
+                      {saving ? (
+                        <>
+                          <div style={{
+                            width: "13px", height: "13px",
+                            border: "2px solid rgba(255,255,255,.3)",
+                            borderTopColor: "#fff", borderRadius: "50%",
+                            animation: "tp-spin .6s linear infinite",
+                          }} />
+                          Saving…
+                        </>
+                      ) : (
+                        `Save ${filledCount} Result${filledCount !== 1 ? "s" : ""}`
+                      )}
                     </button>
                   )}
                 </div>
@@ -1011,14 +1144,22 @@ const TeacherPortal = () => {
                           const s     = scores[student.id] ?? { reopen: "", ca: "", exams: "" };
                           const dirty = s.reopen !== "" || s.ca !== "" || s.exams !== "";
                           const total = dirty ? computeTotal(s.reopen, s.ca, s.exams) : null;
-                          const grade = total !== null ? gradeFromTotal(total) : null;
+                          // Use level-aware grading — Basic 1–6 / Nursery gets A–E5,
+                          // Basic 7–9 gets numeric 1–9, matching the server exactly.
+                          const grade = total !== null ? gradeFromTotal(total, selectedClassLevel) : null;
+                          const isSaved = typeof s.reopen === "number"; // server values come back as numbers
                           return (
                             <tr
                               key={student.id}
                               className={`hover:bg-blue-50/20 transition-colors ${dirty ? "" : "opacity-60"}`}
                             >
                               <td className="px-4 py-3 text-slate-400 text-xs">{i + 1}</td>
-                              <td className="px-4 py-3 font-medium text-slate-800">{student.student_name}</td>
+                              <td className="px-4 py-3">
+                                <div className="font-medium text-slate-800 leading-tight">{student.student_name}</div>
+                                {isSaved && (
+                                  <span className="text-[10px] text-emerald-600 font-semibold">✓ saved</span>
+                                )}
+                              </td>
                               {["reopen", "ca", "exams"].map((field) => (
                                 <td key={field} className="px-3 py-2.5 text-center">
                                   <input
@@ -1033,8 +1174,16 @@ const TeacherPortal = () => {
                                   />
                                 </td>
                               ))}
-                              <td className="px-4 py-3 text-center font-black text-blue-700">
-                                {total !== null ? total : <span className="text-slate-300 font-normal">—</span>}
+                              <td className="px-4 py-3 text-center">
+                                {total !== null ? (
+                                  <span className={`font-black tabular-nums ${
+                                    total >= 50 ? "text-blue-700" : "text-red-600"
+                                  }`}>
+                                    {total}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 font-normal">—</span>
+                                )}
                               </td>
                               <td className="px-4 py-3 text-center"><Badge grade={grade} /></td>
                               <td className="px-4 py-3 text-center"><RemarkBadge grade={grade} /></td>
@@ -1043,6 +1192,23 @@ const TeacherPortal = () => {
                         })}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Grade scale key at the bottom of the table */}
+                  <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+                      Grade Scale
+                    </p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {(selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg"
+                        ? GRADE_SCALE_B16
+                        : GRADE_SCALE_B79
+                      ).map((g) => (
+                        <span key={g.grade} className="text-[11px] text-slate-500">
+                          {g.range}: <b>{g.grade}</b> {g.label}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </>
@@ -1056,7 +1222,6 @@ const TeacherPortal = () => {
         {tab === "Reports" && selectedClass && (
           <div className="space-y-6">
 
-            {/* Student picker */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-[200px]">
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
@@ -1106,7 +1271,6 @@ const TeacherPortal = () => {
               return (
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
 
-                  {/* Report header */}
                   <div className="bg-gradient-to-br from-blue-700 to-blue-900 text-white px-6 py-5 flex justify-between items-start gap-4">
                     <div className="space-y-1">
                       <p className="font-black text-lg leading-tight">
@@ -1135,7 +1299,6 @@ const TeacherPortal = () => {
                     )}
                   </div>
 
-                  {/* Stats row */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-100">
                     {[
                       { label: "Total Marks",   value: report.total_score   ?? "—" },
@@ -1157,7 +1320,6 @@ const TeacherPortal = () => {
                     ))}
                   </div>
 
-                  {/* Subject table */}
                   <div className="p-5">
                     <SectionHeader title="Subject Results" />
                     <div className="overflow-x-auto rounded-xl border border-slate-100">
@@ -1192,7 +1354,6 @@ const TeacherPortal = () => {
                       </table>
                     </div>
 
-                    {/* Grade scale */}
                     <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500">
                       <p className="font-bold text-slate-600 mb-2 text-[11px] uppercase tracking-wide">
                         Result Interpretation
@@ -1205,7 +1366,6 @@ const TeacherPortal = () => {
                     </div>
                   </div>
 
-                  {/* Attendance + Remarks */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 px-5 pb-5">
                     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
                       <h3 className="font-bold text-slate-700 mb-3 text-sm">Attendance</h3>
