@@ -36,7 +36,7 @@ from api.views.active_users_view import ActiveUsersView   # ← correct import
 # ─── Router ───────────────────────────────────────────────────────────────────
 router = DefaultRouter()
 router.register("students",        StudentViewSet)
-router.register("teachers",        TeacherViewSet)
+router.register("teachers", TeacherViewSet, basename="teacher")
 router.register("classes",         ClassViewSet)
 router.register("subjects",        SubjectViewSet)
 router.register("attendance",      AttendanceViewSet, basename="attendance")
