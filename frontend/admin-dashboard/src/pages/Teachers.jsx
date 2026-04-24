@@ -1,120 +1,159 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import API from "../services/api";
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+
+// Hash full name string to an index instead of only using charCodeAt(0),
+// which caused frequent colour collisions for names sharing a first letter.
+const AVATAR_COLORS = [
+  "#4f46e5","#0891b2","#059669","#d97706","#dc2626","#7c3aed","#db2777","#0284c7",
+];
+const hashStr = (str = "") => {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+};
+const getColor    = (str) => AVATAR_COLORS[hashStr(str) % AVATAR_COLORS.length];
+const getInitials = (name = "") =>
+  name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
+
+const todayStr = new Date().toISOString().split("T")[0];
+
+// ─────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────
 
 const Teachers = () => {
   const [teachers, setTeachers] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [search, setSearch] = useState("");
+  const [classes,  setClasses]  = useState([]);
+  const [loading,  setLoading]  = useState(true);
+
+  // FIX: split "create" and "delete" submitting so each has an independent
+  // loading state and can't interfere with the other.
+  const [creating,        setCreating]        = useState(false);
+  const [deletingId,      setDeletingId]      = useState(null);   // id of the row being deleted
+  const [toast,           setToast]           = useState(null);
+  const [deleteConfirm,   setDeleteConfirm]   = useState(null);
+  const [search,          setSearch]          = useState("");
 
   const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
-    subject: "",
+    first_name:   "",
+    last_name:    "",
+    subject:      "",
     school_class: "",
-    hire_date: "",
+    hire_date:    "",
   });
+
+  // ── Data fetching ────────────────────────────────────────────────────────
+
+  // FIX: wrap loaders in useCallback so they are stable references, avoiding
+  // "react-hooks/exhaustive-deps" warnings and unnecessary re-renders.
+  const loadTeachers = useCallback(async () => {
+    try {
+      const res = await API.get("/teachers/");
+      // FIX: handle both paginated (DRF default) and flat array responses,
+      // consistent with how TeacherPortal.jsx fetches the same resources.
+      setTeachers(res.data.results ?? res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const loadSubjects = useCallback(async () => {
+    try {
+      const res = await API.get("/subjects/");
+      setSubjects(res.data.results ?? res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const loadClasses = useCallback(async () => {
+    try {
+      const res = await API.get("/classes/");
+      setClasses(res.data.results ?? res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
 
   useEffect(() => {
     Promise.all([loadTeachers(), loadSubjects(), loadClasses()]).finally(() =>
       setLoading(false)
     );
-  }, []);
+  }, [loadTeachers, loadSubjects, loadClasses]);
 
-  const showToast = (message, type = "success") => {
+  // ── Toast ────────────────────────────────────────────────────────────────
+
+  const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
 
-  const loadTeachers = async () => {
-    try {
-      const res = await API.get("/teachers/");
-      setTeachers(res.data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const loadSubjects = async () => {
-    try {
-      const res = await API.get("/subjects/");
-      setSubjects(res.data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const loadClasses = async () => {
-    try {
-      const res = await API.get("/classes/");
-      setClasses(res.data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const createTeacher = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
+    setCreating(true);
     try {
       const payload = {
-        first_name: form.first_name,
-        last_name: form.last_name,
-        subject: Number(form.subject),
+        first_name:   form.first_name,
+        last_name:    form.last_name,
+        subject:      Number(form.subject),
         school_class: Number(form.school_class),
-        hire_date: form.hire_date,
+        hire_date:    form.hire_date,
       };
       await API.post("/teachers/", payload);
       showToast("Teacher created successfully");
       setForm({ first_name: "", last_name: "", subject: "", school_class: "", hire_date: "" });
       loadTeachers();
-    } catch (error) {
-      showToast(error.response?.data?.detail || "Failed to create teacher", "error");
-      console.error(error.response?.data);
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Failed to create teacher", "error");
+      console.error(err.response?.data);
     } finally {
-      setSubmitting(false);
+      setCreating(false);
     }
   };
 
   const deleteTeacher = async (id) => {
+    // FIX: track which row is being deleted so the button is disabled while
+    // the request is in-flight, preventing duplicate DELETE calls.
+    setDeletingId(id);
     try {
       await API.delete(`/teachers/${id}/`);
       setDeleteConfirm(null);
       showToast("Teacher removed successfully");
       loadTeachers();
-    } catch (error) {
+    } catch (err) {
       showToast("Failed to delete teacher", "error");
-      console.error(error);
+      console.error(err);
+    } finally {
+      setDeletingId(null);
     }
   };
+
+  // ── Derived ──────────────────────────────────────────────────────────────
 
   const filtered = teachers.filter((t) => {
     const q = search.toLowerCase();
     return (
       t.teacher_name?.toLowerCase().includes(q) ||
-      t.teacher_id?.toLowerCase().includes(q) ||
+      t.teacher_id?.toLowerCase().includes(q)   ||
       t.subject_name?.toLowerCase().includes(q) ||
       t.class_name?.toLowerCase().includes(q)
     );
   });
 
-  const getInitials = (name) => {
-    if (!name) return "?";
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  };
-
-  const avatarColors = [
-    "#4f46e5","#0891b2","#059669","#d97706","#dc2626","#7c3aed","#db2777","#0284c7"
-  ];
-  const getColor = (str) => avatarColors[(str?.charCodeAt(0) || 0) % avatarColors.length];
+  // ─────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────
 
   return (
     <>
@@ -145,6 +184,13 @@ const Teachers = () => {
         }
         .toast.success { background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
         .toast.error   { background: #fef2f2; color: #7f1d1d; border: 1px solid #fca5a5; }
+        /* FIX: added a dismiss button style */
+        .toast-dismiss {
+          margin-left: auto; background: none; border: none;
+          cursor: pointer; font-size: 1rem; opacity: 0.6; padding: 0 0.25rem;
+          color: inherit;
+        }
+        .toast-dismiss:hover { opacity: 1; }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
         /* Header */
@@ -217,6 +263,16 @@ const Teachers = () => {
         }
         .btn-submit:hover:not(:disabled) { background: #4338ca; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(79,70,229,0.35); }
         .btn-submit:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        /* Inline spinner — separate from the loading state spinner */
+        .btn-spinner {
+          width: 16px; height: 16px;
+          border: 2px solid rgba(255,255,255,0.35);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.65s linear infinite;
+          flex-shrink: 0;
+        }
 
         /* Table toolbar */
         .table-toolbar {
@@ -291,7 +347,8 @@ const Teachers = () => {
           font-family: 'Sora', sans-serif; cursor: pointer; transition: all 0.2s;
           display: flex; align-items: center; gap: 0.375rem;
         }
-        .btn-delete:hover { background: #fef2f2; border-color: #dc2626; transform: translateY(-1px); }
+        .btn-delete:hover:not(:disabled) { background: #fef2f2; border-color: #dc2626; transform: translateY(-1px); }
+        .btn-delete:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Empty */
         .empty-state {
@@ -337,42 +394,66 @@ const Teachers = () => {
           flex: 1; padding: 0.625rem; border: none; background: #dc2626;
           color: white; border-radius: 10px; font-family: 'Sora', sans-serif;
           font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+          display: flex; align-items: center; justify-content: center; gap: 0.5rem;
         }
-        .btn-danger:hover { background: #b91c1c; }
+        .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+        .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
       `}</style>
 
       <div className="teachers-root">
 
-        {/* Toast */}
+        {/* ── Toast ── */}
         {toast && (
-          <div className={`toast ${toast.type}`}>
-            <span>{toast.type === "success" ? "✓" : "✕"}</span>
+          <div className={`toast ${toast.type}`} role="alert">
+            <span aria-hidden="true">{toast.type === "success" ? "✓" : "✕"}</span>
             {toast.message}
+            {/* FIX: added manual dismiss so users aren't forced to wait 3.5 s */}
+            <button className="toast-dismiss" onClick={() => setToast(null)} aria-label="Dismiss notification">×</button>
           </div>
         )}
 
-        {/* Delete Modal */}
+        {/* ── Delete Confirmation Modal ── */}
         {deleteConfirm && (
-          <div className="overlay">
-            <div className="modal">
-              <div className="modal-icon">🗑️</div>
-              <div className="modal-title">Remove Teacher?</div>
+          <div
+            className="overlay"
+            onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
+          >
+            <div className="modal" role="dialog" aria-modal="true" aria-labelledby="del-modal-title">
+              <div className="modal-icon" aria-hidden="true">🗑️</div>
+              <div className="modal-title" id="del-modal-title">Remove Teacher?</div>
               <div className="modal-text">
-                This will permanently delete <strong>{deleteConfirm.name}</strong> and all associated records. This action cannot be undone.
+                This will permanently delete <strong>{deleteConfirm.name}</strong> and all associated
+                records. This action cannot be undone.
               </div>
               <div className="modal-actions">
-                <button className="btn-cancel" onClick={() => setDeleteConfirm(null)}>Cancel</button>
-                <button className="btn-danger" onClick={() => deleteTeacher(deleteConfirm.id)}>Delete</button>
+                <button
+                  className="btn-cancel"
+                  onClick={() => setDeleteConfirm(null)}
+                  disabled={deletingId === deleteConfirm.id}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-danger"
+                  onClick={() => deleteTeacher(deleteConfirm.id)}
+                  disabled={deletingId === deleteConfirm.id}
+                >
+                  {deletingId === deleteConfirm.id ? (
+                    <><span className="btn-spinner" /> Deleting…</>
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Header */}
+        {/* ── Page Header ── */}
         <div className="page-header">
           <div>
             <div className="page-title">
-              <div className="page-title-icon">👨‍🏫</div>
+              <div className="page-title-icon" aria-hidden="true">👨‍🏫</div>
               <div>
                 Teachers
                 <div className="page-subtitle">Manage staff, subjects and class assignments</div>
@@ -381,24 +462,24 @@ const Teachers = () => {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* ── Stats ── */}
         <div className="stats-row">
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: "#eef2ff" }}>👨‍🏫</div>
+            <div className="stat-icon" style={{ background: "#eef2ff" }} aria-hidden="true">👨‍🏫</div>
             <div>
               <div className="stat-label">Total Teachers</div>
               <div className="stat-value">{teachers.length}</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: "#f0fdf4" }}>📚</div>
+            <div className="stat-icon" style={{ background: "#f0fdf4" }} aria-hidden="true">📚</div>
             <div>
               <div className="stat-label">Subjects</div>
               <div className="stat-value">{subjects.length}</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: "#fff7ed" }}>🏫</div>
+            <div className="stat-icon" style={{ background: "#fff7ed" }} aria-hidden="true">🏫</div>
             <div>
               <div className="stat-label">Classes</div>
               <div className="stat-value">{classes.length}</div>
@@ -406,37 +487,79 @@ const Teachers = () => {
           </div>
         </div>
 
-        {/* Add Teacher Card */}
+        {/* ── Add Teacher Card ── */}
         <div className="card">
           <div className="card-header">
-            <span className="card-header-icon">➕</span>
+            <span className="card-header-icon" aria-hidden="true">➕</span>
             <span className="card-header-title">Add New Teacher</span>
           </div>
           <form onSubmit={createTeacher}>
             <div className="form-body">
               <div className="form-grid">
                 <div className="field-group">
-                  <label className="field-label">First Name</label>
-                  <input className="field-input" type="text" name="first_name" placeholder="e.g. Naomi" value={form.first_name} onChange={handleChange} required />
+                  <label className="field-label" htmlFor="first_name">First Name</label>
+                  <input
+                    id="first_name"
+                    className="field-input"
+                    type="text"
+                    name="first_name"
+                    placeholder="e.g. Naomi"
+                    value={form.first_name}
+                    onChange={handleChange}
+                    required
+                  />
                 </div>
                 <div className="field-group">
-                  <label className="field-label">Last Name</label>
-                  <input className="field-input" type="text" name="last_name" placeholder="e.g. Obeng" value={form.last_name} onChange={handleChange} required />
+                  <label className="field-label" htmlFor="last_name">Last Name</label>
+                  <input
+                    id="last_name"
+                    className="field-input"
+                    type="text"
+                    name="last_name"
+                    placeholder="e.g. Obeng"
+                    value={form.last_name}
+                    onChange={handleChange}
+                    required
+                  />
                 </div>
                 <div className="field-group">
-                  <label className="field-label">Hire Date</label>
-                  <input className="field-input" type="date" name="hire_date" value={form.hire_date} onChange={handleChange} required />
+                  <label className="field-label" htmlFor="hire_date">Hire Date</label>
+                  {/* FIX: added max={todayStr} — future hire dates are not valid */}
+                  <input
+                    id="hire_date"
+                    className="field-input"
+                    type="date"
+                    name="hire_date"
+                    max={todayStr}
+                    value={form.hire_date}
+                    onChange={handleChange}
+                    required
+                  />
                 </div>
                 <div className="field-group">
-                  <label className="field-label">Subject</label>
-                  <select className="field-select" name="subject" value={form.subject} onChange={handleChange} required>
+                  <label className="field-label" htmlFor="subject">Subject</label>
+                  <select
+                    id="subject"
+                    className="field-select"
+                    name="subject"
+                    value={form.subject}
+                    onChange={handleChange}
+                    required
+                  >
                     <option value="">Select Subject</option>
                     {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div className="field-group">
-                  <label className="field-label">Class</label>
-                  <select className="field-select" name="school_class" value={form.school_class} onChange={handleChange} required>
+                  <label className="field-label" htmlFor="school_class">Class</label>
+                  <select
+                    id="school_class"
+                    className="field-select"
+                    name="school_class"
+                    value={form.school_class}
+                    onChange={handleChange}
+                    required
+                  >
                     <option value="">Select Class</option>
                     {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
@@ -444,32 +567,43 @@ const Teachers = () => {
               </div>
             </div>
             <div className="form-footer">
-              <button className="btn-submit" type="submit" disabled={submitting}>
-                {submitting ? <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Creating...</> : <><span>+</span> Create Teacher</>}
+              <button className="btn-submit" type="submit" disabled={creating}>
+                {creating
+                  ? <><span className="btn-spinner" /> Creating…</>
+                  : <><span aria-hidden="true">+</span> Create Teacher</>
+                }
               </button>
             </div>
           </form>
         </div>
 
-        {/* Teachers Table Card */}
+        {/* ── Teachers Table Card ── */}
         <div className="card">
           <div className="table-toolbar">
             <div className="card-header-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span style={{ color: "#4f46e5" }}>📋</span> All Teachers
+              <span style={{ color: "#4f46e5" }} aria-hidden="true">📋</span> All Teachers
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
               <div className="search-wrap">
-                <span className="search-icon">🔍</span>
-                <input className="search-input" placeholder="Search teachers..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                <span className="search-icon" aria-hidden="true">🔍</span>
+                <input
+                  className="search-input"
+                  placeholder="Search teachers…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Search teachers"
+                />
               </div>
-              <span className="count-badge">{filtered.length} of {teachers.length}</span>
+              <span className="count-badge" aria-live="polite">
+                {filtered.length} of {teachers.length}
+              </span>
             </div>
           </div>
 
           {loading ? (
-            <div className="loading-state">
-              <div className="spinner" />
-              <div style={{ color: "#94a3b8", fontSize: "0.875rem" }}>Loading teachers...</div>
+            <div className="loading-state" aria-label="Loading teachers">
+              <div className="spinner" aria-hidden="true" />
+              <div style={{ color: "#94a3b8", fontSize: "0.875rem" }}>Loading teachers…</div>
             </div>
           ) : (
             <div className="table-wrap">
@@ -489,8 +623,10 @@ const Teachers = () => {
                     <tr>
                       <td colSpan={6}>
                         <div className="empty-state">
-                          <div className="empty-icon">👨‍🏫</div>
-                          <div className="empty-text">{search ? "No teachers match your search" : "No teachers yet — add one above"}</div>
+                          <div className="empty-icon" aria-hidden="true">👨‍🏫</div>
+                          <div className="empty-text">
+                            {search ? "No teachers match your search" : "No teachers yet — add one above"}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -498,7 +634,7 @@ const Teachers = () => {
                     <tr key={t.id}>
                       <td>
                         <div className="teacher-cell">
-                          <div className="avatar" style={{ background: getColor(t.teacher_name) }}>
+                          <div className="avatar" style={{ background: getColor(t.teacher_name) }} aria-hidden="true">
                             {getInitials(t.teacher_name)}
                           </div>
                           <span className="teacher-name">{t.teacher_name}</span>
@@ -512,8 +648,10 @@ const Teachers = () => {
                         <button
                           className="btn-delete"
                           onClick={() => setDeleteConfirm({ id: t.id, name: t.teacher_name })}
+                          disabled={deletingId === t.id}
+                          aria-label={`Remove ${t.teacher_name}`}
                         >
-                          🗑 Remove
+                          <span aria-hidden="true">🗑</span> Remove
                         </button>
                       </td>
                     </tr>
