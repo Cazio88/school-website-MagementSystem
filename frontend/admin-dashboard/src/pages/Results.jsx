@@ -87,35 +87,44 @@ const GRADE_SCALE_B16 = [
 ];
 
 /* ─────────────────────────────────────────────
-   Score Breakdown Helpers
+   Score Breakdown Helpers  (NEW STRUCTURE)
+
+   Re-Open : reopen_raw/10 + rda/10  → direct sum → /20
+   CA      : (hw+cw+ct)/110 × 25    → /25
+   MGT Test: mgt_raw direct          → /15
+   CA+MGT combined stored as `ca`   → /40
+   Exams   : (exam_raw/100) × 40    → /40
 ───────────────────────────────────────────── */
 
-// Reopen: reopen_raw/15 + rda/10 → total/25 → scaled to /20
+// Re-Open: direct sum, max 20
 const calcReopenScore = (breakdown) => {
-  const reopen = parseFloat(breakdown.reopen_raw) || 0;
-  const rda    = parseFloat(breakdown.rda)        || 0;
-  const raw    = reopen + rda; // out of 25
-  return Math.round((raw / 25) * 20 * 10) / 10;
+  const reopen = Math.min(10, parseFloat(breakdown.reopen_raw) || 0);
+  const rda    = Math.min(10, parseFloat(breakdown.rda)        || 0);
+  return Math.round((reopen + rda) * 10) / 10;
 };
 
-// CA/MGT:
-//   homework: hw1+hw2+hw3+hw4 out of 20
-//   classwork: cw1+cw2+cw3+cw4 out of 40
-//   classtest: ct1+ct2+ct3+ct4 out of 50
-//   total raw = 110, scale to /40
-const calcCAScore = (breakdown) => {
+// CA portion only (hw/cw/ct → /110 → scaled to /25)
+const calcCAonly = (breakdown) => {
   const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
   const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
   const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
-  const raw = hw + cw + ct; // out of 110
-  return Math.round((raw / 110) * 40 * 10) / 10;
+  return Math.round(((hw + cw + ct) / 110) * 25 * 10) / 10;
 };
 
-// Exams: raw out of 100 → scaled to /40
-const calcExamsScore = (breakdown) => {
-  const raw = parseFloat(breakdown.exam_raw) || 0;
-  return Math.round((raw / 100) * 40 * 10) / 10;
+// MGT Test: raw entry out of 15 (direct, no scaling)
+const calcMGTScore = (breakdown) =>
+  Math.round(Math.min(15, parseFloat(breakdown.mgt_raw) || 0) * 10) / 10;
+
+// Combined CA+MGT score stored in the `ca` field → /40
+const calcCAScore = (breakdown) => {
+  const ca  = calcCAonly(breakdown);
+  const mgt = calcMGTScore(breakdown);
+  return Math.round((ca + mgt) * 10) / 10;
 };
+
+// Exams: raw /100 → scaled to /40
+const calcExamsScore = (breakdown) =>
+  Math.round(((parseFloat(breakdown.exam_raw) || 0) / 100) * 40 * 10) / 10;
 
 /* ─────────────────────────────────────────────
    Styles
@@ -168,7 +177,6 @@ const STYLES = `
   .res-table td { padding:10px 14px; text-align:center; color:#334155; }
   .res-table td:nth-child(2) { text-align:left; }
 
-  /* Score cell buttons */
   .res-score-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
   .res-score-btn {
     min-width:64px; padding:6px 10px; border-radius:8px; font-family:'DM Mono',monospace;
@@ -200,7 +208,6 @@ const STYLES = `
   .res-legend { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; padding:14px 16px; background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   .res-legend-item { display:flex; align-items:center; gap:5px; padding:3px 8px; background:#f8fafc; border-radius:6px; font-size:11.5px; }
   .res-legend-range { font-family:'DM Mono',monospace; color:#64748b; font-size:11px; }
-  .res-legend-grade { font-weight:700; font-family:'DM Mono',monospace; }
 
   .res-empty { background:#fff; border-radius:14px; padding:56px 20px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.07); }
   .res-empty-icon { font-size:40px; margin-bottom:12px; }
@@ -234,7 +241,7 @@ const STYLES = `
   .res-sub-table tbody td { padding:8px 12px; text-align:center; color:#475569; }
   .res-sub-table tbody td:first-child { text-align:left; font-weight:500; color:#1e293b; }
 
-  /* ── MODAL ── */
+  /* MODAL */
   .res-modal-backdrop {
     position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(4px);
     z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;
@@ -243,8 +250,7 @@ const STYLES = `
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   .res-modal {
     background:#fff; border-radius:18px; width:100%; max-width:500px;
-    box-shadow:0 24px 60px rgba(15,23,42,.25); animation: slideUp .2s ease;
-    overflow:hidden;
+    box-shadow:0 24px 60px rgba(15,23,42,.25); animation: slideUp .2s ease; overflow:hidden;
   }
   @keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
   .res-modal-header {
@@ -260,9 +266,8 @@ const STYLES = `
     font-size:16px; transition:all .15s;
   }
   .res-modal-close:hover { background:#e2e8f0; color:#1e293b; }
-  .res-modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:18px; }
+  .res-modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:18px; max-height:75vh; overflow-y:auto; }
 
-  /* Score group within modal */
   .res-modal-section { display:flex; flex-direction:column; gap:8px; }
   .res-modal-section-label {
     font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.7px;
@@ -275,16 +280,14 @@ const STYLES = `
   .res-modal-field input {
     border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 10px;
     font-family:'DM Mono',monospace; font-size:14px; font-weight:600; color:#1e293b;
-    text-align:center; outline:none; transition:all .15s; width:100%; box-sizing:border-box;
-    background:#fafafa;
+    text-align:center; outline:none; transition:all .15s; width:100%; box-sizing:border-box; background:#fafafa;
   }
   .res-modal-field input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.1); }
 
-  /* Preview bar */
   .res-modal-preview {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     border-radius:12px; padding:14px 18px;
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
   }
   .res-modal-preview-item { display:flex; flex-direction:column; align-items:center; gap:3px; }
   .res-modal-preview-value { font-family:'DM Mono',monospace; font-size:20px; font-weight:700; color:#fff; line-height:1; }
@@ -296,19 +299,23 @@ const STYLES = `
   .res-modal-footer { padding:14px 22px 20px; display:flex; gap:10px; justify-content:flex-end; }
   .res-modal-btn-cancel {
     padding:9px 20px; border-radius:9px; border:1.5px solid #e2e8f0;
-    background:#fff; color:#64748b; font-size:13.5px; font-weight:600;
-    font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s;
+    background:#fff; color:#64748b; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s;
   }
   .res-modal-btn-cancel:hover { border-color:#94a3b8; color:#1e293b; }
   .res-modal-btn-apply {
     padding:9px 22px; border-radius:9px; border:none;
-    background:#0f172a; color:#fff; font-size:13.5px; font-weight:600;
-    font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s;
+    background:#0f172a; color:#fff; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s;
     display:flex; align-items:center; gap:8px;
   }
   .res-modal-btn-apply:hover { background:#1e293b; transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.2); }
 
   .res-divider { height:1px; background:#f1f5f9; margin:0 -22px; }
+
+  /* Pill labels inside modals */
+  .res-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+  .res-pill-blue  { background:#eff6ff; color:#1d4ed8; }
+  .res-pill-green { background:#f0fdf4; color:#166534; }
+  .res-pill-purple{ background:#f5f3ff; color:#6d28d9; }
 
   @media (max-width: 640px) {
     .res-body { padding:16px; }
@@ -334,17 +341,15 @@ function useToast() {
 
 /* ─────────────────────────────────────────────
    REOPEN MODAL
-   Fields: Re-open /15, RDA /10 → scaled to /20
+   Re-Open /10 + RDA /10 = /20 (direct sum)
 ───────────────────────────────────────────── */
 function ReopenModal({ studentName, initial, onApply, onClose }) {
   const [vals, setVals] = useState({
     reopen_raw: initial?.reopen_raw ?? "",
     rda:        initial?.rda        ?? "",
   });
-
   const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
   const score = calcReopenScore(vals);
-  const raw   = (parseFloat(vals.reopen_raw) || 0) + (parseFloat(vals.rda) || 0);
 
   return (
     <div className="res-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -361,42 +366,38 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
           {/* Preview */}
           <div className="res-modal-preview">
             <div className="res-modal-preview-item">
-              <span className="res-modal-preview-value">{raw.toFixed(1)}</span>
-              <span className="res-modal-preview-label">Raw /25</span>
-            </div>
-            <span className="res-modal-preview-arrow">→</span>
-            <div className="res-modal-preview-item">
               <span className="res-modal-preview-final">{score.toFixed(1)}</span>
               <span className="res-modal-preview-max">/ 20</span>
             </div>
             <div className="res-modal-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
               <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
-              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>(raw/25)×20</span>
+              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>Re-Open/10 + RDA/10</span>
             </div>
           </div>
 
           <div className="res-modal-section">
             <div className="res-modal-section-label">
-              Re-Open Assessment <span>max 15 marks</span>
+              Re-Open Assessment
+              <span className="res-pill res-pill-blue">max 20 marks total</span>
             </div>
             <div className="res-modal-inputs">
               <div className="res-modal-field">
-                <label>Re-Open</label>
-                <input type="number" min="0" max="15" step="0.5"
+                <label>Re-Open <span style={{color:"#94a3b8",fontWeight:400}}>/10</span></label>
+                <input type="number" min="0" max="10" step="0.5"
                   placeholder="0" value={vals.reopen_raw}
-                  onChange={e => set("reopen_raw", Math.min(15, Math.max(0, parseFloat(e.target.value) || 0)))} />
+                  onChange={e => set("reopen_raw", Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))} />
               </div>
               <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>+</div>
               <div className="res-modal-field">
-                <label>RDA</label>
+                <label>RDA <span style={{color:"#94a3b8",fontWeight:400}}>/10</span></label>
                 <input type="number" min="0" max="10" step="0.5"
                   placeholder="0" value={vals.rda}
                   onChange={e => set("rda", Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))} />
               </div>
               <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
               <div className="res-modal-field">
-                <label style={{color:"#3b82f6"}}>Total /25</label>
-                <input readOnly value={raw.toFixed(1)}
+                <label style={{color:"#3b82f6"}}>Total /20</label>
+                <input readOnly value={score.toFixed(1)}
                   style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default"}} />
               </div>
             </div>
@@ -406,9 +407,7 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
         <div className="res-modal-footer">
           <button className="res-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="res-modal-btn-apply" onClick={() => onApply(score, vals)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Apply {score.toFixed(1)} / 20
           </button>
         </div>
@@ -419,50 +418,43 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
 
 /* ─────────────────────────────────────────────
    CA / MGT MODAL
-   Homework: 4×5 = /20
-   Classwork: 4×10 = /40
-   Classtest: 10+10+10+20 = /50
-   Total raw /110 → scale to /40
+   CA  : hw(4×5=20) + cw(4×10=40) + ct(10+10+10+20=50) = /110 → scaled to /25
+   MGT : single raw entry → /15
+   Combined total → /40
 ───────────────────────────────────────────── */
 function CAModal({ studentName, initial, onApply, onClose }) {
   const [vals, setVals] = useState({
     hw1: initial?.hw1 ?? "", hw2: initial?.hw2 ?? "", hw3: initial?.hw3 ?? "", hw4: initial?.hw4 ?? "",
     cw1: initial?.cw1 ?? "", cw2: initial?.cw2 ?? "", cw3: initial?.cw3 ?? "", cw4: initial?.cw4 ?? "",
     ct1: initial?.ct1 ?? "", ct2: initial?.ct2 ?? "", ct3: initial?.ct3 ?? "", ct4: initial?.ct4 ?? "",
+    mgt_raw: initial?.mgt_raw ?? "",
   });
 
   const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
-  const num  = (k) => parseFloat(vals[k]) || 0;
+  const num = (k) => parseFloat(vals[k]) || 0;
 
-  const hwTotal = num("hw1") + num("hw2") + num("hw3") + num("hw4");
-  const cwTotal = num("cw1") + num("cw2") + num("cw3") + num("cw4");
-  const ctTotal = num("ct1") + num("ct2") + num("ct3") + num("ct4");
-  const rawTotal = hwTotal + cwTotal + ctTotal;
-  const score = calcCAScore(vals);
+  const hwTotal  = num("hw1")+num("hw2")+num("hw3")+num("hw4");
+  const cwTotal  = num("cw1")+num("cw2")+num("cw3")+num("cw4");
+  const ctTotal  = num("ct1")+num("ct2")+num("ct3")+num("ct4");
+  const caOnly   = calcCAonly(vals);   // /25
+  const mgtScore = calcMGTScore(vals); // /15
+  const combined = calcCAScore(vals);  // /40
 
-  const fieldInput = (k, max) => (
-    <div className="res-modal-field" key={k}>
-      <input type="number" min="0" max={max} step="0.5"
-        placeholder="0" value={vals[k]}
-        onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value) || 0)))} />
-    </div>
-  );
-
-  const totalField = (val, max) => (
+  const totalField = (val, max, color = "#1d4ed8", bg = "#f0f7ff", border = "#93c5fd") => (
     <div className="res-modal-field">
       <input readOnly value={val.toFixed(1)}
-        style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default",fontWeight:"700"}} />
+        style={{background:bg,borderColor:border,color,cursor:"default",fontWeight:"700"}} />
       <label style={{color:"#94a3b8",fontSize:"10px",textAlign:"center"}}>/{max}</label>
     </div>
   );
 
   return (
     <div className="res-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="res-modal" style={{maxWidth:"560px"}}>
+      <div className="res-modal" style={{maxWidth:"580px"}}>
         <div className="res-modal-header">
           <div className="res-modal-header-left">
             <p className="res-modal-title">CA / MGT Score</p>
-            <p className="res-modal-subtitle">{studentName} · Continuous Assessment</p>
+            <p className="res-modal-subtitle">{studentName} · CA (25%) + MGT Test (15%) = 40%</p>
           </div>
           <button className="res-modal-close" onClick={onClose}>✕</button>
         </div>
@@ -471,99 +463,145 @@ function CAModal({ studentName, initial, onApply, onClose }) {
           {/* Preview */}
           <div className="res-modal-preview">
             <div className="res-modal-preview-item">
-              <span className="res-modal-preview-value">{rawTotal.toFixed(1)}</span>
-              <span className="res-modal-preview-label">Raw /110</span>
+              <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{caOnly.toFixed(1)}/25</span>
+              <span className="res-modal-preview-label">CA</span>
             </div>
-            <span className="res-modal-preview-arrow">→</span>
+            <span className="res-modal-preview-arrow">+</span>
             <div className="res-modal-preview-item">
-              <span className="res-modal-preview-final">{score.toFixed(1)}</span>
+              <span style={{fontSize:"12px",color:"#a78bfa",fontFamily:"'DM Mono',monospace"}}>{mgtScore.toFixed(1)}/15</span>
+              <span className="res-modal-preview-label">MGT</span>
+            </div>
+            <span className="res-modal-preview-arrow">=</span>
+            <div className="res-modal-preview-item">
+              <span className="res-modal-preview-final">{combined.toFixed(1)}</span>
               <span className="res-modal-preview-max">/ 40</span>
             </div>
-            <div style={{marginLeft:"auto",display:"flex",gap:"12px"}}>
+            <div style={{marginLeft:"auto",display:"flex",gap:"10px"}}>
               <div className="res-modal-preview-item">
-                <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{hwTotal.toFixed(1)}/20</span>
+                <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{hwTotal.toFixed(1)}/20</span>
                 <span className="res-modal-preview-label">HW</span>
               </div>
               <div className="res-modal-preview-item">
-                <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{cwTotal.toFixed(1)}/40</span>
+                <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{cwTotal.toFixed(1)}/40</span>
                 <span className="res-modal-preview-label">CW</span>
               </div>
               <div className="res-modal-preview-item">
-                <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{ctTotal.toFixed(1)}/50</span>
+                <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{ctTotal.toFixed(1)}/50</span>
                 <span className="res-modal-preview-label">CT</span>
               </div>
             </div>
           </div>
 
-          {/* Homework */}
+          {/* ── CA Section ── */}
           <div className="res-modal-section">
             <div className="res-modal-section-label">
-              Homework <span>4 × 5 marks = /20</span>
+              <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                Continuous Assessment (CA)
+                <span className="res-pill res-pill-blue">scaled to /25</span>
+              </span>
+              <span>raw total /110</span>
             </div>
-            <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
-              {["hw1","hw2","hw3","hw4"].map(k => (
-                <div className="res-modal-field" key={k}>
-                  <label>HW {k.slice(2)}</label>
-                  <input type="number" min="0" max="5" step="0.5"
-                    placeholder="0" value={vals[k]}
-                    onChange={e => set(k, Math.min(5, Math.max(0, parseFloat(e.target.value) || 0)))} />
-                </div>
-              ))}
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-              {totalField(hwTotal, 20)}
+
+            {/* Homework */}
+            <div style={{marginBottom:"6px"}}>
+              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
+                Homework — 4 × 5 = /20
+              </div>
+              <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
+                {["hw1","hw2","hw3","hw4"].map(k => (
+                  <div className="res-modal-field" key={k}>
+                    <label>HW {k.slice(2)}</label>
+                    <input type="number" min="0" max="5" step="0.5" placeholder="0" value={vals[k]}
+                      onChange={e => set(k, Math.min(5, Math.max(0, parseFloat(e.target.value)||0)))} />
+                  </div>
+                ))}
+                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+                {totalField(hwTotal, 20)}
+              </div>
+            </div>
+
+            {/* Classwork */}
+            <div style={{marginBottom:"6px"}}>
+              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
+                Classwork — 4 × 10 = /40
+              </div>
+              <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
+                {["cw1","cw2","cw3","cw4"].map(k => (
+                  <div className="res-modal-field" key={k}>
+                    <label>CW {k.slice(2)}</label>
+                    <input type="number" min="0" max="10" step="0.5" placeholder="0" value={vals[k]}
+                      onChange={e => set(k, Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
+                  </div>
+                ))}
+                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+                {totalField(cwTotal, 40)}
+              </div>
+            </div>
+
+            {/* Class Test */}
+            <div>
+              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
+                Class Test — 10+10+10+20 = /50
+              </div>
+              <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
+                {[["ct1",10],["ct2",10],["ct3",10],["ct4",20]].map(([k,max]) => (
+                  <div className="res-modal-field" key={k}>
+                    <label>CT{k.slice(2)} /{max}</label>
+                    <input type="number" min="0" max={max} step="0.5" placeholder="0" value={vals[k]}
+                      onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value)||0)))} />
+                  </div>
+                ))}
+                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+                {totalField(ctTotal, 50)}
+              </div>
+            </div>
+
+            {/* CA scaled result */}
+            <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"4px",padding:"8px 12px",background:"#eff6ff",borderRadius:"8px",border:"1px solid #bfdbfe"}}>
+              <span style={{fontSize:"12px",color:"#64748b"}}>CA raw ({(hwTotal+cwTotal+ctTotal).toFixed(1)}/110) scaled to</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"700",color:"#1d4ed8",fontSize:"15px"}}>{caOnly.toFixed(1)} / 25</span>
             </div>
           </div>
 
           <div className="res-divider" />
 
-          {/* Classwork */}
+          {/* ── MGT Test Section ── */}
           <div className="res-modal-section">
             <div className="res-modal-section-label">
-              Classwork <span>4 × 10 marks = /40</span>
+              <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                MGT Test
+                <span className="res-pill res-pill-purple">direct entry /15</span>
+              </span>
             </div>
-            <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
-              {["cw1","cw2","cw3","cw4"].map(k => (
-                <div className="res-modal-field" key={k}>
-                  <label>CW {k.slice(2)}</label>
-                  <input type="number" min="0" max="10" step="0.5"
-                    placeholder="0" value={vals[k]}
-                    onChange={e => set(k, Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))} />
-                </div>
-              ))}
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-              {totalField(cwTotal, 40)}
+            <div className="res-modal-inputs">
+              <div className="res-modal-field" style={{flex:"none",width:"120px"}}>
+                <label>MGT Score <span style={{color:"#94a3b8",fontWeight:400}}>/15</span></label>
+                <input type="number" min="0" max="15" step="0.5"
+                  placeholder="0" value={vals.mgt_raw}
+                  style={{fontSize:"22px",padding:"10px"}}
+                  onChange={e => set("mgt_raw", Math.min(15, Math.max(0, parseFloat(e.target.value)||0)))}
+                  autoFocus
+                />
+              </div>
+              <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end",paddingBottom:"4px",color:"#94a3b8",fontSize:"12px",gap:"2px"}}>
+                <span>Entered directly</span>
+                <span>No scaling applied</span>
+              </div>
             </div>
           </div>
 
-          <div className="res-divider" />
-
-          {/* Classtest */}
-          <div className="res-modal-section">
-            <div className="res-modal-section-label">
-              Class Test <span>10 + 10 + 10 + 20 = /50</span>
-            </div>
-            <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
-              {[["ct1",10],["ct2",10],["ct3",10],["ct4",20]].map(([k, max]) => (
-                <div className="res-modal-field" key={k}>
-                  <label>CT{k.slice(2)} /{max}</label>
-                  <input type="number" min="0" max={max} step="0.5"
-                    placeholder="0" value={vals[k]}
-                    onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value) || 0)))} />
-                </div>
-              ))}
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-              {totalField(ctTotal, 50)}
-            </div>
+          {/* Combined total pill */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#f0fdf4",borderRadius:"10px",border:"1px solid #bbf7d0"}}>
+            <span style={{fontSize:"13px",color:"#166534",fontWeight:"600"}}>CA + MGT Combined Total</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"800",color:"#166534",fontSize:"18px"}}>{combined.toFixed(1)} / 40</span>
           </div>
         </div>
 
         <div className="res-modal-footer">
           <button className="res-modal-btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="res-modal-btn-apply" onClick={() => onApply(score, vals)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            Apply {score.toFixed(1)} / 40
+          <button className="res-modal-btn-apply" onClick={() => onApply(combined, vals)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Apply {combined.toFixed(1)} / 40
           </button>
         </div>
       </div>
@@ -572,8 +610,7 @@ function CAModal({ studentName, initial, onApply, onClose }) {
 }
 
 /* ─────────────────────────────────────────────
-   EXAMS MODAL
-   Raw marks /100 → scaled to /40
+   EXAMS MODAL — unchanged, raw /100 → /40
 ───────────────────────────────────────────── */
 function ExamsModal({ studentName, initial, onApply, onClose }) {
   const [examRaw, setExamRaw] = useState(initial?.exam_raw ?? "");
@@ -592,7 +629,6 @@ function ExamsModal({ studentName, initial, onApply, onClose }) {
         </div>
 
         <div className="res-modal-body">
-          {/* Preview */}
           <div className="res-modal-preview">
             <div className="res-modal-preview-item">
               <span className="res-modal-preview-value">{raw.toFixed(1)}</span>
@@ -619,7 +655,7 @@ function ExamsModal({ studentName, initial, onApply, onClose }) {
                 <input type="number" min="0" max="100" step="0.5"
                   placeholder="0" value={examRaw}
                   style={{fontSize:"24px",padding:"12px 10px"}}
-                  onChange={e => setExamRaw(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                  onChange={e => setExamRaw(Math.min(100, Math.max(0, parseFloat(e.target.value)||0)))}
                   autoFocus
                 />
               </div>
@@ -636,9 +672,7 @@ function ExamsModal({ studentName, initial, onApply, onClose }) {
         <div className="res-modal-footer">
           <button className="res-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="res-modal-btn-apply" onClick={() => onApply(score, { exam_raw: raw })}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Apply {score.toFixed(1)} / 40
           </button>
         </div>
@@ -646,6 +680,31 @@ function ExamsModal({ studentName, initial, onApply, onClose }) {
     </div>
   );
 }
+
+/* ─────────────────────────────────────────────
+   Breakdown label helpers
+───────────────────────────────────────────── */
+const getReopenBreakdown = (breakdowns, studentId) => {
+  const b = breakdowns[studentId]?.reopen;
+  if (!b) return null;
+  return `${parseFloat(b.reopen_raw)||0}+${parseFloat(b.rda)||0}`;
+};
+
+const getCABreakdown = (breakdowns, studentId) => {
+  const b = breakdowns[studentId]?.ca;
+  if (!b) return null;
+  const hw  = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
+  const cw  = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
+  const ct  = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
+  const mgt = parseFloat(b.mgt_raw)||0;
+  return `CA:${calcCAonly(b).toFixed(1)} MGT:${mgt}`;
+};
+
+const getExamsBreakdown = (breakdowns, studentId) => {
+  const b = breakdowns[studentId]?.exams;
+  if (!b) return null;
+  return `raw:${parseFloat(b.exam_raw)||0}/100`;
+};
 
 /* ─────────────────────────────────────────────
    Main component
@@ -671,7 +730,7 @@ const Results = () => {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [classLevel, setClassLevel]           = useState("basic_7_9");
   const [scores, setScores]                   = useState({});
-  const [breakdowns, setBreakdowns]           = useState({});  // { [studentId]: { reopen: {...}, ca: {...}, exams: {...} } }
+  const [breakdowns, setBreakdowns]           = useState({});
   const [existingIds, setExistingIds]         = useState({});
   const [saving, setSaving]                   = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
@@ -680,9 +739,7 @@ const Results = () => {
   const [summary, setSummary]                 = useState([]);
   const [loadingSummary, setLoadingSummary]   = useState(false);
   const [expandedStudent, setExpandedStudent] = useState(null);
-
-  // Modal state: { type: 'reopen'|'ca'|'exams', studentId, studentName }
-  const [modal, setModal] = useState(null);
+  const [modal, setModal]                     = useState(null);
 
   const loadedRef = useRef({ class: "", subject: "", term: "", year: "" });
 
@@ -692,7 +749,7 @@ const Results = () => {
     API.get("/subjects/").then(r => setSubjects(r.data.results || r.data)).catch(() => toast("Failed to load subjects.", "error"));
   }, []);
 
-  /* ── Fetch students when class changes ── */
+  /* ── Fetch students ── */
   useEffect(() => {
     if (!selectedClass) { setStudents([]); return; }
     setLoadingStudents(true);
@@ -723,17 +780,14 @@ const Results = () => {
       });
 
       const next = {};
-      studentList.forEach(s => {
-        next[s.id] = map[s.id] || { reopen: "", ca: "", exams: "" };
-      });
+      studentList.forEach(s => { next[s.id] = map[s.id] || { reopen: "", ca: "", exams: "" }; });
 
       setScores(next);
       setExistingIds(ids);
       loadedRef.current = { class: selectedClass, subject: selectedSubject, term: selectedTerm, year: selectedYear };
 
-      if (records.length > 0) {
+      if (records.length > 0)
         toast(`Loaded ${records.length} saved result${records.length !== 1 ? "s" : ""}.`, "info");
-      }
     } catch {
       toast("Failed to load existing scores.", "error");
     } finally {
@@ -777,8 +831,6 @@ const Results = () => {
     const found = classes.find(c => String(c.id) === String(id));
     setClassLevel(found?.level || "basic_7_9");
   };
-
-  const handleSubjectChange = (e) => setSelectedSubject(e.target.value);
 
   /* ── Modal apply handlers ── */
   const applyReopen = (score, breakdown) => {
@@ -857,64 +909,39 @@ const Results = () => {
   const savedCount  = Object.keys(existingIds).length;
   const gradeScale  = classLevel === "basic_7_9" ? GRADE_SCALE_B79 : GRADE_SCALE_B16;
 
-  const selectedClassName   = classes.find(c  => String(c.id)  === String(selectedClass))?.name   || "";
-  const selectedSubjectName = subjects.find(s => String(s.id)  === String(selectedSubject))?.name || "";
-  const selectedTermLabel   = TERMS.find(t   => t.value === selectedTerm)?.label || "";
+  const selectedClassName   = classes.find(c  => String(c.id) === String(selectedClass))?.name   || "";
+  const selectedSubjectName = subjects.find(s => String(s.id) === String(selectedSubject))?.name || "";
+  const selectedTermLabel   = TERMS.find(t => t.value === selectedTerm)?.label || "";
 
-  /* helper: breakdown label for cell sub-text */
-  const getReopenBreakdown = (studentId) => {
-    const b = breakdowns[studentId]?.reopen;
-    if (!b) return null;
-    const r = parseFloat(b.reopen_raw) || 0;
-    const rda = parseFloat(b.rda) || 0;
-    return `${r}+${rda}`;
-  };
-  const getCABreakdown = (studentId) => {
-    const b = breakdowns[studentId]?.ca;
-    if (!b) return null;
-    const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(b[k])||0), 0);
-    const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(b[k])||0), 0);
-    const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(b[k])||0), 0);
-    return `HW:${hw} CW:${cw} CT:${ct}`;
-  };
-  const getExamsBreakdown = (studentId) => {
-    const b = breakdowns[studentId]?.exams;
-    if (!b) return null;
-    return `raw:${parseFloat(b.exam_raw)||0}/100`;
-  };
+  const editIcon = (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  );
+  const addIcon = (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
+    </svg>
+  );
 
   const filtersSet = selectedClass && selectedSubject;
 
-  /* ────────────────────────────────────────────
-     Render
-  ──────────────────────────────────────────── */
   return (
     <div className="res-root">
 
       {/* Modals */}
       {modal?.type === "reopen" && (
-        <ReopenModal
-          studentName={modal.studentName}
-          initial={breakdowns[modal.studentId]?.reopen}
-          onApply={applyReopen}
-          onClose={() => setModal(null)}
-        />
+        <ReopenModal studentName={modal.studentName} initial={breakdowns[modal.studentId]?.reopen}
+          onApply={applyReopen} onClose={() => setModal(null)} />
       )}
       {modal?.type === "ca" && (
-        <CAModal
-          studentName={modal.studentName}
-          initial={breakdowns[modal.studentId]?.ca}
-          onApply={applyCA}
-          onClose={() => setModal(null)}
-        />
+        <CAModal studentName={modal.studentName} initial={breakdowns[modal.studentId]?.ca}
+          onApply={applyCA} onClose={() => setModal(null)} />
       )}
       {modal?.type === "exams" && (
-        <ExamsModal
-          studentName={modal.studentName}
-          initial={breakdowns[modal.studentId]?.exams}
-          onApply={applyExams}
-          onClose={() => setModal(null)}
-        />
+        <ExamsModal studentName={modal.studentName} initial={breakdowns[modal.studentId]?.exams}
+          onApply={applyExams} onClose={() => setModal(null)} />
       )}
 
       {/* Toast */}
@@ -970,7 +997,7 @@ const Results = () => {
             <div className="res-filter-group">
               <label>Subject</label>
               <select className={`res-select ${selectedSubject ? "res-select-active" : ""}`}
-                value={selectedSubject} onChange={handleSubjectChange}>
+                value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}>
                 <option value="">Select Subject</option>
                 {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -983,47 +1010,33 @@ const Results = () => {
           <div className="res-tabs">
             {["Enter Results", "Class Summary"].map(t => (
               <button key={t} onClick={() => setTab(t)}
-                className={`res-tab ${tab === t ? "res-tab-active" : ""}`}>
-                {t}
-              </button>
+                className={`res-tab ${tab === t ? "res-tab-active" : ""}`}>{t}</button>
             ))}
           </div>
         )}
 
-        {/* ── Enter Results tab ── */}
+        {/* ── Enter Results ── */}
         {tab === "Enter Results" && (
           <>
             {!selectedClass && (
-              <div className="res-empty">
-                <div className="res-empty-icon">🏫</div>
-                <h3>Select a class to begin</h3>
-                <p>Choose a year, term, class and subject to load or enter results.</p>
-              </div>
+              <div className="res-empty"><div className="res-empty-icon">🏫</div>
+                <h3>Select a class to begin</h3><p>Choose a year, term, class and subject to load or enter results.</p></div>
             )}
-
             {selectedClass && !selectedSubject && !loadingStudents && (
-              <div className="res-empty">
-                <div className="res-empty-icon">📚</div>
-                <h3>Select a subject</h3>
-                <p>Choose a subject above to load existing results or enter new ones.</p>
-              </div>
+              <div className="res-empty"><div className="res-empty-icon">📚</div>
+                <h3>Select a subject</h3><p>Choose a subject above to load existing results or enter new ones.</p></div>
             )}
 
             {filtersSet && (
               <>
-                {/* Info bar */}
                 <div className="res-info-bar">
                   <div className="res-info-bar-left">
                     <span className="res-badge res-badge-blue">
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
                       {students.length} students
                     </span>
-                    {filledCount > 0 && (
-                      <span className="res-badge res-badge-amber">✏ {filledCount} filled</span>
-                    )}
-                    {savedCount > 0 && (
-                      <span className="res-badge res-badge-green">✓ {savedCount} saved</span>
-                    )}
+                    {filledCount > 0 && <span className="res-badge res-badge-amber">✏ {filledCount} filled</span>}
+                    {savedCount  > 0 && <span className="res-badge res-badge-green">✓ {savedCount} saved</span>}
                     {loadingScores && (
                       <div className="res-loading-overlay" style={{padding:"0"}}>
                         <div className="res-spinner" style={{width:"14px",height:"14px"}}/>
@@ -1037,27 +1050,37 @@ const Results = () => {
                   </div>
                 </div>
 
-                {/* Table */}
+                {/* Scoring legend */}
+                <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"12px"}}>
+                  {[
+                    {label:"Re-Open",color:"#3b82f6",detail:"= /10 + RDA /10"},
+                    {label:"CA",     color:"#0891b2",detail:"hw/cw/ct → /25"},
+                    {label:"MGT",    color:"#7c3aed",detail:"direct → /15"},
+                    {label:"Exams",  color:"#0284c7",detail:"raw/100 × 40"},
+                  ].map(({ label, color, detail }) => (
+                    <div key={label} style={{display:"flex",alignItems:"center",gap:"5px",padding:"3px 10px",background:"#fff",borderRadius:"20px",border:"1px solid #e2e8f0",fontSize:"11.5px",boxShadow:"0 1px 2px rgba(0,0,0,.05)"}}>
+                      <span style={{width:"7px",height:"7px",borderRadius:"50%",background:color,display:"inline-block"}}/>
+                      <strong style={{color}}>{label}</strong>
+                      <span style={{color:"#94a3b8"}}>{detail}</span>
+                    </div>
+                  ))}
+                </div>
+
                 {loadingStudents ? (
                   <div className="res-table-card">
-                    <table className="res-table">
-                      <tbody>
-                        {[...Array(5)].map((_, i) => (
-                          <tr key={i} className="res-skeleton-row">
-                            {[...Array(9)].map((__, j) => (
-                              <td key={j}><div className="res-skeleton" style={{width: j===1?"120px":"60px"}}/></td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <table className="res-table"><tbody>
+                      {[...Array(5)].map((_, i) => (
+                        <tr key={i} className="res-skeleton-row">
+                          {[...Array(9)].map((__, j) => (
+                            <td key={j}><div className="res-skeleton" style={{width: j===1?"120px":"60px"}}/></td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody></table>
                   </div>
                 ) : students.length === 0 ? (
-                  <div className="res-empty">
-                    <div className="res-empty-icon">👤</div>
-                    <h3>No students found</h3>
-                    <p>No students are assigned to this class.</p>
-                  </div>
+                  <div className="res-empty"><div className="res-empty-icon">👤</div>
+                    <h3>No students found</h3><p>No students are assigned to this class.</p></div>
                 ) : (
                   <div className="res-table-card">
                     <table className="res-table">
@@ -1065,18 +1088,9 @@ const Results = () => {
                         <tr>
                           <th>#</th>
                           <th style={{textAlign:"left"}}>Student</th>
-                          <th>
-                            RE-OPEN<br/>
-                            <span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/20 (click)</span>
-                          </th>
-                          <th>
-                            CA / MGT<br/>
-                            <span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/40 (click)</span>
-                          </th>
-                          <th>
-                            EXAMS<br/>
-                            <span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/40 (click)</span>
-                          </th>
+                          <th>RE-OPEN<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/20 (click)</span></th>
+                          <th>CA / MGT<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/40 (click)</span></th>
+                          <th>EXAMS<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/40 (click)</span></th>
                           <th>TOTAL<br/><span style={{fontWeight:400,fontSize:"10px",color:"#475569"}}>/100</span></th>
                           <th>GRADE</th>
                           <th>REMARK</th>
@@ -1093,122 +1107,69 @@ const Results = () => {
                           const isSaved = !!existingIds[student.id];
                           const name   = getStudentName(student);
 
-                          const reopenBreak = getReopenBreakdown(student.id);
-                          const caBreak     = getCABreakdown(student.id);
-                          const examsBreak  = getExamsBreakdown(student.id);
-
-                          const rVal = s.reopen;
-                          const cVal = s.ca;
-                          const eVal = s.exams;
-
+                          const rVal = s.reopen; const cVal = s.ca; const eVal = s.exams;
                           const rFilled = rVal !== "" && rVal !== 0;
                           const cFilled = cVal !== "" && cVal !== 0;
                           const eFilled = eVal !== "" && eVal !== 0;
+
+                          const reopenBreak = getReopenBreakdown(breakdowns, student.id);
+                          const caBreak     = getCABreakdown(breakdowns, student.id);
+                          const examsBreak  = getExamsBreakdown(breakdowns, student.id);
 
                           return (
                             <tr key={student.id}>
                               <td style={{color:"#94a3b8",fontFamily:"'DM Mono',monospace",fontSize:"12px"}}>{i+1}</td>
                               <td>
                                 <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                                  <div style={{
-                                    width:"28px",height:"28px",borderRadius:"50%",
-                                    background:`hsl(${(student.id * 47) % 360},55%,88%)`,
-                                    display:"flex",alignItems:"center",justifyContent:"center",
-                                    fontSize:"11px",fontWeight:"700",
-                                    color:`hsl(${(student.id * 47) % 360},55%,35%)`,
-                                    flexShrink:0,
-                                  }}>
+                                  <div style={{width:"28px",height:"28px",borderRadius:"50%",background:`hsl(${(student.id*47)%360},55%,88%)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:`hsl(${(student.id*47)%360},55%,35%)`,flexShrink:0}}>
                                     {name.charAt(0)}
                                   </div>
                                   <div>
                                     <div style={{fontWeight:"600",color:"#1e293b",fontSize:"13.5px"}}>{name}</div>
-                                    {isSaved && (
-                                      <div style={{fontSize:"11px",color:"#3b82f6",display:"flex",alignItems:"center",gap:"3px"}}>
-                                        <span className="res-saved-dot"/>saved
-                                      </div>
-                                    )}
+                                    {isSaved && <div style={{fontSize:"11px",color:"#3b82f6",display:"flex",alignItems:"center",gap:"3px"}}><span className="res-saved-dot"/>saved</div>}
                                   </div>
                                 </div>
                               </td>
 
-                              {/* RE-OPEN cell */}
+                              {/* RE-OPEN */}
                               <td>
                                 <div className="res-score-cell">
-                                  <button
-                                    className={`res-score-btn ${rFilled ? (parseFloat(rVal)===20?"res-score-btn-max":"res-score-btn-filled") : "res-score-btn-empty"}`}
-                                    onClick={() => setModal({ type:"reopen", studentId:student.id, studentName:name })}
-                                  >
-                                    {rFilled ? (
-                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>{parseFloat(rVal).toFixed(1)}</>
-                                    ) : (
-                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Enter</>
-                                    )}
+                                  <button className={`res-score-btn ${rFilled?(parseFloat(rVal)===20?"res-score-btn-max":"res-score-btn-filled"):"res-score-btn-empty"}`}
+                                    onClick={() => setModal({ type:"reopen", studentId:student.id, studentName:name })}>
+                                    {rFilled ? <>{editIcon}{parseFloat(rVal).toFixed(1)}</> : <>{addIcon}Enter</>}
                                   </button>
                                   {reopenBreak && <span className="res-score-breakdown">{reopenBreak}</span>}
                                 </div>
                               </td>
 
-                              {/* CA cell */}
+                              {/* CA/MGT */}
                               <td>
                                 <div className="res-score-cell">
-                                  <button
-                                    className={`res-score-btn ${cFilled ? (parseFloat(cVal)===40?"res-score-btn-max":"res-score-btn-filled") : "res-score-btn-empty"}`}
-                                    onClick={() => setModal({ type:"ca", studentId:student.id, studentName:name })}
-                                  >
-                                    {cFilled ? (
-                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>{parseFloat(cVal).toFixed(1)}</>
-                                    ) : (
-                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Enter</>
-                                    )}
+                                  <button className={`res-score-btn ${cFilled?(parseFloat(cVal)===40?"res-score-btn-max":"res-score-btn-filled"):"res-score-btn-empty"}`}
+                                    onClick={() => setModal({ type:"ca", studentId:student.id, studentName:name })}>
+                                    {cFilled ? <>{editIcon}{parseFloat(cVal).toFixed(1)}</> : <>{addIcon}Enter</>}
                                   </button>
                                   {caBreak && <span className="res-score-breakdown">{caBreak}</span>}
                                 </div>
                               </td>
 
-                              {/* EXAMS cell */}
+                              {/* EXAMS */}
                               <td>
                                 <div className="res-score-cell">
-                                  <button
-                                    className={`res-score-btn ${eFilled ? (parseFloat(eVal)===40?"res-score-btn-max":"res-score-btn-filled") : "res-score-btn-empty"}`}
-                                    onClick={() => setModal({ type:"exams", studentId:student.id, studentName:name })}
-                                  >
-                                    {eFilled ? (
-                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>{parseFloat(eVal).toFixed(1)}</>
-                                    ) : (
-                                      <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>Enter</>
-                                    )}
+                                  <button className={`res-score-btn ${eFilled?(parseFloat(eVal)===40?"res-score-btn-max":"res-score-btn-filled"):"res-score-btn-empty"}`}
+                                    onClick={() => setModal({ type:"exams", studentId:student.id, studentName:name })}>
+                                    {eFilled ? <>{editIcon}{parseFloat(eVal).toFixed(1)}</> : <>{addIcon}Enter</>}
                                   </button>
                                   {examsBreak && <span className="res-score-breakdown">{examsBreak}</span>}
                                 </div>
                               </td>
 
-                              {/* Total */}
-                              <td>
-                                {dirty
-                                  ? <span className="res-total">{total}</span>
-                                  : <span className="res-total-dash">—</span>
-                                }
-                              </td>
-
-                              {/* Grade */}
-                              <td>
-                                {grade
-                                  ? <span className="res-grade" style={{background:`${info.color}18`,color:info.color}}>{grade}</span>
-                                  : <span style={{color:"#e2e8f0"}}>—</span>
-                                }
-                              </td>
-
-                              {/* Remark */}
-                              <td style={{fontSize:"12px",color: info ? info.color : "#cbd5e1"}}>
-                                {info ? info.label : "—"}
-                              </td>
-
-                              {/* Action */}
+                              <td>{dirty ? <span className="res-total">{total}</span> : <span className="res-total-dash">—</span>}</td>
+                              <td>{grade ? <span className="res-grade" style={{background:`${info.color}18`,color:info.color}}>{grade}</span> : <span style={{color:"#e2e8f0"}}>—</span>}</td>
+                              <td style={{fontSize:"12px",color: info ? info.color : "#cbd5e1"}}>{info ? info.label : "—"}</td>
                               <td>
                                 {isSaved && (
-                                  <button className="res-btn-delete"
-                                    onClick={() => handleDeleteResult(student.id)}
-                                    disabled={deleting === student.id}>
+                                  <button className="res-btn-delete" onClick={() => handleDeleteResult(student.id)} disabled={deleting === student.id}>
                                     {deleting === student.id ? "…" : "Delete"}
                                   </button>
                                 )}
@@ -1221,59 +1182,43 @@ const Results = () => {
                   </div>
                 )}
 
-                {/* Grade legend */}
                 {students.length > 0 && (
-                  <div className="res-legend">
-                    <span style={{fontSize:"11px",fontWeight:"700",color:"#475569",marginRight:"4px",alignSelf:"center"}}>GRADE SCALE:</span>
-                    {gradeScale.map(item => (
-                      <div key={item.grade} className="res-legend-item">
-                        <span className="res-grade" style={{background:`${GRADE_REMARK[item.grade]?.color}18`,color:GRADE_REMARK[item.grade]?.color,padding:"1px 6px"}}>
-                          {item.grade}
-                        </span>
-                        <span className="res-legend-range">{item.range}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Save button */}
-                {students.length > 0 && (
-                  <div className="res-btn-save-wrap">
-                    <div style={{fontSize:"13px",color:"#94a3b8"}}>
-                      {filledCount === 0
-                        ? "Click any score cell to enter breakdown details"
-                        : `${filledCount} of ${students.length} students have scores entered`}
+                  <>
+                    <div className="res-legend">
+                      <span style={{fontSize:"11px",fontWeight:"700",color:"#475569",marginRight:"4px",alignSelf:"center"}}>GRADE SCALE:</span>
+                      {gradeScale.map(item => (
+                        <div key={item.grade} className="res-legend-item">
+                          <span className="res-grade" style={{background:`${GRADE_REMARK[item.grade]?.color}18`,color:GRADE_REMARK[item.grade]?.color,padding:"1px 6px"}}>{item.grade}</span>
+                          <span className="res-legend-range">{item.range}</span>
+                        </div>
+                      ))}
                     </div>
-                    <button className="res-btn-save"
-                      onClick={submitResults}
-                      disabled={saving || filledCount === 0}>
-                      {saving ? (
-                        <><div className="res-spinner" style={{borderTopColor:"#fff"}}/> Saving…</>
-                      ) : (
-                        <>
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <div className="res-btn-save-wrap">
+                      <div style={{fontSize:"13px",color:"#94a3b8"}}>
+                        {filledCount === 0 ? "Click any score cell to enter breakdown details" : `${filledCount} of ${students.length} students have scores entered`}
+                      </div>
+                      <button className="res-btn-save" onClick={submitResults} disabled={saving || filledCount === 0}>
+                        {saving ? (
+                          <><div className="res-spinner" style={{borderTopColor:"#fff"}}/> Saving…</>
+                        ) : (
+                          <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-                          </svg>
-                          Save {filledCount} Result{filledCount !== 1 ? "s" : ""}
-                        </>
-                      )}
-                    </button>
-                  </div>
+                          </svg>Save {filledCount} Result{filledCount !== 1 ? "s" : ""}</>
+                        )}
+                      </button>
+                    </div>
+                  </>
                 )}
               </>
             )}
           </>
         )}
 
-        {/* ── Class Summary tab ── */}
+        {/* ── Class Summary ── */}
         {tab === "Class Summary" && (
           <>
-            {!selectedClass && (
-              <div className="res-empty"><div className="res-empty-icon">📊</div><h3>Select a class</h3><p>Choose a class and term to view the summary.</p></div>
-            )}
-            {loadingSummary && (
-              <div className="res-loading-overlay"><div className="res-spinner"/>Loading summary…</div>
-            )}
+            {!selectedClass && <div className="res-empty"><div className="res-empty-icon">📊</div><h3>Select a class</h3><p>Choose a class and term to view the summary.</p></div>}
+            {loadingSummary && <div className="res-loading-overlay"><div className="res-spinner"/>Loading summary…</div>}
             {!loadingSummary && selectedClass && summary.length === 0 && (
               <div className="res-empty"><div className="res-empty-icon">📭</div><h3>No results yet</h3><p>No results found for this class and term.</p></div>
             )}
@@ -1294,14 +1239,12 @@ const Results = () => {
                   <tbody>
                     {summary.map(row => (
                       <React.Fragment key={row.student_id}>
-                        <tr
-                          onClick={() => setExpandedStudent(expandedStudent === row.student_id ? null : row.student_id)}
-                          className={expandedStudent === row.student_id ? "res-summary-row-expanded" : ""}
-                          style={{color:"#334155"}}>
+                        <tr onClick={() => setExpandedStudent(expandedStudent === row.student_id ? null : row.student_id)}
+                          className={expandedStudent === row.student_id ? "res-summary-row-expanded" : ""} style={{color:"#334155"}}>
                           <td style={{textAlign:"center"}}>
                             <span className={row.rank===1?"res-rank-1":row.rank===2?"res-rank-2":row.rank===3?"res-rank-3":""}
                               style={{fontFamily:"'DM Mono',monospace",fontSize:"13px"}}>
-                              {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : `#${row.rank}`}
+                              {row.rank===1?"🥇":row.rank===2?"🥈":row.rank===3?"🥉":`#${row.rank}`}
                             </span>
                           </td>
                           <td>
@@ -1312,8 +1255,7 @@ const Results = () => {
                           <td style={{textAlign:"center",fontFamily:"'DM Mono',monospace",fontWeight:"700",color:"#1d4ed8"}}>{row.total_score}</td>
                           <td style={{textAlign:"center",fontFamily:"'DM Mono',monospace",color:"#475569"}}>{row.average_score}</td>
                           <td style={{textAlign:"center"}}>
-                            <span className="res-grade"
-                              style={{background:`${GRADE_REMARK[row.overall_grade]?.color || "#64748b"}18`,color:GRADE_REMARK[row.overall_grade]?.color || "#64748b"}}>
+                            <span className="res-grade" style={{background:`${GRADE_REMARK[row.overall_grade]?.color||"#64748b"}18`,color:GRADE_REMARK[row.overall_grade]?.color||"#64748b"}}>
                               {row.overall_grade}
                             </span>
                           </td>
@@ -1322,42 +1264,36 @@ const Results = () => {
                           </td>
                         </tr>
                         {expandedStudent === row.student_id && (
-                          <tr>
-                            <td colSpan={7} style={{padding:"0",background:"#f8fafc"}}>
-                              <div className="res-expand-inner">
-                                <table className="res-sub-table">
-                                  <thead>
-                                    <tr>
-                                      <th style={{textAlign:"left"}}>Subject</th>
-                                      <th>Re-Open</th><th>CA</th><th>Exams</th>
-                                      <th>Total</th><th>Pos</th><th>Grade</th><th>Remark</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {row.subjects.map(sub => {
-                                      const info = GRADE_REMARK[sub.grade];
-                                      return (
-                                        <tr key={sub.subject_id}>
-                                          <td>{sub.subject_name}</td>
-                                          <td>{sub.reopen ?? "—"}</td>
-                                          <td>{sub.ca ?? "—"}</td>
-                                          <td>{sub.exams ?? "—"}</td>
-                                          <td style={{fontWeight:"700",color:"#1d4ed8",fontFamily:"'DM Mono',monospace"}}>{sub.score ?? "—"}</td>
-                                          <td style={{color:"#64748b"}}>{fmtPos(sub.subject_position)}</td>
-                                          <td>
-                                            <span className="res-grade" style={{background:info?`${info.color}18`:"#f1f5f9",color:info?.color||"#64748b",fontSize:"11px"}}>
-                                              {sub.grade ?? "—"}
-                                            </span>
-                                          </td>
-                                          <td style={{fontSize:"11.5px",color:info?.color||"#94a3b8"}}>{sub.remark ?? "—"}</td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
+                          <tr><td colSpan={7} style={{padding:"0",background:"#f8fafc"}}>
+                            <div className="res-expand-inner">
+                              <table className="res-sub-table">
+                                <thead>
+                                  <tr>
+                                    <th style={{textAlign:"left"}}>Subject</th>
+                                    <th>Re-Open</th><th>CA+MGT</th><th>Exams</th>
+                                    <th>Total</th><th>Pos</th><th>Grade</th><th>Remark</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {row.subjects.map(sub => {
+                                    const info = GRADE_REMARK[sub.grade];
+                                    return (
+                                      <tr key={sub.subject_id}>
+                                        <td>{sub.subject_name}</td>
+                                        <td>{sub.reopen ?? "—"}</td>
+                                        <td>{sub.ca     ?? "—"}</td>
+                                        <td>{sub.exams  ?? "—"}</td>
+                                        <td style={{fontWeight:"700",color:"#1d4ed8",fontFamily:"'DM Mono',monospace"}}>{sub.score ?? "—"}</td>
+                                        <td style={{color:"#64748b"}}>{fmtPos(sub.subject_position)}</td>
+                                        <td><span className="res-grade" style={{background:info?`${info.color}18`:"#f1f5f9",color:info?.color||"#64748b",fontSize:"11px"}}>{sub.grade ?? "—"}</span></td>
+                                        <td style={{fontSize:"11.5px",color:info?.color||"#94a3b8"}}>{sub.remark ?? "—"}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td></tr>
                         )}
                       </React.Fragment>
                     ))}
@@ -1367,7 +1303,6 @@ const Results = () => {
             )}
           </>
         )}
-
       </div>
     </div>
   );
