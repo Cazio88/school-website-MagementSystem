@@ -17,35 +17,35 @@ const TERMS = [
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 
 const GRADE_REMARK = {
-  "1":  { label: "HIGHEST",       bg: "bg-emerald-100 text-emerald-800" },
-  "2":  { label: "HIGHER",        bg: "bg-emerald-50  text-emerald-700" },
-  "3":  { label: "HIGH",          bg: "bg-blue-100    text-blue-800"    },
-  "4":  { label: "HIGH AVERAGE",  bg: "bg-cyan-100    text-cyan-800"    },
-  "5":  { label: "AVERAGE",       bg: "bg-yellow-100  text-yellow-800"  },
-  "6":  { label: "LOW AVERAGE",   bg: "bg-orange-100  text-orange-800"  },
-  "7":  { label: "LOW",           bg: "bg-red-100     text-red-700"     },
-  "8":  { label: "LOWER",         bg: "bg-red-200     text-red-800"     },
-  "9":  { label: "LOWEST",        bg: "bg-red-300     text-red-900"     },
-  "A":  { label: "EXCELLENT",     bg: "bg-emerald-100 text-emerald-800" },
-  "B":  { label: "VERY GOOD",     bg: "bg-emerald-50  text-emerald-700" },
-  "C":  { label: "GOOD",          bg: "bg-blue-100    text-blue-800"    },
-  "D":  { label: "HIGH AVERAGE",  bg: "bg-cyan-100    text-cyan-800"    },
-  "E2": { label: "BELOW AVERAGE", bg: "bg-orange-100  text-orange-800"  },
-  "E3": { label: "LOW",           bg: "bg-red-100     text-red-700"     },
-  "E4": { label: "LOWER",         bg: "bg-red-200     text-red-800"     },
-  "E5": { label: "LOWEST",        bg: "bg-red-300     text-red-900"     },
+  "1":  { label: "HIGHEST",       color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" },
+  "2":  { label: "HIGHER",        color: "#059669", bg: "bg-emerald-50  text-emerald-700" },
+  "3":  { label: "HIGH",          color: "#0284c7", bg: "bg-blue-100    text-blue-800"    },
+  "4":  { label: "HIGH AVERAGE",  color: "#0891b2", bg: "bg-cyan-100    text-cyan-800"    },
+  "5":  { label: "AVERAGE",       color: "#ca8a04", bg: "bg-yellow-100  text-yellow-800"  },
+  "6":  { label: "LOW AVERAGE",   color: "#ea580c", bg: "bg-orange-100  text-orange-800"  },
+  "7":  { label: "LOW",           color: "#dc2626", bg: "bg-red-100     text-red-700"     },
+  "8":  { label: "LOWER",         color: "#b91c1c", bg: "bg-red-200     text-red-800"     },
+  "9":  { label: "LOWEST",        color: "#991b1b", bg: "bg-red-300     text-red-900"     },
+  "A":  { label: "EXCELLENT",     color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" },
+  "B":  { label: "VERY GOOD",     color: "#059669", bg: "bg-emerald-50  text-emerald-700" },
+  "C":  { label: "GOOD",          color: "#0284c7", bg: "bg-blue-100    text-blue-800"    },
+  "D":  { label: "HIGH AVERAGE",  color: "#0891b2", bg: "bg-cyan-100    text-cyan-800"    },
+  "E2": { label: "BELOW AVERAGE", color: "#ea580c", bg: "bg-orange-100  text-orange-800"  },
+  "E3": { label: "LOW",           color: "#dc2626", bg: "bg-red-100     text-red-700"     },
+  "E4": { label: "LOWER",         color: "#b91c1c", bg: "bg-red-200     text-red-800"     },
+  "E5": { label: "LOWEST",        color: "#991b1b", bg: "bg-red-300     text-red-900"     },
 };
 
 const GRADE_SCALE_B79 = [
-  { range: "90–100", grade: "1", label: "HIGHEST"      },
-  { range: "80–89",  grade: "2", label: "HIGHER"       },
-  { range: "60–79",  grade: "3", label: "HIGH"         },
-  { range: "55–59",  grade: "4", label: "HIGH AVERAGE" },
-  { range: "50–54",  grade: "5", label: "AVERAGE"      },
-  { range: "45–49",  grade: "6", label: "LOW AVERAGE"  },
-  { range: "40–44",  grade: "7", label: "LOW"          },
-  { range: "35–39",  grade: "8", label: "LOWER"        },
-  { range: "0–34",   grade: "9", label: "LOWEST"       },
+  { range: "90–100", grade: "1",  label: "HIGHEST"      },
+  { range: "80–89",  grade: "2",  label: "HIGHER"       },
+  { range: "60–79",  grade: "3",  label: "HIGH"         },
+  { range: "55–59",  grade: "4",  label: "HIGH AVERAGE" },
+  { range: "50–54",  grade: "5",  label: "AVERAGE"      },
+  { range: "45–49",  grade: "6",  label: "LOW AVERAGE"  },
+  { range: "40–44",  grade: "7",  label: "LOW"          },
+  { range: "35–39",  grade: "8",  label: "LOWER"        },
+  { range: "0–34",   grade: "9",  label: "LOWEST"       },
 ];
 
 const GRADE_SCALE_B16 = [
@@ -76,45 +76,180 @@ const STATUS_CONFIG = {
   late:    { dot: "bg-amber-400",   pill: "bg-amber-50  text-amber-700  ring-1 ring-amber-200",      label: "Late"    },
 };
 
-// todayStr is defined once at module level so both the date input's max
-// attribute and the saveAttendance future-date guard share the same value.
 const todayStr = new Date().toISOString().split("T")[0];
 
 // ─────────────────────────────────────────────
-// Helpers
+// Score breakdown helpers (from Results.jsx)
+// ─────────────────────────────────────────────
+
+// Reopen: reopen_raw/15 + rda/10 → total/25 → scaled to /20
+const calcReopenScore = (breakdown) => {
+  const reopen = parseFloat(breakdown.reopen_raw) || 0;
+  const rda    = parseFloat(breakdown.rda)        || 0;
+  return Math.round(((reopen + rda) / 25) * 20 * 10) / 10;
+};
+
+// CA: hw(4×5) + cw(4×10) + ct(10+10+10+20) = /110 → scaled to /40
+const calcCAScore = (breakdown) => {
+  const hw  = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  const cw  = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  const ct  = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  return Math.round(((hw + cw + ct) / 110) * 40 * 10) / 10;
+};
+
+// Exams: raw/100 → scaled to /40
+const calcExamsScore = (breakdown) =>
+  Math.round(((parseFloat(breakdown.exam_raw) || 0) / 100) * 40 * 10) / 10;
+
+// ─────────────────────────────────────────────
+// General helpers
 // ─────────────────────────────────────────────
 
 const computeTotal = (reopen, ca, exams) =>
   Math.round(((parseFloat(reopen) || 0) + (parseFloat(ca) || 0) + (parseFloat(exams) || 0)) * 10) / 10;
 
-// Mirrors the server-side grading logic in result_view.py exactly.
-// Basic 7–9 uses numeric grades 1–9; Basic 1–6 and Nursery/KG use A–E5.
 const THRESHOLDS_B79 = [
-  [90, "1"], [80, "2"], [60, "3"], [55, "4"], [50, "5"],
-  [45, "6"], [40, "7"], [35, "8"], [0, "9"],
+  [90,"1"],[80,"2"],[60,"3"],[55,"4"],[50,"5"],[45,"6"],[40,"7"],[35,"8"],[0,"9"],
 ];
 const THRESHOLDS_B16 = [
-  [90, "A"], [80, "B"], [60, "C"], [55, "D"],
-  [45, "E2"], [40, "E3"], [35, "E4"], [0, "E5"],
+  [90,"A"],[80,"B"],[60,"C"],[55,"D"],[45,"E2"],[40,"E3"],[35,"E4"],[0,"E5"],
 ];
 
 const gradeFromTotal = (total, level = "basic_7_9") => {
   const thresholds = (level === "basic_1_6" || level === "nursery_kg")
-    ? THRESHOLDS_B16
-    : THRESHOLDS_B79;
-  for (const [min, grade] of thresholds) {
-    if (total >= min) return grade;
-  }
+    ? THRESHOLDS_B16 : THRESHOLDS_B79;
+  for (const [min, grade] of thresholds) if (total >= min) return grade;
   return thresholds[thresholds.length - 1][1];
 };
 
-// Clamp a score value to its field's allowed range and return it.
-// Returns the empty string unchanged so blank cells stay blank.
 const clampScore = (value, field) => {
   if (value === "") return "";
   const max = field === "reopen" ? 20 : 40;
   return Math.min(max, Math.max(0, parseFloat(value) || 0));
 };
+
+const fmtPos = (n) => {
+  if (n == null) return "—";
+  const s = ["th","st","nd","rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
+// ─────────────────────────────────────────────
+// Breakdown label helpers (for sub-text under score buttons)
+// ─────────────────────────────────────────────
+
+const getReopenBreakdown = (breakdowns, studentId) => {
+  const b = breakdowns[studentId]?.reopen;
+  if (!b) return null;
+  return `${parseFloat(b.reopen_raw)||0}+${parseFloat(b.rda)||0}`;
+};
+
+const getCABreakdown = (breakdowns, studentId) => {
+  const b = breakdowns[studentId]?.ca;
+  if (!b) return null;
+  const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
+  const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
+  const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
+  return `HW:${hw} CW:${cw} CT:${ct}`;
+};
+
+const getExamsBreakdown = (breakdowns, studentId) => {
+  const b = breakdowns[studentId]?.exams;
+  if (!b) return null;
+  return `raw:${parseFloat(b.exam_raw)||0}/100`;
+};
+
+// ─────────────────────────────────────────────
+// Modal styles (injected once)
+// ─────────────────────────────────────────────
+
+const MODAL_STYLES = `
+  @keyframes tp-modal-fadein  { from{opacity:0} to{opacity:1} }
+  @keyframes tp-modal-slideup { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes tp-spin          { to{transform:rotate(360deg)} }
+  @keyframes tp-slide-up      { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  .tp-modal-backdrop {
+    position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(4px);
+    z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;
+    animation:tp-modal-fadein .18s ease;
+  }
+  .tp-modal {
+    background:#fff; border-radius:18px; width:100%; max-width:500px;
+    box-shadow:0 24px 60px rgba(15,23,42,.25); animation:tp-modal-slideup .2s ease; overflow:hidden;
+  }
+  .tp-modal-header {
+    padding:18px 22px 14px; border-bottom:1px solid #f1f5f9;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .tp-modal-title   { font-size:15px; font-weight:700; color:#0f172a; margin:0; }
+  .tp-modal-subtitle{ font-size:12px; color:#94a3b8; margin:0; }
+  .tp-modal-close   {
+    width:30px; height:30px; border-radius:8px; border:none; background:#f1f5f9;
+    color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:16px; transition:all .15s;
+  }
+  .tp-modal-close:hover { background:#e2e8f0; color:#1e293b; }
+  .tp-modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:18px; }
+
+  .tp-modal-preview {
+    background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+    border-radius:12px; padding:14px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .tp-preview-item  { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .tp-preview-val   { font-family:'DM Mono',monospace; font-size:20px; font-weight:700; color:#fff; line-height:1; }
+  .tp-preview-lbl   { font-size:10px; color:#64748b; font-weight:500; text-transform:uppercase; letter-spacing:.5px; }
+  .tp-preview-arrow { color:#475569; font-size:16px; }
+  .tp-preview-final { font-family:'DM Mono',monospace; font-size:24px; font-weight:800; color:#3b82f6; line-height:1; }
+  .tp-preview-max   { font-size:11px; color:#475569; font-weight:500; }
+
+  .tp-modal-section { display:flex; flex-direction:column; gap:8px; }
+  .tp-section-label {
+    font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.7px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .tp-section-label span { font-weight:400; color:#94a3b8; font-size:10px; letter-spacing:0; text-transform:none; }
+  .tp-modal-inputs  { display:flex; gap:8px; flex-wrap:wrap; }
+  .tp-modal-field   { display:flex; flex-direction:column; gap:4px; flex:1; min-width:70px; }
+  .tp-modal-field label { font-size:11px; color:#64748b; font-weight:600; }
+  .tp-modal-field input {
+    border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 10px;
+    font-family:'DM Mono',monospace; font-size:14px; font-weight:600; color:#1e293b;
+    text-align:center; outline:none; transition:all .15s; width:100%; box-sizing:border-box; background:#fafafa;
+  }
+  .tp-modal-field input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.1); }
+
+  .tp-divider { height:1px; background:#f1f5f9; margin:0 -22px; }
+
+  .tp-modal-footer { padding:14px 22px 20px; display:flex; gap:10px; justify-content:flex-end; }
+  .tp-modal-btn-cancel {
+    padding:9px 20px; border-radius:9px; border:1.5px solid #e2e8f0;
+    background:#fff; color:#64748b; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s;
+  }
+  .tp-modal-btn-cancel:hover { border-color:#94a3b8; color:#1e293b; }
+  .tp-modal-btn-apply {
+    padding:9px 22px; border-radius:9px; border:none;
+    background:#0f172a; color:#fff; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s;
+    display:flex; align-items:center; gap:8px;
+  }
+  .tp-modal-btn-apply:hover { background:#1e293b; transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.2); }
+
+  /* Score buttons in table */
+  .tp-score-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .tp-score-btn {
+    min-width:72px; padding:6px 10px; border-radius:8px;
+    font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid #e2e8f0;
+    background:#fff; color:#1e293b; transition:all .15s; text-align:center;
+    display:flex; align-items:center; justify-content:center; gap:4px; font-family:'DM Mono',monospace;
+  }
+  .tp-score-btn:hover       { border-color:#3b82f6; background:#eff6ff; color:#1d4ed8; }
+  .tp-score-btn-filled      { border-color:#93c5fd; background:#f0f7ff; color:#1d4ed8; }
+  .tp-score-btn-max         { border-color:#86efac; background:#f0fdf4; color:#166534; }
+  .tp-score-btn-empty       { border-color:#e2e8f0; color:#94a3b8; font-weight:400; }
+  .tp-score-breakdown       { font-size:10px; color:#94a3b8; white-space:nowrap; font-family:'DM Mono',monospace; }
+`;
 
 // ─────────────────────────────────────────────
 // Password strength helper
@@ -144,8 +279,7 @@ function pwStrength(pw) {
 const EyeIcon = ({ open }) =>
   open ? (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
     </svg>
   ) : (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -153,6 +287,255 @@ const EyeIcon = ({ open }) =>
       <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
+
+// ─────────────────────────────────────────────
+// REOPEN MODAL
+// ─────────────────────────────────────────────
+
+function ReopenModal({ studentName, initial, onApply, onClose }) {
+  const [vals, setVals] = useState({
+    reopen_raw: initial?.reopen_raw ?? "",
+    rda:        initial?.rda        ?? "",
+  });
+  const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
+  const score = calcReopenScore(vals);
+  const raw   = (parseFloat(vals.reopen_raw) || 0) + (parseFloat(vals.rda) || 0);
+
+  return (
+    <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="tp-modal">
+        <div className="tp-modal-header">
+          <div><p className="tp-modal-title">Re-Open Score</p><p className="tp-modal-subtitle">{studentName}</p></div>
+          <button className="tp-modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="tp-modal-body">
+          <div className="tp-modal-preview">
+            <div className="tp-preview-item">
+              <span className="tp-preview-val">{raw.toFixed(1)}</span>
+              <span className="tp-preview-lbl">Raw /25</span>
+            </div>
+            <span className="tp-preview-arrow">→</span>
+            <div className="tp-preview-item">
+              <span className="tp-preview-final">{score.toFixed(1)}</span>
+              <span className="tp-preview-max">/ 20</span>
+            </div>
+            <div className="tp-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
+              <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
+              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"monospace"}}>(raw/25)×20</span>
+            </div>
+          </div>
+          <div className="tp-modal-section">
+            <div className="tp-section-label">Re-Open Assessment <span>max 15 marks</span></div>
+            <div className="tp-modal-inputs">
+              <div className="tp-modal-field">
+                <label>Re-Open</label>
+                <input type="number" min="0" max="15" step="0.5" placeholder="0" value={vals.reopen_raw}
+                  onChange={e => set("reopen_raw", Math.min(15, Math.max(0, parseFloat(e.target.value)||0)))} />
+              </div>
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>+</div>
+              <div className="tp-modal-field">
+                <label>RDA</label>
+                <input type="number" min="0" max="10" step="0.5" placeholder="0" value={vals.rda}
+                  onChange={e => set("rda", Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
+              </div>
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              <div className="tp-modal-field">
+                <label style={{color:"#3b82f6"}}>Total /25</label>
+                <input readOnly value={raw.toFixed(1)}
+                  style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default"}} />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="tp-modal-footer">
+          <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="tp-modal-btn-apply" onClick={() => onApply(score, vals)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Apply {score.toFixed(1)} / 20
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// CA / MGT MODAL
+// ─────────────────────────────────────────────
+
+function CAModal({ studentName, initial, onApply, onClose }) {
+  const [vals, setVals] = useState({
+    hw1: initial?.hw1??"", hw2: initial?.hw2??"", hw3: initial?.hw3??"", hw4: initial?.hw4??"",
+    cw1: initial?.cw1??"", cw2: initial?.cw2??"", cw3: initial?.cw3??"", cw4: initial?.cw4??"",
+    ct1: initial?.ct1??"", ct2: initial?.ct2??"", ct3: initial?.ct3??"", ct4: initial?.ct4??"",
+  });
+  const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
+  const num = (k) => parseFloat(vals[k]) || 0;
+  const hwTotal  = num("hw1")+num("hw2")+num("hw3")+num("hw4");
+  const cwTotal  = num("cw1")+num("cw2")+num("cw3")+num("cw4");
+  const ctTotal  = num("ct1")+num("ct2")+num("ct3")+num("ct4");
+  const rawTotal = hwTotal + cwTotal + ctTotal;
+  const score    = calcCAScore(vals);
+
+  const totalField = (val, max) => (
+    <div className="tp-modal-field">
+      <input readOnly value={val.toFixed(1)}
+        style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default",fontWeight:"700"}} />
+      <label style={{color:"#94a3b8",fontSize:"10px",textAlign:"center"}}>/{max}</label>
+    </div>
+  );
+
+  return (
+    <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="tp-modal" style={{maxWidth:"560px"}}>
+        <div className="tp-modal-header">
+          <div><p className="tp-modal-title">CA / MGT Score</p><p className="tp-modal-subtitle">{studentName} · Continuous Assessment</p></div>
+          <button className="tp-modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="tp-modal-body">
+          <div className="tp-modal-preview">
+            <div className="tp-preview-item">
+              <span className="tp-preview-val">{rawTotal.toFixed(1)}</span>
+              <span className="tp-preview-lbl">Raw /110</span>
+            </div>
+            <span className="tp-preview-arrow">→</span>
+            <div className="tp-preview-item">
+              <span className="tp-preview-final">{score.toFixed(1)}</span>
+              <span className="tp-preview-max">/ 40</span>
+            </div>
+            <div style={{marginLeft:"auto",display:"flex",gap:"12px"}}>
+              {[["HW",hwTotal,20],["CW",cwTotal,40],["CT",ctTotal,50]].map(([l,v,m]) => (
+                <div key={l} className="tp-preview-item">
+                  <span style={{fontSize:"12px",color:"#64748b",fontFamily:"monospace"}}>{v.toFixed(1)}/{m}</span>
+                  <span className="tp-preview-lbl">{l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Homework */}
+          <div className="tp-modal-section">
+            <div className="tp-section-label">Homework <span>4 × 5 marks = /20</span></div>
+            <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
+              {["hw1","hw2","hw3","hw4"].map(k => (
+                <div className="tp-modal-field" key={k}>
+                  <label>HW {k.slice(2)}</label>
+                  <input type="number" min="0" max="5" step="0.5" placeholder="0" value={vals[k]}
+                    onChange={e => set(k, Math.min(5, Math.max(0, parseFloat(e.target.value)||0)))} />
+                </div>
+              ))}
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              {totalField(hwTotal, 20)}
+            </div>
+          </div>
+          <div className="tp-divider" />
+
+          {/* Classwork */}
+          <div className="tp-modal-section">
+            <div className="tp-section-label">Classwork <span>4 × 10 marks = /40</span></div>
+            <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
+              {["cw1","cw2","cw3","cw4"].map(k => (
+                <div className="tp-modal-field" key={k}>
+                  <label>CW {k.slice(2)}</label>
+                  <input type="number" min="0" max="10" step="0.5" placeholder="0" value={vals[k]}
+                    onChange={e => set(k, Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
+                </div>
+              ))}
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              {totalField(cwTotal, 40)}
+            </div>
+          </div>
+          <div className="tp-divider" />
+
+          {/* Class test */}
+          <div className="tp-modal-section">
+            <div className="tp-section-label">Class Test <span>10 + 10 + 10 + 20 = /50</span></div>
+            <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
+              {[["ct1",10],["ct2",10],["ct3",10],["ct4",20]].map(([k,max]) => (
+                <div className="tp-modal-field" key={k}>
+                  <label>CT{k.slice(2)} /{max}</label>
+                  <input type="number" min="0" max={max} step="0.5" placeholder="0" value={vals[k]}
+                    onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value)||0)))} />
+                </div>
+              ))}
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+              {totalField(ctTotal, 50)}
+            </div>
+          </div>
+        </div>
+        <div className="tp-modal-footer">
+          <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="tp-modal-btn-apply" onClick={() => onApply(score, vals)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Apply {score.toFixed(1)} / 40
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// EXAMS MODAL
+// ─────────────────────────────────────────────
+
+function ExamsModal({ studentName, initial, onApply, onClose }) {
+  const [examRaw, setExamRaw] = useState(initial?.exam_raw ?? "");
+  const raw   = parseFloat(examRaw) || 0;
+  const score = Math.round((raw / 100) * 40 * 10) / 10;
+
+  return (
+    <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="tp-modal" style={{maxWidth:"380px"}}>
+        <div className="tp-modal-header">
+          <div><p className="tp-modal-title">Examination Score</p><p className="tp-modal-subtitle">{studentName}</p></div>
+          <button className="tp-modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="tp-modal-body">
+          <div className="tp-modal-preview">
+            <div className="tp-preview-item">
+              <span className="tp-preview-val">{raw.toFixed(1)}</span>
+              <span className="tp-preview-lbl">Raw /100</span>
+            </div>
+            <span className="tp-preview-arrow">→</span>
+            <div className="tp-preview-item">
+              <span className="tp-preview-final">{score.toFixed(1)}</span>
+              <span className="tp-preview-max">/ 40</span>
+            </div>
+            <div className="tp-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
+              <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
+              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"monospace"}}>(raw/100)×40</span>
+            </div>
+          </div>
+          <div className="tp-modal-section">
+            <div className="tp-section-label">Exam Score <span>enter raw mark out of 100</span></div>
+            <div className="tp-modal-inputs">
+              <div className="tp-modal-field" style={{flex:"none",width:"120px"}}>
+                <label>Raw Mark</label>
+                <input type="number" min="0" max="100" step="0.5" placeholder="0" value={examRaw}
+                  style={{fontSize:"24px",padding:"12px 10px"}} autoFocus
+                  onChange={e => setExamRaw(Math.min(100, Math.max(0, parseFloat(e.target.value)||0)))} />
+              </div>
+              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700",fontSize:"20px"}}>/</div>
+              <div className="tp-modal-field" style={{flex:"none",width:"60px"}}>
+                <label>Max</label>
+                <input readOnly value="100"
+                  style={{background:"#f8fafc",color:"#94a3b8",cursor:"default",fontSize:"24px",padding:"12px 10px"}} />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="tp-modal-footer">
+          <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="tp-modal-btn-apply" onClick={() => onApply(score, { exam_raw: raw })}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Apply {score.toFixed(1)} / 40
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────
 // Change Password Modal
@@ -174,36 +557,20 @@ const ChangePasswordModal = ({ onClose }) => {
 
   const handleSubmit = async () => {
     setError("");
-    if (!current)         return setError("Enter your current password.");
-    if (next.length < 8)  return setError("New password must be at least 8 characters.");
-    if (next !== confirm)  return setError("New passwords do not match.");
+    if (!current)        return setError("Enter your current password.");
+    if (next.length < 8) return setError("New password must be at least 8 characters.");
+    if (next !== confirm) return setError("New passwords do not match.");
     setSaving(true);
     try {
-      await API.post("/auth/change-password/", {
-        old_password: current,
-        new_password: next,
-      });
+      await API.post("/auth/change-password/", { old_password: current, new_password: next });
       setSuccess(true);
       setTimeout(onClose, 2200);
     } catch (e) {
       const d = e.response?.data;
-      setError(
-        d?.old_password?.[0] ||
-        d?.new_password?.[0] ||
-        d?.detail ||
-        "Failed to change password. Please try again."
-      );
-    } finally {
-      setSaving(false);
-    }
+      setError(d?.old_password?.[0] || d?.new_password?.[0] || d?.detail || "Failed to change password.");
+    } finally { setSaving(false); }
   };
 
-  // Close on backdrop click.
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  // Close on Escape key.
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
@@ -211,169 +578,68 @@ const ChangePasswordModal = ({ onClose }) => {
   }, [onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
-      onClick={handleOverlayClick}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-7"
-        style={{ animation: "tp-slide-up .2s ease" }}
-      >
-        <style>{`
-          @keyframes tp-slide-up {
-            from { opacity: 0; transform: translateY(10px); }
-            to   { opacity: 1; transform: translateY(0);    }
-          }
-          @keyframes tp-spin { to { transform: rotate(360deg); } }
-        `}</style>
-
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-7" style={{ animation: "tp-slide-up .2s ease" }}>
         <div className="flex justify-between items-start mb-6">
           <div>
             <h2 className="text-lg font-black text-slate-800">Change Password</h2>
             <p className="text-sm text-slate-400 mt-0.5">Keep your account secure with a strong password.</p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="text-slate-300 hover:text-slate-500 transition-colors text-2xl leading-none mt-0.5"
-          >
-            ×
-          </button>
+          <button onClick={onClose} className="text-slate-300 hover:text-slate-500 transition-colors text-2xl leading-none mt-0.5">×</button>
         </div>
-
         {success ? (
           <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl p-4 text-sm font-medium">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
             Password changed successfully!
           </div>
         ) : (
           <>
-            <div className="mb-4">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
-                Current Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showCur ? "text" : "password"}
-                  value={current}
-                  onChange={(e) => { setCurrent(e.target.value); setError(""); }}
-                  placeholder="Enter current password"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCur((v) => !v)}
-                  aria-label={showCur ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <EyeIcon open={showCur} />
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
-                New Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showNew ? "text" : "password"}
-                  value={next}
-                  onChange={(e) => { setNext(e.target.value); setError(""); }}
-                  placeholder="Min. 8 characters"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNew((v) => !v)}
-                  aria-label={showNew ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <EyeIcon open={showNew} />
-                </button>
-              </div>
-              {next && (
-                <>
-                  <div
-                    className="h-1 rounded-full mt-2 transition-all duration-300"
-                    style={{ background: strength.color, width: strength.w, maxWidth: "100%" }}
+            {[
+              { label:"Current Password", value:current, set:setCurrent, show:showCur, setShow:setShowCur },
+              { label:"New Password",     value:next,    set:setNext,    show:showNew, setShow:setShowNew },
+              { label:"Confirm New Password", value:confirm, set:setConfirm, show:showCon, setShow:setShowCon },
+            ].map(({ label, value, set, show, setShow }, i) => (
+              <div key={i} className="mb-4">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">{label}</label>
+                <div className="relative">
+                  <input type={show ? "text" : "password"} value={value}
+                    onChange={e => { set(e.target.value); setError(""); }}
+                    placeholder={i === 0 ? "Enter current password" : i === 1 ? "Min. 8 characters" : "Repeat new password"}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
+                    style={i === 2 ? { borderColor: mismatch ? "#f87171" : confirm && !mismatch ? "#34d399" : "#e2e8f0" } : {}}
                   />
-                  <p className="text-xs mt-1" style={{ color: strength.color }}>{strength.label}</p>
-                </>
-              )}
-            </div>
-
-            <div className="mb-4">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
-                Confirm New Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showCon ? "text" : "password"}
-                  value={confirm}
-                  onChange={(e) => { setConfirm(e.target.value); setError(""); }}
-                  placeholder="Repeat new password"
-                  className="w-full border rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
-                  style={{
-                    borderColor: mismatch
-                      ? "#f87171"
-                      : confirm && !mismatch
-                      ? "#34d399"
-                      : "#e2e8f0",
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCon((v) => !v)}
-                  aria-label={showCon ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <EyeIcon open={showCon} />
-                </button>
+                  <button type="button" onClick={() => setShow(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <EyeIcon open={show} />
+                  </button>
+                </div>
+                {i === 1 && next && (
+                  <>
+                    <div className="h-1 rounded-full mt-2 transition-all duration-300"
+                      style={{ background: strength.color, width: strength.w, maxWidth: "100%" }} />
+                    <p className="text-xs mt-1" style={{ color: strength.color }}>{strength.label}</p>
+                  </>
+                )}
+                {i === 2 && mismatch && <p className="text-xs mt-1 text-red-400">Passwords don't match</p>}
               </div>
-              {mismatch && <p className="text-xs mt-1 text-red-400">Passwords don't match</p>}
-            </div>
-
+            ))}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
-                {error}
-              </div>
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">{error}</div>
             )}
-
             <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-              >
+              <button type="button" onClick={onClose}
+                className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={saving || !!mismatch}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-              >
+              <button type="button" onClick={handleSubmit} disabled={saving || !!mismatch}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                 {saving ? (
-                  <>
-                    <div
-                      style={{
-                        width: "14px", height: "14px",
-                        border: "2px solid rgba(255,255,255,.3)",
-                        borderTopColor: "#fff",
-                        borderRadius: "50%",
-                        animation: "tp-spin .6s linear infinite",
-                      }}
-                    />
-                    Saving…
-                  </>
-                ) : (
-                  "Update Password"
-                )}
+                  <><div style={{width:"14px",height:"14px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"tp-spin .6s linear infinite"}}/>Saving…</>
+                ) : "Update Password"}
               </button>
             </div>
           </>
@@ -384,7 +650,7 @@ const ChangePasswordModal = ({ onClose }) => {
 };
 
 // ─────────────────────────────────────────────
-// Submit confirmation modal
+// Confirm modal
 // ─────────────────────────────────────────────
 
 const ConfirmModal = ({ title, body, confirmLabel, onConfirm, onCancel }) => {
@@ -395,30 +661,19 @@ const ConfirmModal = ({ title, body, confirmLabel, onConfirm, onCancel }) => {
   }, [onCancel]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
-        style={{ animation: "tp-slide-up .2s ease" }}
-      >
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" style={{ animation: "tp-slide-up .2s ease" }}>
         <h2 className="text-base font-black text-slate-800 mb-2">{title}</h2>
         <p className="text-sm text-slate-500 mb-6">{body}</p>
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-          >
+          <button type="button" onClick={onCancel}
+            className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-          >
+          <button type="button" onClick={onConfirm}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
             {confirmLabel}
           </button>
         </div>
@@ -434,21 +689,13 @@ const ConfirmModal = ({ title, body, confirmLabel, onConfirm, onCancel }) => {
 const Badge = ({ grade }) => {
   const info = GRADE_REMARK[grade];
   if (!info) return <span className="text-slate-300 text-xs">—</span>;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${info.bg}`}>
-      {grade}
-    </span>
-  );
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${info.bg}`}>{grade}</span>;
 };
 
 const RemarkBadge = ({ grade }) => {
   const info = GRADE_REMARK[grade];
   if (!info) return <span className="text-slate-300 text-xs">—</span>;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs ${info.bg}`}>
-      {info.label}
-    </span>
-  );
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs ${info.bg}`}>{info.label}</span>;
 };
 
 const KpiCard = ({ label, value, color = "text-slate-800", sub }) => (
@@ -467,7 +714,7 @@ const Alert = ({ message, type, onDismiss }) => {
   return (
     <div role="alert" className={`mb-5 flex items-center justify-between px-4 py-3 rounded-xl border text-sm ${s}`}>
       <span>{type === "error" ? "⚠ " : "✓ "}{message}</span>
-      <button onClick={onDismiss} aria-label="Dismiss" className="ml-4 text-lg leading-none opacity-50 hover:opacity-100">×</button>
+      <button onClick={onDismiss} className="ml-4 text-lg leading-none opacity-50 hover:opacity-100">×</button>
     </div>
   );
 };
@@ -483,20 +730,12 @@ const EmptyState = ({ icon, title, sub }) => (
 const SectionHeader = ({ title, badge }) => (
   <div className="flex items-center justify-between mb-4">
     <h3 className="font-bold text-slate-700">{title}</h3>
-    {badge && (
-      <span className="text-xs text-slate-500 bg-white border border-slate-100 px-2.5 py-1 rounded-full shadow-sm">
-        {badge}
-      </span>
-    )}
+    {badge && <span className="text-xs text-slate-500 bg-white border border-slate-100 px-2.5 py-1 rounded-full shadow-sm">{badge}</span>}
   </div>
 );
 
 const Th = ({ children, center }) => (
-  <th
-    className={`px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide ${
-      center ? "text-center" : "text-left"
-    }`}
-  >
+  <th className={`px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide ${center ? "text-center" : "text-left"}`}>
     {children}
   </th>
 );
@@ -508,21 +747,27 @@ const Th = ({ children, center }) => (
 const TeacherPortal = () => {
   const user = getUser();
 
+  // Inject modal styles once
+  useEffect(() => {
+    if (document.getElementById("tp-modal-styles")) return;
+    const el = document.createElement("style");
+    el.id = "tp-modal-styles";
+    el.textContent = MODAL_STYLES;
+    document.head.appendChild(el);
+  }, []);
+
   const [tab, setTab]                         = useState("Classes");
   const [selectedTerm, setSelectedTerm]       = useState("term1");
-  // Keep selectedYear as a number throughout to avoid parseInt scattered
-  // across the component. URLs stringify it automatically.
   const [selectedYear, setSelectedYear]       = useState(YEARS[0]);
   const [showPwModal, setShowPwModal]         = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
-  const [classes, setClasses]                         = useState([]);
-  const [selectedClass, setSelectedClass]             = useState(user.class_id ? String(user.class_id) : "");
-  const [selectedClassName, setSelectedClassName]     = useState(user.class || "");
-  // Level drives which grading scale is used (mirrors result_view.py get_thresholds).
-  const [selectedClassLevel, setSelectedClassLevel]   = useState("basic_7_9");
-  const [students, setStudents]                       = useState([]);
-  const [loadingStudents, setLoadingStudents]         = useState(false);
+  const [classes, setClasses]                       = useState([]);
+  const [selectedClass, setSelectedClass]           = useState(user.class_id ? String(user.class_id) : "");
+  const [selectedClassName, setSelectedClassName]   = useState(user.class || "");
+  const [selectedClassLevel, setSelectedClassLevel] = useState("basic_7_9");
+  const [students, setStudents]                     = useState([]);
+  const [loadingStudents, setLoadingStudents]       = useState(false);
 
   const [attendance, setAttendance] = useState({});
   const [attDate, setAttDate]       = useState(todayStr);
@@ -531,7 +776,14 @@ const TeacherPortal = () => {
   const [subjects, setSubjects]               = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [scores, setScores]                   = useState({});
+  // breakdowns: { [studentId]: { reopen: {...}, ca: {...}, exams: {...} } }
+  const [breakdowns, setBreakdowns]           = useState({});
+  // existingIds: { [studentId]: resultId } — tracks which students have saved results
+  const [existingIds, setExistingIds]         = useState({});
   const [saving, setSaving]                   = useState(false);
+  const [deleting, setDeleting]               = useState(null);
+  // scoreModal: { type: 'reopen'|'ca'|'exams', studentId, studentName }
+  const [scoreModal, setScoreModal]           = useState(null);
 
   const [selectedStudent, setSelectedStudent]   = useState("");
   const [report, setReport]                     = useState(null);
@@ -548,49 +800,38 @@ const TeacherPortal = () => {
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
 
-  // Ref used only by loadExistingScores to avoid a stale closure without
-  // needing students as a dependency (which would cause unnecessary refetches).
   const latestStudentsRef = useRef([]);
   latestStudentsRef.current = students;
 
-  // ── Derived / memoised ──────────────────────────────────────────────────
+  // ── Derived ──────────────────────────────────────────────────────────────
 
   const filledCount = useMemo(
-    () =>
-      Object.values(scores).filter(
-        (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
-      ).length,
+    () => Object.values(scores).filter(v => v?.reopen !== "" || v?.ca !== "" || v?.exams !== "").length,
     [scores]
   );
 
-  // Class average over filled students — memoised to avoid recomputing on
-  // every render that doesn't touch scores.
+  const savedCount = useMemo(() => Object.keys(existingIds).length, [existingIds]);
+
   const classAvg = useMemo(() => {
-    const filled = Object.values(scores).filter(
-      (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
-    );
+    const filled = Object.values(scores).filter(v => v?.reopen !== "" || v?.ca !== "" || v?.exams !== "");
     if (!filled.length) return null;
     const sum = filled.reduce((acc, v) => acc + computeTotal(v.reopen, v.ca, v.exams), 0);
     return (sum / filled.length).toFixed(1);
   }, [scores]);
 
   const below50Count = useMemo(
-    () =>
-      Object.values(scores).filter((v) => {
-        if (!v || (v.reopen === "" && v.ca === "" && v.exams === "")) return false;
-        return computeTotal(v.reopen, v.ca, v.exams) < 50;
-      }).length,
+    () => Object.values(scores).filter(v => {
+      if (!v || (v.reopen === "" && v.ca === "" && v.exams === "")) return false;
+      return computeTotal(v.reopen, v.ca, v.exams) < 50;
+    }).length,
     [scores]
   );
 
-  const attStats = useMemo(
-    () => ({
-      present: Object.values(attendance).filter((v) => v === "present").length,
-      absent:  Object.values(attendance).filter((v) => v === "absent").length,
-      late:    Object.values(attendance).filter((v) => v === "late").length,
-    }),
-    [attendance]
-  );
+  const attStats = useMemo(() => ({
+    present: Object.values(attendance).filter(v => v === "present").length,
+    absent:  Object.values(attendance).filter(v => v === "absent").length,
+    late:    Object.values(attendance).filter(v => v === "late").length,
+  }), [attendance]);
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -615,39 +856,35 @@ const TeacherPortal = () => {
     finally { setLoadingStudents(false); }
   }, []);
 
-  // loadAttendance receives currentStudents as a parameter so the closure
-  // always uses the correct list, avoiding stale-ref race conditions when
-  // the teacher switches class mid-fetch.
   const loadAttendance = useCallback(async (classId, date, currentStudents) => {
     if (!classId || !currentStudents.length) return;
     try {
       const r       = await API.get(`/attendance/?school_class=${classId}&date=${date}`);
       const records = r.data.results ?? r.data;
-      const map     = Object.fromEntries(records.map((rec) => [String(rec.student), rec.status]));
-      setAttendance(
-        Object.fromEntries(currentStudents.map((s) => [s.id, map[String(s.id)] ?? "present"]))
-      );
+      const map     = Object.fromEntries(records.map(rec => [String(rec.student), rec.status]));
+      setAttendance(Object.fromEntries(currentStudents.map(s => [s.id, map[String(s.id)] ?? "present"])));
     } catch {}
   }, []);
 
   const loadExistingScores = useCallback(async (classId, term, subjectId, year) => {
     if (!classId || !term || !subjectId) return;
     try {
-      const r       = await API.get(
-        `/results/?school_class=${classId}&term=${term}&subject=${subjectId}&year=${year}`
-      );
+      const r       = await API.get(`/results/?school_class=${classId}&term=${term}&subject=${subjectId}&year=${year}`);
       const records = r.data.results ?? r.data;
+
       const serverMap = Object.fromEntries(
-        records.map((rec) => [String(rec.student), { reopen: rec.reopen, ca: rec.ca, exams: rec.exams }])
+        records.map(rec => [String(rec.student), { reopen: rec.reopen, ca: rec.ca, exams: rec.exams }])
       );
-      setScores(
-        Object.fromEntries(
-          latestStudentsRef.current.map((s) => [
-            s.id,
-            serverMap[String(s.id)] ?? { reopen: "", ca: "", exams: "" },
-          ])
-        )
+      const idMap = Object.fromEntries(
+        records.map(rec => [rec.student, rec.id])
       );
+
+      setScores(Object.fromEntries(
+        latestStudentsRef.current.map(s => [
+          s.id, serverMap[String(s.id)] ?? { reopen: "", ca: "", exams: "" },
+        ])
+      ));
+      setExistingIds(idMap);
     } catch {}
   }, []);
 
@@ -667,11 +904,7 @@ const TeacherPortal = () => {
     try {
       const r = await API.get(`/report/student/${studentId}/?term=${term}`);
       setReport(r.data);
-      setRemarks({
-        conduct:        r.data.conduct        ?? "",
-        interest:       r.data.interest       ?? "",
-        teacher_remark: r.data.teacher_remark ?? "",
-      });
+      setRemarks({ conduct: r.data.conduct ?? "", interest: r.data.interest ?? "", teacher_remark: r.data.teacher_remark ?? "" });
     } catch { setError("No report found for this student and term."); }
     finally { setLoadingReport(false); }
   }, []);
@@ -705,74 +938,69 @@ const TeacherPortal = () => {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const toggleStatus = useCallback((id) => {
-    setAttendance((p) => ({ ...p, [id]: STATUS_CYCLE[p[id]] ?? "present" }));
+    setAttendance(p => ({ ...p, [id]: STATUS_CYCLE[p[id]] ?? "present" }));
   }, []);
 
   const saveAttendance = async () => {
-    // Guard: reject future dates client-side so the teacher gets immediate
-    // feedback rather than a cryptic 400 from the server.
-    if (attDate > todayStr) {
-      setError("Cannot record attendance for a future date.");
-      return;
-    }
-
-    // Upsert pattern: PATCH existing records, POST only new ones.
-    // Promise.allSettled ensures one student's failure doesn't abort the rest.
+    if (attDate > todayStr) { setError("Cannot record attendance for a future date."); return; }
     setSavingAtt(true); setError(""); setSuccess("");
     try {
-      const existingRes = await API.get(
-        `/attendance/?school_class=${selectedClass}&date=${attDate}`
-      );
+      const existingRes = await API.get(`/attendance/?school_class=${selectedClass}&date=${attDate}`);
       const existing    = existingRes.data.results ?? existingRes.data;
-      const existingMap = Object.fromEntries(
-        existing.map((rec) => [String(rec.student), rec.id])
-      );
-
+      const existingMap = Object.fromEntries(existing.map(rec => [String(rec.student), rec.id]));
       const results = await Promise.allSettled(
-        students.map((s) => {
+        students.map(s => {
           const existingId = existingMap[String(s.id)];
           const status     = attendance[s.id] ?? "present";
           return existingId
             ? API.patch(`/attendance/${existingId}/`, { status })
-            : API.post("/attendance/", {
-                student: s.id,
-                school_class: selectedClass,
-                date: attDate,
-                status,
-              });
+            : API.post("/attendance/", { student: s.id, school_class: selectedClass, date: attDate, status });
         })
       );
-
-      const failedCount = results.filter((r) => r.status === "rejected").length;
-      if (failedCount > 0) {
-        setError(`${failedCount} record(s) could not be saved. Please try again.`);
-      } else {
-        setSuccess("Attendance saved successfully.");
-      }
-    } catch {
-      setError("Failed to save attendance.");
-    } finally {
-      setSavingAtt(false);
-    }
+      const failedCount = results.filter(r => r.status === "rejected").length;
+      if (failedCount > 0) setError(`${failedCount} record(s) could not be saved. Please try again.`);
+      else setSuccess("Attendance saved successfully.");
+    } catch { setError("Failed to save attendance."); }
+    finally { setSavingAtt(false); }
   };
 
-  const handleScoreChange = useCallback((studentId, field, value) => {
-    setScores((p) => ({
-      ...p,
-      [studentId]: { ...p[studentId], [field]: clampScore(value, field) },
-    }));
-  }, []);
+  // ── Score modal apply handlers ──────────────────────────────────────────
 
-  // FIX: strip non-numeric characters on paste so pasting "40.5abc" doesn't
-  // produce NaN in the score map.
-  const handleScorePaste = useCallback((studentId, field, e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/[^0-9.]/g, "");
-    setScores((p) => ({
-      ...p,
-      [studentId]: { ...p[studentId], [field]: clampScore(pasted, field) },
-    }));
-  }, []);
+  const applyReopen = (score, breakdown) => {
+    const { studentId } = scoreModal;
+    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), reopen: score } }));
+    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), reopen: breakdown } }));
+    setScoreModal(null);
+  };
+
+  const applyCA = (score, breakdown) => {
+    const { studentId } = scoreModal;
+    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), ca: score } }));
+    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), ca: breakdown } }));
+    setScoreModal(null);
+  };
+
+  const applyExams = (score, breakdown) => {
+    const { studentId } = scoreModal;
+    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), exams: score } }));
+    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), exams: breakdown } }));
+    setScoreModal(null);
+  };
+
+  const handleDeleteResult = async (studentId) => {
+    const id = existingIds[studentId];
+    if (!id) return;
+    if (!window.confirm("Delete this student's result for the selected subject and term?")) return;
+    setDeleting(studentId);
+    try {
+      await API.delete(`/results/${id}/`);
+      setScores(prev => ({ ...prev, [studentId]: { reopen: "", ca: "", exams: "" } }));
+      setExistingIds(prev => { const n = { ...prev }; delete n[studentId]; return n; });
+      setBreakdowns(prev => { const n = { ...prev }; delete n[studentId]; return n; });
+      setSuccess("Result deleted.");
+    } catch { setError("Failed to delete result."); }
+    finally { setDeleting(null); }
+  };
 
   const submitResults = async () => {
     if (!selectedClass || !selectedTerm || !selectedSubject) {
@@ -781,23 +1009,18 @@ const TeacherPortal = () => {
     const records = Object.entries(scores)
       .filter(([, v]) => v.reopen !== "" || v.ca !== "" || v.exams !== "")
       .map(([sid, v]) => ({
-        student:      sid,
-        subject:      selectedSubject,
-        school_class: selectedClass,
-        term:         selectedTerm,
-        year:         selectedYear,
-        reopen:       parseFloat(v.reopen) || 0,
-        ca:           parseFloat(v.ca)     || 0,
-        exams:        parseFloat(v.exams)  || 0,
+        student: sid, subject: selectedSubject, school_class: selectedClass,
+        term: selectedTerm, year: selectedYear,
+        reopen: parseFloat(v.reopen) || 0,
+        ca:     parseFloat(v.ca)     || 0,
+        exams:  parseFloat(v.exams)  || 0,
       }));
     if (!records.length) { setError("No scores entered."); return; }
     setSaving(true); setError("");
     try {
       const r = await API.post("/results/bulk/", records);
       if (r.data.errors?.length > 0) {
-        setError(
-          `${r.data.saved} saved, ${r.data.errors.length} failed. Check scores and try again.`
-        );
+        setError(`${r.data.saved} saved, ${r.data.errors.length} failed. Check scores and try again.`);
       } else {
         setSuccess(`Saved ${r.data.saved} result(s) successfully.`);
         loadExistingScores(selectedClass, selectedTerm, selectedSubject, selectedYear);
@@ -823,14 +1046,9 @@ const TeacherPortal = () => {
 
   const downloadPDF = async () => {
     setDownloading(true); setError("");
-    // revokeObjectURL is in a finally block to guarantee cleanup even if
-    // link.click() throws.
     let url;
     try {
-      const r = await API.get(
-        `/report/student/${selectedStudent}/pdf/?term=${selectedTerm}`,
-        { responseType: "blob" }
-      );
+      const r = await API.get(`/report/student/${selectedStudent}/pdf/?term=${selectedTerm}`, { responseType: "blob" });
       url = window.URL.createObjectURL(new Blob([r.data]));
       const link = document.createElement("a");
       link.href  = url;
@@ -838,36 +1056,55 @@ const TeacherPortal = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch {
-      setError("Failed to download PDF.");
-    } finally {
-      if (url) window.URL.revokeObjectURL(url);
-      setDownloading(false);
-    }
+    } catch { setError("Failed to download PDF."); }
+    finally { if (url) window.URL.revokeObjectURL(url); setDownloading(false); }
   };
 
   const handleClassChange = (classId) => {
     setSelectedClass(classId);
-    const found = classes.find((c) => String(c.id) === String(classId));
+    const found = classes.find(c => String(c.id) === String(classId));
     setSelectedClassName(found?.name ?? "");
     setSelectedClassLevel(found?.level ?? "basic_7_9");
-    // FIX: also reset selectedSubject so a stale subject from the previous
-    // class doesn't silently pre-populate the Results filter on the new class.
     setSelectedSubject("");
-    setStudents([]); setScores({}); setAttendance({}); setSummary([]);
+    setStudents([]); setScores({}); setBreakdowns({}); setExistingIds({});
+    setAttendance({}); setSummary([]);
     setReport(null); setSelectedStudent(""); setExpandedStudent(null);
     setRemarks({ conduct: "", interest: "", teacher_remark: "" });
     setRemarksSaved(false); setError(""); setSuccess("");
   };
 
-  // ─────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────
 
   const isB16 = selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg";
 
   return (
     <div className="min-h-screen bg-slate-50">
+
+      {/* Score entry modals */}
+      {scoreModal?.type === "reopen" && (
+        <ReopenModal
+          studentName={scoreModal.studentName}
+          initial={breakdowns[scoreModal.studentId]?.reopen}
+          onApply={applyReopen}
+          onClose={() => setScoreModal(null)}
+        />
+      )}
+      {scoreModal?.type === "ca" && (
+        <CAModal
+          studentName={scoreModal.studentName}
+          initial={breakdowns[scoreModal.studentId]?.ca}
+          onApply={applyCA}
+          onClose={() => setScoreModal(null)}
+        />
+      )}
+      {scoreModal?.type === "exams" && (
+        <ExamsModal
+          studentName={scoreModal.studentName}
+          initial={breakdowns[scoreModal.studentId]?.exams}
+          onApply={applyExams}
+          onClose={() => setScoreModal(null)}
+        />
+      )}
 
       {showPwModal && <ChangePasswordModal onClose={() => setShowPwModal(false)} />}
 
@@ -890,59 +1127,42 @@ const TeacherPortal = () => {
             </div>
             <div>
               <p className="font-bold text-slate-800 text-sm leading-tight">{user.username}</p>
-              <p className="text-slate-400 text-xs">
-                {user.teacher_id}{user.subject ? ` · ${user.subject}` : ""}
-              </p>
+              <p className="text-slate-400 text-xs">{user.teacher_id}{user.subject ? ` · ${user.subject}` : ""}</p>
             </div>
           </div>
 
-          <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
+          <nav className="hidden sm:flex items-center gap-1">
             {TABS.map(({ key, icon, label }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                aria-current={tab === key ? "page" : undefined}
+              <button key={key} onClick={() => setTab(key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  tab === key
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <span className="text-base" aria-hidden="true">{icon}</span>
+                  tab === key ? "bg-blue-50 text-blue-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                }`}>
+                <span className="text-base">{icon}</span>
                 <span className="hidden md:inline">{label}</span>
               </button>
             ))}
           </nav>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowPwModal(true)}
-              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors border border-slate-200 hover:border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg"
-            >
+            <button onClick={() => setShowPwModal(true)}
+              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors border border-slate-200 hover:border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg">
               🔑 <span className="hidden md:inline">Password</span>
             </button>
-            <button
-              onClick={logout}
-              className="text-xs font-medium text-slate-400 hover:text-red-500 transition-colors border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg"
-            >
+            <button onClick={logout}
+              className="text-xs font-medium text-slate-400 hover:text-red-500 transition-colors border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg">
               Sign out
             </button>
           </div>
         </div>
 
         {/* Mobile tab bar */}
-        <nav className="sm:hidden flex border-t border-slate-100 overflow-x-auto" aria-label="Main navigation">
+        <nav className="sm:hidden flex border-t border-slate-100 overflow-x-auto">
           {TABS.map(({ key, icon, label }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              aria-current={tab === key ? "page" : undefined}
+            <button key={key} onClick={() => setTab(key)}
               className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium border-b-2 transition-all min-w-[60px] ${
                 tab === key ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400"
-              }`}
-            >
-              <span className="text-lg" aria-hidden="true">{icon}</span>
-              {label}
+              }`}>
+              <span className="text-lg">{icon}</span>{label}
             </button>
           ))}
         </nav>
@@ -953,80 +1173,51 @@ const TeacherPortal = () => {
         {/* ── Global filters ── */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 mb-6">
           <div className="flex gap-3 flex-wrap items-end">
-
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Year</label>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
+                className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
-
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Term</label>
-              <select
-                value={selectedTerm}
-                onChange={(e) => setSelectedTerm(e.target.value)}
-                className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                {TERMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              <select value={selectedTerm} onChange={e => setSelectedTerm(e.target.value)}
+                className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                {TERMS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
-
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Class</label>
-              <select
-                value={selectedClass}
-                onChange={(e) => handleClassChange(e.target.value)}
-                className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm min-w-[150px] focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
+              <select value={selectedClass} onChange={e => handleClassChange(e.target.value)}
+                className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm min-w-[150px] focus:outline-none focus:ring-2 focus:ring-blue-400">
                 <option value="">Select Class</option>
-                {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-
             {tab === "Results" && (
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Subject</label>
-                <select
-                  value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
+                <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}
+                  className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-400">
                   <option value="">Select Subject</option>
-                  {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
             )}
-
             {tab === "Attendance" && (
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Date</label>
-                {/* max={todayStr} prevents selecting a future date in the picker.
-                    A client-side guard in saveAttendance catches any bypass. */}
-                <input
-                  type="date"
-                  value={attDate}
-                  max={todayStr}
-                  onChange={(e) => setAttDate(e.target.value)}
-                  className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <input type="date" value={attDate} max={todayStr} onChange={e => setAttDate(e.target.value)}
+                  className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
             )}
-
-            {/* Password button shown inline on mobile since the header hides it */}
             <div className="sm:hidden ml-auto">
-              <button
-                onClick={() => setShowPwModal(true)}
-                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 px-3 py-2 rounded-xl transition-colors"
-              >
+              <button onClick={() => setShowPwModal(true)}
+                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 px-3 py-2 rounded-xl transition-colors">
                 🔑 Password
               </button>
             </div>
-
           </div>
         </div>
 
@@ -1046,25 +1237,18 @@ const TeacherPortal = () => {
             <div className="grid grid-cols-3 gap-4">
               <KpiCard label="Students" value={students.length}          color="text-blue-600" />
               <KpiCard label="Class"    value={selectedClassName || "—"} color="text-slate-800" />
-              <KpiCard label="Term"     value={TERMS.find((t) => t.value === selectedTerm)?.label} color="text-slate-800" />
+              <KpiCard label="Term"     value={TERMS.find(t => t.value === selectedTerm)?.label} color="text-slate-800" />
             </div>
-
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center">
                 <p className="font-bold text-slate-700 text-sm">{selectedClassName} — Student List</p>
-                <span className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-semibold">
-                  {students.length} enrolled
-                </span>
+                <span className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-semibold">{students.length} enrolled</span>
               </div>
               {loadingStudents ? (
                 <div className="p-10 text-center text-slate-400 text-sm">Loading students…</div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
-                      <Th>#</Th><Th>Name</Th><Th>Admission No.</Th>
-                    </tr>
-                  </thead>
+                  <thead><tr className="bg-slate-50 border-b border-slate-100"><Th>#</Th><Th>Name</Th><Th>Admission No.</Th></tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {students.map((s, i) => (
                       <tr key={s.id} className="hover:bg-blue-50/30 transition-colors">
@@ -1074,11 +1258,7 @@ const TeacherPortal = () => {
                       </tr>
                     ))}
                     {!students.length && (
-                      <tr>
-                        <td colSpan={3} className="px-5 py-12 text-center text-slate-400">
-                          No students found for this class.
-                        </td>
-                      </tr>
+                      <tr><td colSpan={3} className="px-5 py-12 text-center text-slate-400">No students found for this class.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1097,24 +1277,17 @@ const TeacherPortal = () => {
               <KpiCard label="Absent"  value={attStats.absent}  color="text-red-600"     sub={`of ${students.length}`} />
               <KpiCard label="Late"    value={attStats.late}    color="text-amber-600"   sub={`of ${students.length}`} />
             </div>
-
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center flex-wrap gap-2">
                 <p className="font-bold text-slate-700 text-sm">{selectedClassName} — {attDate}</p>
-                <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">
-                  Tap to cycle: Present → Absent → Late
-                </span>
+                <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">Tap to cycle: Present → Absent → Late</span>
               </div>
               {loadingStudents ? (
                 <div className="p-10 text-center text-slate-400 text-sm">Loading students…</div>
               ) : (
                 <>
                   <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100">
-                        <Th>#</Th><Th>Name</Th><Th center>Status</Th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="bg-slate-50 border-b border-slate-100"><Th>#</Th><Th>Name</Th><Th center>Status</Th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
                       {students.map((s, i) => {
                         const status = attendance[s.id] ?? "present";
@@ -1124,18 +1297,9 @@ const TeacherPortal = () => {
                             <td className="px-4 py-3 text-slate-400 text-xs">{i + 1}</td>
                             <td className="px-4 py-3 font-medium text-slate-800">{s.student_name}</td>
                             <td className="px-4 py-3 text-center">
-                              <button
-                                onClick={() => toggleStatus(s.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    toggleStatus(s.id);
-                                  }
-                                }}
-                                aria-label={`${s.student_name}: ${cfg.label}. Press to change.`}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all active:scale-95 ${cfg.pill}`}
-                              >
-                                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} aria-hidden="true" />
+                              <button onClick={() => toggleStatus(s.id)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all active:scale-95 ${cfg.pill}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                                 {cfg.label}
                               </button>
                             </td>
@@ -1143,20 +1307,13 @@ const TeacherPortal = () => {
                         );
                       })}
                       {!students.length && (
-                        <tr>
-                          <td colSpan={3} className="px-5 py-12 text-center text-slate-400">
-                            No students found.
-                          </td>
-                        </tr>
+                        <tr><td colSpan={3} className="px-5 py-12 text-center text-slate-400">No students found.</td></tr>
                       )}
                     </tbody>
                   </table>
                   <div className="px-5 py-3.5 border-t border-slate-100 flex justify-end">
-                    <button
-                      onClick={saveAttendance}
-                      disabled={savingAtt || !students.length}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
-                    >
+                    <button onClick={saveAttendance} disabled={savingAtt || !students.length}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm">
                       {savingAtt ? "Saving…" : "Save Attendance"}
                     </button>
                   </div>
@@ -1172,130 +1329,179 @@ const TeacherPortal = () => {
         {tab === "Results" && selectedClass && (
           <>
             {!selectedSubject && (
-              <EmptyState icon="📊" title="Select a subject above to enter scores" />
+              <EmptyState icon="📊" title="Select a subject above to enter scores"
+                sub="Click any score button to open the breakdown entry modal" />
             )}
             {selectedSubject && students.length > 0 && (
               <>
                 {/* KPI bar */}
-                <div className="grid grid-cols-3 gap-4 mb-5">
-                  <KpiCard
-                    label="Filled"
-                    value={`${filledCount} / ${students.length}`}
-                    color="text-blue-600"
-                  />
-                  <KpiCard
-                    label="Class Avg"
-                    color="text-slate-700"
-                    value={classAvg ?? "—"}
-                  />
-                  <KpiCard
-                    label="Below 50%"
-                    color="text-red-600"
-                    value={below50Count}
-                  />
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+                  <KpiCard label="Filled"    value={`${filledCount} / ${students.length}`} color="text-blue-600" />
+                  <KpiCard label="Saved"     value={savedCount}     color="text-emerald-600" />
+                  <KpiCard label="Class Avg" value={classAvg ?? "—"} color="text-slate-700" />
+                  <KpiCard label="Below 50%" value={below50Count}   color="text-red-600" />
                 </div>
 
-                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                  <p className="text-sm text-slate-500">
-                    <span className="font-bold text-blue-600">{filledCount}</span>
-                    {" "}of{" "}
+                <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+                  <p className="text-sm text-slate-500 flex items-center gap-2">
+                    <span className="font-bold text-blue-600">{filledCount}</span> of{" "}
                     <span className="font-semibold">{students.length}</span> students filled
-                    <span className="ml-2 text-xs text-slate-400">
-                      ({isB16 ? "A–E5 scale" : "1–9 scale"})
-                    </span>
+                    <span className="text-xs text-slate-400">({isB16 ? "A–E5 scale" : "1–9 scale"})</span>
                   </p>
-                  {filledCount > 0 && (
-                    <button
-                      onClick={() => setShowSubmitConfirm(true)}
-                      disabled={saving}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
-                    >
-                      {saving ? (
-                        <>
-                          <div style={{
-                            width: "13px", height: "13px",
-                            border: "2px solid rgba(255,255,255,.3)",
-                            borderTopColor: "#fff", borderRadius: "50%",
-                            animation: "tp-spin .6s linear infinite",
-                          }} />
-                          Saving…
-                        </>
-                      ) : (
-                        `Save ${filledCount} Result${filledCount !== 1 ? "s" : ""}`
-                      )}
-                    </button>
-                  )}
+                  <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                    Click any score cell to enter breakdown details
+                  </p>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                          <Th>#</Th>
-                          <Th>Student</Th>
-                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-blue-600 uppercase tracking-wide">
-                            Re-Open<br /><span className="text-slate-400 normal-case font-normal">/20</span>
+                        <tr className="bg-slate-800">
+                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-left">#</th>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-left">Student</th>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wide text-center">
+                            Re-Open<br /><span className="text-slate-500 normal-case font-normal">/20 (click)</span>
                           </th>
-                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-blue-600 uppercase tracking-wide">
-                            CA/MGT<br /><span className="text-slate-400 normal-case font-normal">/40</span>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wide text-center">
+                            CA / MGT<br /><span className="text-slate-500 normal-case font-normal">/40 (click)</span>
                           </th>
-                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-blue-600 uppercase tracking-wide">
-                            Exams<br /><span className="text-slate-400 normal-case font-normal">/40</span>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wide text-center">
+                            Exams<br /><span className="text-slate-500 normal-case font-normal">/40 (click)</span>
                           </th>
-                          <Th center>Total</Th>
-                          <Th center>Grade</Th>
-                          <Th center>Remark</Th>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
+                            Total<br /><span className="font-normal">/100</span>
+                          </th>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">Grade</th>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">Remark</th>
+                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {students.map((student, i) => {
-                          const s     = scores[student.id] ?? { reopen: "", ca: "", exams: "" };
-                          const dirty = s.reopen !== "" || s.ca !== "" || s.exams !== "";
-                          const total = dirty ? computeTotal(s.reopen, s.ca, s.exams) : null;
-                          const grade = total !== null ? gradeFromTotal(total, selectedClassLevel) : null;
-                          // Server values come back as numbers; empty strings mean unsaved.
-                          const isSaved = typeof s.reopen === "number";
+                          const s       = scores[student.id] ?? { reopen: "", ca: "", exams: "" };
+                          const dirty   = s.reopen !== "" || s.ca !== "" || s.exams !== "";
+                          const total   = dirty ? computeTotal(s.reopen, s.ca, s.exams) : null;
+                          const grade   = total !== null ? gradeFromTotal(total, selectedClassLevel) : null;
+                          const info    = grade ? GRADE_REMARK[grade] : null;
+                          const isSaved = !!existingIds[student.id];
+
+                          const rVal    = s.reopen;
+                          const cVal    = s.ca;
+                          const eVal    = s.exams;
+                          const rFilled = rVal !== "" && rVal !== 0;
+                          const cFilled = cVal !== "" && cVal !== 0;
+                          const eFilled = eVal !== "" && eVal !== 0;
+
+                          const reopenBreak = getReopenBreakdown(breakdowns, student.id);
+                          const caBreak     = getCABreakdown(breakdowns, student.id);
+                          const examsBreak  = getExamsBreakdown(breakdowns, student.id);
+
+                          const editIcon = (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          );
+                          const addIcon = (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
+                            </svg>
+                          );
+
                           return (
-                            <tr
-                              key={student.id}
-                              className={`hover:bg-blue-50/20 transition-colors ${dirty ? "" : "opacity-60"}`}
-                            >
+                            <tr key={student.id} className="hover:bg-blue-50/20 transition-colors">
                               <td className="px-4 py-3 text-slate-400 text-xs">{i + 1}</td>
                               <td className="px-4 py-3">
-                                <div className="font-medium text-slate-800 leading-tight">{student.student_name}</div>
-                                {isSaved && (
-                                  <span className="text-[10px] text-emerald-600 font-semibold">✓ saved</span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  <div style={{
+                                    width:"28px", height:"28px", borderRadius:"50%", flexShrink:0,
+                                    background:`hsl(${(student.id * 47) % 360},55%,88%)`,
+                                    display:"flex", alignItems:"center", justifyContent:"center",
+                                    fontSize:"11px", fontWeight:"700",
+                                    color:`hsl(${(student.id * 47) % 360},55%,35%)`,
+                                  }}>
+                                    {student.student_name?.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-slate-800 leading-tight">{student.student_name}</div>
+                                    {isSaved && <span className="text-[10px] text-emerald-600 font-semibold">✓ saved</span>}
+                                  </div>
+                                </div>
                               </td>
-                              {["reopen", "ca", "exams"].map((field) => (
-                                <td key={field} className="px-3 py-2.5 text-center">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={field === "reopen" ? 20 : 40}
-                                    step="0.5"
-                                    value={s[field]}
-                                    placeholder="—"
-                                    onChange={(e) => handleScoreChange(student.id, field, e.target.value)}
-                                    onPaste={(e) => handleScorePaste(student.id, field, e)}
-                                    className="w-16 border border-slate-200 rounded-xl py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 hover:bg-white transition-colors"
-                                  />
-                                </td>
-                              ))}
+
+                              {/* RE-OPEN */}
+                              <td className="px-3 py-2.5 text-center">
+                                <div className="tp-score-cell">
+                                  <button
+                                    className={`tp-score-btn ${rFilled ? (parseFloat(rVal)===20?"tp-score-btn-max":"tp-score-btn-filled") : "tp-score-btn-empty"}`}
+                                    onClick={() => setScoreModal({ type:"reopen", studentId:student.id, studentName:student.student_name })}>
+                                    {rFilled ? <>{editIcon}{parseFloat(rVal).toFixed(1)}</> : <>{addIcon}Enter</>}
+                                  </button>
+                                  {reopenBreak && <span className="tp-score-breakdown">{reopenBreak}</span>}
+                                </div>
+                              </td>
+
+                              {/* CA */}
+                              <td className="px-3 py-2.5 text-center">
+                                <div className="tp-score-cell">
+                                  <button
+                                    className={`tp-score-btn ${cFilled ? (parseFloat(cVal)===40?"tp-score-btn-max":"tp-score-btn-filled") : "tp-score-btn-empty"}`}
+                                    onClick={() => setScoreModal({ type:"ca", studentId:student.id, studentName:student.student_name })}>
+                                    {cFilled ? <>{editIcon}{parseFloat(cVal).toFixed(1)}</> : <>{addIcon}Enter</>}
+                                  </button>
+                                  {caBreak && <span className="tp-score-breakdown">{caBreak}</span>}
+                                </div>
+                              </td>
+
+                              {/* EXAMS */}
+                              <td className="px-3 py-2.5 text-center">
+                                <div className="tp-score-cell">
+                                  <button
+                                    className={`tp-score-btn ${eFilled ? (parseFloat(eVal)===40?"tp-score-btn-max":"tp-score-btn-filled") : "tp-score-btn-empty"}`}
+                                    onClick={() => setScoreModal({ type:"exams", studentId:student.id, studentName:student.student_name })}>
+                                    {eFilled ? <>{editIcon}{parseFloat(eVal).toFixed(1)}</> : <>{addIcon}Enter</>}
+                                  </button>
+                                  {examsBreak && <span className="tp-score-breakdown">{examsBreak}</span>}
+                                </div>
+                              </td>
+
+                              {/* Total */}
                               <td className="px-4 py-3 text-center">
                                 {total !== null ? (
-                                  <span className={`font-black tabular-nums ${
-                                    total >= 50 ? "text-blue-700" : "text-red-600"
-                                  }`}>
+                                  <span className={`font-black tabular-nums font-mono ${total >= 50 ? "text-blue-700" : "text-red-600"}`}>
                                     {total}
                                   </span>
-                                ) : (
-                                  <span className="text-slate-300 font-normal">—</span>
+                                ) : <span className="text-slate-300">—</span>}
+                              </td>
+
+                              {/* Grade */}
+                              <td className="px-4 py-3 text-center">
+                                {grade ? (
+                                  <span className="inline-block px-2 py-0.5 rounded-md text-xs font-bold"
+                                    style={{background:`${info.color}18`, color:info.color}}>
+                                    {grade}
+                                  </span>
+                                ) : <span className="text-slate-300 text-xs">—</span>}
+                              </td>
+
+                              {/* Remark */}
+                              <td className="px-4 py-3 text-center" style={{fontSize:"12px", color: info ? info.color : "#cbd5e1"}}>
+                                {info ? info.label : "—"}
+                              </td>
+
+                              {/* Action */}
+                              <td className="px-4 py-3 text-center">
+                                {isSaved && (
+                                  <button
+                                    onClick={() => handleDeleteResult(student.id)}
+                                    disabled={deleting === student.id}
+                                    className="px-3 py-1 rounded-md text-xs font-medium border border-red-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all disabled:opacity-40">
+                                    {deleting === student.id ? "…" : "Delete"}
+                                  </button>
                                 )}
                               </td>
-                              <td className="px-4 py-3 text-center"><Badge grade={grade} /></td>
-                              <td className="px-4 py-3 text-center"><RemarkBadge grade={grade} /></td>
                             </tr>
                           );
                         })}
@@ -1303,19 +1509,39 @@ const TeacherPortal = () => {
                     </table>
                   </div>
 
-                  {/* Grade scale key */}
+                  {/* Grade scale */}
                   <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                      Grade Scale
-                    </p>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Grade Scale</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1">
-                      {(isB16 ? GRADE_SCALE_B16 : GRADE_SCALE_B79).map((g) => (
+                      {(isB16 ? GRADE_SCALE_B16 : GRADE_SCALE_B79).map(g => (
                         <span key={g.grade} className="text-[11px] text-slate-500">
                           {g.range}: <b>{g.grade}</b> {g.label}
                         </span>
                       ))}
                     </div>
                   </div>
+                </div>
+
+                {/* Save button */}
+                <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+                  <p className="text-sm text-slate-400">
+                    {filledCount === 0
+                      ? "Click any score cell to enter breakdown details"
+                      : `${filledCount} of ${students.length} students have scores entered`}
+                  </p>
+                  {filledCount > 0 && (
+                    <button onClick={() => setShowSubmitConfirm(true)} disabled={saving}
+                      className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all shadow-sm flex items-center gap-2 hover:-translate-y-px hover:shadow-md">
+                      {saving ? (
+                        <><div style={{width:"13px",height:"13px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"tp-spin .6s linear infinite"}}/>Saving…</>
+                      ) : (
+                        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                        </svg>Save {filledCount} Result{filledCount !== 1 ? "s" : ""}</>
+                      )}
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -1327,82 +1553,56 @@ const TeacherPortal = () => {
         ══════════════════════════════════════ */}
         {tab === "Reports" && selectedClass && (
           <div className="space-y-6">
-
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-[200px]">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
-                  Student — Full Report
-                </label>
-                <select
-                  value={selectedStudent}
-                  onChange={(e) => {
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Student — Full Report</label>
+                <select value={selectedStudent}
+                  onChange={e => {
                     const id = e.target.value;
-                    setSelectedStudent(id);
-                    setReport(null); setRemarksSaved(false);
+                    setSelectedStudent(id); setReport(null); setRemarksSaved(false);
                     if (id) fetchStudentReport(id, selectedTerm);
                   }}
-                  className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
+                  className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
                   <option value="">— Select a student —</option>
-                  {students.map((s) => <option key={s.id} value={s.id}>{s.student_name}</option>)}
+                  {students.map(s => <option key={s.id} value={s.id}>{s.student_name}</option>)}
                 </select>
               </div>
               {report && (
-                <button
-                  onClick={downloadPDF}
-                  disabled={downloading}
-                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
-                >
+                <button onClick={downloadPDF} disabled={downloading}
+                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm">
                   {downloading ? "Generating…" : "⬇ Download PDF"}
                 </button>
               )}
             </div>
 
-            {loadingReport && (
-              <div className="text-center text-slate-400 text-sm py-8">Loading report…</div>
-            )}
+            {loadingReport && <div className="text-center text-slate-400 text-sm py-8">Loading report…</div>}
 
             {!loadingReport && selectedStudent && !report && !error && (
-              <EmptyState
-                icon="📋"
-                title="No report found for this student and term"
-                sub="Make sure results have been entered for this term."
-              />
+              <EmptyState icon="📋" title="No report found for this student and term"
+                sub="Make sure results have been entered for this term." />
             )}
 
             {report && !loadingReport && (() => {
               const level      = report.level || "basic_7_9";
               const gradeScale = level === "basic_7_9" ? GRADE_SCALE_B79 : GRADE_SCALE_B16;
-              const subjectOptions = report.subjects?.map((s) => s.subject) ?? [];
+              const subjectOptions = report.subjects?.map(s => s.subject) ?? [];
               return (
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-
                   <div className="bg-gradient-to-br from-blue-700 to-blue-900 text-white px-6 py-5 flex justify-between items-start gap-4">
                     <div className="space-y-1">
-                      <p className="font-black text-lg leading-tight">
-                        {report.school_name || "LEADING STARS ACADEMY"}
-                      </p>
-                      <p className="text-blue-300 text-xs">
-                        {level === "nursery_kg" ? "GLOBAL LEADERS" : "WHERE LEADERS ARE BORN"}
-                      </p>
+                      <p className="font-black text-lg leading-tight">{report.school_name || "LEADING STARS ACADEMY"}</p>
+                      <p className="text-blue-300 text-xs">{level === "nursery_kg" ? "GLOBAL LEADERS" : "WHERE LEADERS ARE BORN"}</p>
                       <div className="mt-3 space-y-0.5">
                         <p className="font-bold text-base">{report.student}</p>
                         <p className="text-blue-200 text-xs">Admission: {report.admission_number ?? "—"}</p>
-                        <p className="text-blue-200 text-xs">
-                          Class: {report.class ?? "—"} · {TERMS.find((t) => t.value === report.term)?.label ?? report.term}
-                        </p>
+                        <p className="text-blue-200 text-xs">Class: {report.class ?? "—"} · {TERMS.find(t => t.value === report.term)?.label ?? report.term}</p>
                       </div>
                     </div>
                     {report.photo ? (
-                      <img
-                        src={report.photo} alt="Student photo"
-                        className="w-20 h-20 rounded-xl border-2 border-white/30 object-cover flex-shrink-0"
-                      />
+                      <img src={report.photo} alt="Student photo"
+                        className="w-20 h-20 rounded-xl border-2 border-white/30 object-cover flex-shrink-0" />
                     ) : (
-                      <div
-                        aria-hidden="true"
-                        className="w-20 h-20 rounded-xl border-2 border-white/20 bg-white/10 flex items-center justify-center text-3xl font-black flex-shrink-0"
-                      >
+                      <div className="w-20 h-20 rounded-xl border-2 border-white/20 bg-white/10 flex items-center justify-center text-3xl font-black flex-shrink-0">
                         {report.student?.[0] ?? "?"}
                       </div>
                     )}
@@ -1410,18 +1610,11 @@ const TeacherPortal = () => {
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-100">
                     {[
-                      { label: "Total Marks",   value: report.total_score   ?? "—" },
-                      { label: "Average",        value: report.average_score ?? "—" },
-                      {
-                        label: "Position",
-                        value: report.show_position
-                          ? report.position_formatted
-                            ? `${report.position_formatted} / ${report.out_of}`
-                            : "—"
-                          : "N/A",
-                      },
-                      { label: "Overall Grade",  value: report.overall_grade ?? "—" },
-                    ].map((stat) => (
+                      { label: "Total Marks",  value: report.total_score   ?? "—" },
+                      { label: "Average",       value: report.average_score ?? "—" },
+                      { label: "Position",      value: report.show_position ? (report.position_formatted ? `${report.position_formatted} / ${report.out_of}` : "—") : "N/A" },
+                      { label: "Overall Grade", value: report.overall_grade ?? "—" },
+                    ].map(stat => (
                       <div key={stat.label} className="p-4 text-center border-r border-slate-100 last:border-r-0">
                         <p className="text-2xl font-black text-blue-700">{stat.value}</p>
                         <p className="text-xs text-slate-400 mt-1">{stat.label}</p>
@@ -1451,9 +1644,7 @@ const TeacherPortal = () => {
                               <td className="px-4 py-2.5 text-center text-slate-500">{sub.exams  ?? "—"}</td>
                               <td className="px-4 py-2.5 text-center font-black text-blue-700">{sub.score}</td>
                               {report.show_position && (
-                                <td className="px-4 py-2.5 text-center text-slate-500 font-semibold">
-                                  {sub.subject_position ?? "—"}
-                                </td>
+                                <td className="px-4 py-2.5 text-center text-slate-500 font-semibold">{sub.subject_position ?? "—"}</td>
                               )}
                               <td className="px-4 py-2.5 text-center"><Badge grade={sub.grade} /></td>
                               <td className="px-4 py-2.5 text-center"><RemarkBadge grade={sub.grade} /></td>
@@ -1464,13 +1655,9 @@ const TeacherPortal = () => {
                     </div>
 
                     <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500">
-                      <p className="font-bold text-slate-600 mb-2 text-[11px] uppercase tracking-wide">
-                        Result Interpretation
-                      </p>
+                      <p className="font-bold text-slate-600 mb-2 text-[11px] uppercase tracking-wide">Result Interpretation</p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                        {gradeScale.map((g) => (
-                          <span key={g.grade}>{g.range}: <b>{g.grade} – {g.label}</b></span>
-                        ))}
+                        {gradeScale.map(g => <span key={g.grade}>{g.range}: <b>{g.grade} – {g.label}</b></span>)}
                       </div>
                     </div>
                   </div>
@@ -1482,25 +1669,14 @@ const TeacherPortal = () => {
                         <>
                           <div className="flex justify-between text-sm mb-2">
                             <span className="text-slate-500">Days Present</span>
-                            <span className="font-bold text-slate-700">
-                              {report.attendance} / {report.attendance_total}
-                            </span>
+                            <span className="font-bold text-slate-700">{report.attendance} / {report.attendance_total}</span>
                           </div>
-                          <div className="w-full bg-slate-200 rounded-full h-2" role="progressbar" aria-valuenow={report.attendance_percent ?? 0} aria-valuemin={0} aria-valuemax={100}>
-                            <div
-                              className={`h-2 rounded-full transition-all ${
-                                report.attendance_percent >= 80
-                                  ? "bg-emerald-500"
-                                  : report.attendance_percent >= 60
-                                  ? "bg-amber-400"
-                                  : "bg-red-500"
-                              }`}
-                              style={{ width: `${report.attendance_percent ?? 0}%` }}
-                            />
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <div className={`h-2 rounded-full transition-all ${
+                              report.attendance_percent >= 80 ? "bg-emerald-500" : report.attendance_percent >= 60 ? "bg-amber-400" : "bg-red-500"
+                            }`} style={{ width: `${report.attendance_percent ?? 0}%` }} />
                           </div>
-                          <p className="text-xs text-slate-400 mt-1.5 text-right">
-                            {report.attendance_percent}% attendance
-                          </p>
+                          <p className="text-xs text-slate-400 mt-1.5 text-right">{report.attendance_percent}% attendance</p>
                         </>
                       ) : (
                         <p className="text-slate-400 text-sm">No attendance data recorded.</p>
@@ -1511,54 +1687,36 @@ const TeacherPortal = () => {
                       <h3 className="font-bold text-slate-700 mb-3 text-sm">Teacher's Remarks</h3>
                       <div className="space-y-3">
                         <div>
-                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
-                            Conduct
-                          </label>
-                          <select
-                            value={remarks.conduct}
-                            onChange={(e) => { setRemarks((p) => ({ ...p, conduct: e.target.value })); setRemarksSaved(false); }}
-                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          >
+                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Conduct</label>
+                          <select value={remarks.conduct}
+                            onChange={e => { setRemarks(p => ({ ...p, conduct: e.target.value })); setRemarksSaved(false); }}
+                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
                             <option value="">— Select —</option>
-                            {CONDUCT_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                            {CONDUCT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
-                            Interest
-                          </label>
-                          <select
-                            value={remarks.interest}
-                            onChange={(e) => { setRemarks((p) => ({ ...p, interest: e.target.value })); setRemarksSaved(false); }}
-                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          >
+                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Interest</label>
+                          <select value={remarks.interest}
+                            onChange={e => { setRemarks(p => ({ ...p, interest: e.target.value })); setRemarksSaved(false); }}
+                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
                             <option value="">— Select Subject —</option>
-                            {subjectOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                            {subjectOptions.map(name => <option key={name} value={name}>{name}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">
-                            Remark
-                          </label>
-                          <textarea
-                            value={remarks.teacher_remark}
-                            onChange={(e) => { setRemarks((p) => ({ ...p, teacher_remark: e.target.value })); setRemarksSaved(false); }}
-                            rows={3}
-                            placeholder="Write a remark for this student…"
-                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
-                          />
+                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Remark</label>
+                          <textarea value={remarks.teacher_remark}
+                            onChange={e => { setRemarks(p => ({ ...p, teacher_remark: e.target.value })); setRemarksSaved(false); }}
+                            rows={3} placeholder="Write a remark for this student…"
+                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
                         </div>
                         <div className="flex items-center gap-3">
-                          <button
-                            onClick={saveRemarks}
-                            disabled={savingRemarks}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
-                          >
+                          <button onClick={saveRemarks} disabled={savingRemarks}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm">
                             {savingRemarks ? "Saving…" : "Save Remarks"}
                           </button>
-                          {remarksSaved && (
-                            <span className="text-emerald-600 text-xs font-semibold">✓ Saved</span>
-                          )}
+                          {remarksSaved && <span className="text-emerald-600 text-xs font-semibold">✓ Saved</span>}
                         </div>
                       </div>
                     </div>
@@ -1573,9 +1731,7 @@ const TeacherPortal = () => {
                 title={`Class Summary — ${selectedClassName}`}
                 badge={summary.length > 0 ? `${summary.length} students ranked` : null}
               />
-              {loadingSummary && (
-                <div className="text-center text-slate-400 text-sm py-8">Loading summary…</div>
-              )}
+              {loadingSummary && <div className="text-center text-slate-400 text-sm py-8">Loading summary…</div>}
               {!loadingSummary && summary.length === 0 && (
                 <EmptyState icon="📭" title="No results found for this class and term" />
               )}
@@ -1590,22 +1746,16 @@ const TeacherPortal = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {summary.map((row) => {
-                        const rankColor =
-                          row.rank === 1 ? "text-amber-500"  :
-                          row.rank === 2 ? "text-slate-400"  :
-                          row.rank === 3 ? "text-orange-400" : "text-slate-400";
-                        const rankBg = row.rank === 1 ? "bg-amber-50" : "";
-                        const isExp  = expandedStudent === row.student_id;
+                      {summary.map(row => {
+                        const rankColor = row.rank===1?"text-amber-500":row.rank===2?"text-slate-400":row.rank===3?"text-orange-400":"text-slate-400";
+                        const isExp = expandedStudent === row.student_id;
                         return (
                           <React.Fragment key={row.student_id}>
-                            <tr
-                              className={`hover:bg-blue-50/20 cursor-pointer transition-colors ${rankBg}`}
-                              onClick={() => setExpandedStudent(isExp ? null : row.student_id)}
-                            >
+                            <tr className={`hover:bg-blue-50/20 cursor-pointer transition-colors ${row.rank===1?"bg-amber-50":""}`}
+                              onClick={() => setExpandedStudent(isExp ? null : row.student_id)}>
                               <td className="px-4 py-3 text-center">
                                 <span className={`font-black text-base ${rankColor}`}>
-                                  {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : `#${row.rank}`}
+                                  {row.rank===1?"🥇":row.rank===2?"🥈":row.rank===3?"🥉":`#${row.rank}`}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
@@ -1616,9 +1766,7 @@ const TeacherPortal = () => {
                               <td className="px-4 py-3 text-center text-slate-600">{row.average_score}</td>
                               <td className="px-4 py-3 text-center"><Badge grade={row.overall_grade} /></td>
                               <td className="px-4 py-3 text-center">
-                                <span className="text-blue-500 text-xs font-semibold">
-                                  {isExp ? "▲ Hide" : "▼ Show"}
-                                </span>
+                                <span className="text-blue-500 text-xs font-semibold">{isExp ? "▲ Hide" : "▼ Show"}</span>
                               </td>
                             </tr>
                             {isExp && (
@@ -1631,17 +1779,18 @@ const TeacherPortal = () => {
                                           <Th>Subject</Th>
                                           <Th center>Re-Open</Th><Th center>CA/MGT</Th>
                                           <Th center>Exams</Th><Th center>Total</Th>
-                                          <Th center>Grade</Th><Th center>Remark</Th>
+                                          <Th center>Pos.</Th><Th center>Grade</Th><Th center>Remark</Th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100 bg-white">
-                                        {row.subjects.map((sub) => (
+                                        {row.subjects.map(sub => (
                                           <tr key={sub.subject_id} className="hover:bg-blue-50/20">
                                             <td className="px-3 py-2 font-medium text-slate-800">{sub.subject_name}</td>
                                             <td className="px-3 py-2 text-center text-slate-500">{sub.reopen ?? "—"}</td>
                                             <td className="px-3 py-2 text-center text-slate-500">{sub.ca     ?? "—"}</td>
                                             <td className="px-3 py-2 text-center text-slate-500">{sub.exams  ?? "—"}</td>
                                             <td className="px-3 py-2 text-center font-black text-blue-700">{sub.score ?? "—"}</td>
+                                            <td className="px-3 py-2 text-center text-slate-500">{fmtPos(sub.subject_position)}</td>
                                             <td className="px-3 py-2 text-center"><Badge grade={sub.grade} /></td>
                                             <td className="px-3 py-2 text-center"><RemarkBadge grade={sub.grade} /></td>
                                           </tr>
