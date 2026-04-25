@@ -79,25 +79,40 @@ const STATUS_CONFIG = {
 const todayStr = new Date().toISOString().split("T")[0];
 
 // ─────────────────────────────────────────────
-// Score breakdown helpers (from Results.jsx)
+// Score breakdown helpers
+//
+// Re-Open : reopen_raw/10 + rda/10 → direct sum → /20
+// CA      : (hw+cw+ct)/110 × 25   → /25
+// MGT Test: mgt_raw direct         → /15
+// CA+MGT combined stored as `ca`  → /40
+// Exams   : (exam_raw/100) × 40   → /40
+// Total                            → /100
 // ─────────────────────────────────────────────
 
-// Reopen: reopen_raw/15 + rda/10 → total/25 → scaled to /20
+// Re-Open: direct sum, max 20
 const calcReopenScore = (breakdown) => {
-  const reopen = parseFloat(breakdown.reopen_raw) || 0;
-  const rda    = parseFloat(breakdown.rda)        || 0;
-  return Math.round(((reopen + rda) / 25) * 20 * 10) / 10;
+  const reopen = Math.min(10, parseFloat(breakdown.reopen_raw) || 0);
+  const rda    = Math.min(10, parseFloat(breakdown.rda)        || 0);
+  return Math.round((reopen + rda) * 10) / 10;
 };
 
-// CA: hw(4×5) + cw(4×10) + ct(10+10+10+20) = /110 → scaled to /40
-const calcCAScore = (breakdown) => {
-  const hw  = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
-  const cw  = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
-  const ct  = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
-  return Math.round(((hw + cw + ct) / 110) * 40 * 10) / 10;
+// CA portion only: (hw+cw+ct)/110 × 25 = /25
+const calcCAonly = (breakdown) => {
+  const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
+  return Math.round(((hw + cw + ct) / 110) * 25 * 10) / 10;
 };
 
-// Exams: raw/100 → scaled to /40
+// MGT Test: raw entry /15 (no scaling)
+const calcMGTScore = (breakdown) =>
+  Math.round(Math.min(15, parseFloat(breakdown.mgt_raw) || 0) * 10) / 10;
+
+// CA + MGT combined = /40
+const calcCAScore = (breakdown) =>
+  Math.round((calcCAonly(breakdown) + calcMGTScore(breakdown)) * 10) / 10;
+
+// Exams: raw/100 × 40 = /40
 const calcExamsScore = (breakdown) =>
   Math.round(((parseFloat(breakdown.exam_raw) || 0) / 100) * 40 * 10) / 10;
 
@@ -106,7 +121,7 @@ const calcExamsScore = (breakdown) =>
 // ─────────────────────────────────────────────
 
 const computeTotal = (reopen, ca, exams) =>
-  Math.round(((parseFloat(reopen) || 0) + (parseFloat(ca) || 0) + (parseFloat(exams) || 0)) * 10) / 10;
+  Math.round(((parseFloat(reopen)||0) + (parseFloat(ca)||0) + (parseFloat(exams)||0)) * 10) / 10;
 
 const THRESHOLDS_B79 = [
   [90,"1"],[80,"2"],[60,"3"],[55,"4"],[50,"5"],[45,"6"],[40,"7"],[35,"8"],[0,"9"],
@@ -122,12 +137,6 @@ const gradeFromTotal = (total, level = "basic_7_9") => {
   return thresholds[thresholds.length - 1][1];
 };
 
-const clampScore = (value, field) => {
-  if (value === "") return "";
-  const max = field === "reopen" ? 20 : 40;
-  return Math.min(max, Math.max(0, parseFloat(value) || 0));
-};
-
 const fmtPos = (n) => {
   if (n == null) return "—";
   const s = ["th","st","nd","rd"];
@@ -136,7 +145,7 @@ const fmtPos = (n) => {
 };
 
 // ─────────────────────────────────────────────
-// Breakdown label helpers (for sub-text under score buttons)
+// Breakdown label helpers (sub-text under score buttons)
 // ─────────────────────────────────────────────
 
 const getReopenBreakdown = (breakdowns, studentId) => {
@@ -148,10 +157,8 @@ const getReopenBreakdown = (breakdowns, studentId) => {
 const getCABreakdown = (breakdowns, studentId) => {
   const b = breakdowns[studentId]?.ca;
   if (!b) return null;
-  const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
-  const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
-  const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s+(parseFloat(b[k])||0), 0);
-  return `HW:${hw} CW:${cw} CT:${ct}`;
+  const mgt = parseFloat(b.mgt_raw) || 0;
+  return `CA:${calcCAonly(b).toFixed(1)} MGT:${mgt}`;
 };
 
 const getExamsBreakdown = (breakdowns, studentId) => {
@@ -191,12 +198,12 @@ const MODAL_STYLES = `
     font-size:16px; transition:all .15s;
   }
   .tp-modal-close:hover { background:#e2e8f0; color:#1e293b; }
-  .tp-modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:18px; }
+  .tp-modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:18px; max-height:75vh; overflow-y:auto; }
 
   .tp-modal-preview {
     background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
     border-radius:12px; padding:14px 18px;
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
   }
   .tp-preview-item  { display:flex; flex-direction:column; align-items:center; gap:3px; }
   .tp-preview-val   { font-family:'DM Mono',monospace; font-size:20px; font-weight:700; color:#fff; line-height:1; }
@@ -235,6 +242,12 @@ const MODAL_STYLES = `
     display:flex; align-items:center; gap:8px;
   }
   .tp-modal-btn-apply:hover { background:#1e293b; transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.2); }
+
+  /* Pill labels inside modals */
+  .tp-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+  .tp-pill-blue   { background:#eff6ff; color:#1d4ed8; }
+  .tp-pill-purple { background:#f5f3ff; color:#6d28d9; }
+  .tp-pill-green  { background:#f0fdf4; color:#166534; }
 
   /* Score buttons in table */
   .tp-score-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
@@ -290,6 +303,7 @@ const EyeIcon = ({ open }) =>
 
 // ─────────────────────────────────────────────
 // REOPEN MODAL
+// Re-Open /10 + RDA /10 = /20 (direct sum)
 // ─────────────────────────────────────────────
 
 function ReopenModal({ studentName, initial, onApply, onClose }) {
@@ -299,54 +313,60 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
   });
   const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
   const score = calcReopenScore(vals);
-  const raw   = (parseFloat(vals.reopen_raw) || 0) + (parseFloat(vals.rda) || 0);
 
   return (
     <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="tp-modal">
         <div className="tp-modal-header">
-          <div><p className="tp-modal-title">Re-Open Score</p><p className="tp-modal-subtitle">{studentName}</p></div>
+          <div>
+            <p className="tp-modal-title">Re-Open Score</p>
+            <p className="tp-modal-subtitle">{studentName}</p>
+          </div>
           <button className="tp-modal-close" onClick={onClose}>✕</button>
         </div>
+
         <div className="tp-modal-body">
+          {/* Preview */}
           <div className="tp-modal-preview">
-            <div className="tp-preview-item">
-              <span className="tp-preview-val">{raw.toFixed(1)}</span>
-              <span className="tp-preview-lbl">Raw /25</span>
-            </div>
-            <span className="tp-preview-arrow">→</span>
             <div className="tp-preview-item">
               <span className="tp-preview-final">{score.toFixed(1)}</span>
               <span className="tp-preview-max">/ 20</span>
             </div>
             <div className="tp-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
               <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
-              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"monospace"}}>(raw/25)×20</span>
+              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>Re-Open/10 + RDA/10</span>
             </div>
           </div>
+
           <div className="tp-modal-section">
-            <div className="tp-section-label">Re-Open Assessment <span>max 15 marks</span></div>
+            <div className="tp-section-label">
+              Re-Open Assessment
+              <span className="tp-pill tp-pill-blue">max 20 marks total</span>
+            </div>
             <div className="tp-modal-inputs">
               <div className="tp-modal-field">
-                <label>Re-Open</label>
-                <input type="number" min="0" max="15" step="0.5" placeholder="0" value={vals.reopen_raw}
-                  onChange={e => set("reopen_raw", Math.min(15, Math.max(0, parseFloat(e.target.value)||0)))} />
+                <label>Re-Open <span style={{color:"#94a3b8",fontWeight:400}}>/10</span></label>
+                <input type="number" min="0" max="10" step="0.5"
+                  placeholder="0" value={vals.reopen_raw}
+                  onChange={e => set("reopen_raw", Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
               </div>
               <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>+</div>
               <div className="tp-modal-field">
-                <label>RDA</label>
-                <input type="number" min="0" max="10" step="0.5" placeholder="0" value={vals.rda}
+                <label>RDA <span style={{color:"#94a3b8",fontWeight:400}}>/10</span></label>
+                <input type="number" min="0" max="10" step="0.5"
+                  placeholder="0" value={vals.rda}
                   onChange={e => set("rda", Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
               </div>
               <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
               <div className="tp-modal-field">
-                <label style={{color:"#3b82f6"}}>Total /25</label>
-                <input readOnly value={raw.toFixed(1)}
+                <label style={{color:"#3b82f6"}}>Total /20</label>
+                <input readOnly value={score.toFixed(1)}
                   style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default"}} />
               </div>
             </div>
           </div>
         </div>
+
         <div className="tp-modal-footer">
           <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="tp-modal-btn-apply" onClick={() => onApply(score, vals)}>
@@ -361,6 +381,9 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
 
 // ─────────────────────────────────────────────
 // CA / MGT MODAL
+// CA  : hw(4×5=20) + cw(4×10=40) + ct(10+10+10+20=50) = /110 → scaled to /25
+// MGT : single raw entry → /15
+// Combined total → /40
 // ─────────────────────────────────────────────
 
 function CAModal({ studentName, initial, onApply, onClose }) {
@@ -368,14 +391,18 @@ function CAModal({ studentName, initial, onApply, onClose }) {
     hw1: initial?.hw1??"", hw2: initial?.hw2??"", hw3: initial?.hw3??"", hw4: initial?.hw4??"",
     cw1: initial?.cw1??"", cw2: initial?.cw2??"", cw3: initial?.cw3??"", cw4: initial?.cw4??"",
     ct1: initial?.ct1??"", ct2: initial?.ct2??"", ct3: initial?.ct3??"", ct4: initial?.ct4??"",
+    mgt_raw: initial?.mgt_raw ?? "",
   });
+
   const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
   const num = (k) => parseFloat(vals[k]) || 0;
+
   const hwTotal  = num("hw1")+num("hw2")+num("hw3")+num("hw4");
   const cwTotal  = num("cw1")+num("cw2")+num("cw3")+num("cw4");
   const ctTotal  = num("ct1")+num("ct2")+num("ct3")+num("ct4");
-  const rawTotal = hwTotal + cwTotal + ctTotal;
-  const score    = calcCAScore(vals);
+  const caOnly   = calcCAonly(vals);   // /25
+  const mgtScore = calcMGTScore(vals); // /15
+  const combined = calcCAScore(vals);  // /40
 
   const totalField = (val, max) => (
     <div className="tp-modal-field">
@@ -387,87 +414,152 @@ function CAModal({ studentName, initial, onApply, onClose }) {
 
   return (
     <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="tp-modal" style={{maxWidth:"560px"}}>
+      <div className="tp-modal" style={{maxWidth:"580px"}}>
         <div className="tp-modal-header">
-          <div><p className="tp-modal-title">CA / MGT Score</p><p className="tp-modal-subtitle">{studentName} · Continuous Assessment</p></div>
+          <div>
+            <p className="tp-modal-title">CA / MGT Score</p>
+            <p className="tp-modal-subtitle">{studentName} · CA (25%) + MGT Test (15%) = 40%</p>
+          </div>
           <button className="tp-modal-close" onClick={onClose}>✕</button>
         </div>
+
         <div className="tp-modal-body">
+          {/* Preview */}
           <div className="tp-modal-preview">
             <div className="tp-preview-item">
-              <span className="tp-preview-val">{rawTotal.toFixed(1)}</span>
-              <span className="tp-preview-lbl">Raw /110</span>
+              <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{caOnly.toFixed(1)}/25</span>
+              <span className="tp-preview-lbl">CA</span>
             </div>
-            <span className="tp-preview-arrow">→</span>
+            <span className="tp-preview-arrow">+</span>
             <div className="tp-preview-item">
-              <span className="tp-preview-final">{score.toFixed(1)}</span>
+              <span style={{fontSize:"12px",color:"#a78bfa",fontFamily:"'DM Mono',monospace"}}>{mgtScore.toFixed(1)}/15</span>
+              <span className="tp-preview-lbl">MGT</span>
+            </div>
+            <span className="tp-preview-arrow">=</span>
+            <div className="tp-preview-item">
+              <span className="tp-preview-final">{combined.toFixed(1)}</span>
               <span className="tp-preview-max">/ 40</span>
             </div>
-            <div style={{marginLeft:"auto",display:"flex",gap:"12px"}}>
+            <div style={{marginLeft:"auto",display:"flex",gap:"10px"}}>
               {[["HW",hwTotal,20],["CW",cwTotal,40],["CT",ctTotal,50]].map(([l,v,m]) => (
                 <div key={l} className="tp-preview-item">
-                  <span style={{fontSize:"12px",color:"#64748b",fontFamily:"monospace"}}>{v.toFixed(1)}/{m}</span>
+                  <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{v.toFixed(1)}/{m}</span>
                   <span className="tp-preview-lbl">{l}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Homework */}
+          {/* ── CA Section ── */}
           <div className="tp-modal-section">
-            <div className="tp-section-label">Homework <span>4 × 5 marks = /20</span></div>
-            <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
-              {["hw1","hw2","hw3","hw4"].map(k => (
-                <div className="tp-modal-field" key={k}>
-                  <label>HW {k.slice(2)}</label>
-                  <input type="number" min="0" max="5" step="0.5" placeholder="0" value={vals[k]}
-                    onChange={e => set(k, Math.min(5, Math.max(0, parseFloat(e.target.value)||0)))} />
-                </div>
-              ))}
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-              {totalField(hwTotal, 20)}
+            <div className="tp-section-label">
+              <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                Continuous Assessment (CA)
+                <span className="tp-pill tp-pill-blue">scaled to /25</span>
+              </span>
+              <span>raw total /110</span>
+            </div>
+
+            {/* Homework */}
+            <div style={{marginBottom:"6px"}}>
+              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
+                Homework — 4 × 5 = /20
+              </div>
+              <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
+                {["hw1","hw2","hw3","hw4"].map(k => (
+                  <div className="tp-modal-field" key={k}>
+                    <label>HW {k.slice(2)}</label>
+                    <input type="number" min="0" max="5" step="0.5" placeholder="0" value={vals[k]}
+                      onChange={e => set(k, Math.min(5, Math.max(0, parseFloat(e.target.value)||0)))} />
+                  </div>
+                ))}
+                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+                {totalField(hwTotal, 20)}
+              </div>
+            </div>
+
+            {/* Classwork */}
+            <div style={{marginBottom:"6px"}}>
+              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
+                Classwork — 4 × 10 = /40
+              </div>
+              <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
+                {["cw1","cw2","cw3","cw4"].map(k => (
+                  <div className="tp-modal-field" key={k}>
+                    <label>CW {k.slice(2)}</label>
+                    <input type="number" min="0" max="10" step="0.5" placeholder="0" value={vals[k]}
+                      onChange={e => set(k, Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
+                  </div>
+                ))}
+                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+                {totalField(cwTotal, 40)}
+              </div>
+            </div>
+
+            {/* Class Test */}
+            <div>
+              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
+                Class Test — 10+10+10+20 = /50
+              </div>
+              <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
+                {[["ct1",10],["ct2",10],["ct3",10],["ct4",20]].map(([k,max]) => (
+                  <div className="tp-modal-field" key={k}>
+                    <label>CT{k.slice(2)} /{max}</label>
+                    <input type="number" min="0" max={max} step="0.5" placeholder="0" value={vals[k]}
+                      onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value)||0)))} />
+                  </div>
+                ))}
+                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
+                {totalField(ctTotal, 50)}
+              </div>
+            </div>
+
+            {/* CA scaled result */}
+            <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"4px",padding:"8px 12px",background:"#eff6ff",borderRadius:"8px",border:"1px solid #bfdbfe"}}>
+              <span style={{fontSize:"12px",color:"#64748b"}}>CA raw ({(hwTotal+cwTotal+ctTotal).toFixed(1)}/110) scaled to</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"700",color:"#1d4ed8",fontSize:"15px"}}>{caOnly.toFixed(1)} / 25</span>
             </div>
           </div>
+
           <div className="tp-divider" />
 
-          {/* Classwork */}
+          {/* ── MGT Test Section ── */}
           <div className="tp-modal-section">
-            <div className="tp-section-label">Classwork <span>4 × 10 marks = /40</span></div>
-            <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
-              {["cw1","cw2","cw3","cw4"].map(k => (
-                <div className="tp-modal-field" key={k}>
-                  <label>CW {k.slice(2)}</label>
-                  <input type="number" min="0" max="10" step="0.5" placeholder="0" value={vals[k]}
-                    onChange={e => set(k, Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
-                </div>
-              ))}
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-              {totalField(cwTotal, 40)}
+            <div className="tp-section-label">
+              <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                MGT Test
+                <span className="tp-pill tp-pill-purple">direct entry /15</span>
+              </span>
+            </div>
+            <div className="tp-modal-inputs">
+              <div className="tp-modal-field" style={{flex:"none",width:"120px"}}>
+                <label>MGT Score <span style={{color:"#94a3b8",fontWeight:400}}>/15</span></label>
+                <input type="number" min="0" max="15" step="0.5"
+                  placeholder="0" value={vals.mgt_raw}
+                  style={{fontSize:"22px",padding:"10px"}}
+                  onChange={e => set("mgt_raw", Math.min(15, Math.max(0, parseFloat(e.target.value)||0)))}
+                  autoFocus
+                />
+              </div>
+              <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end",paddingBottom:"4px",color:"#94a3b8",fontSize:"12px",gap:"2px"}}>
+                <span>Entered directly</span>
+                <span>No scaling applied</span>
+              </div>
             </div>
           </div>
-          <div className="tp-divider" />
 
-          {/* Class test */}
-          <div className="tp-modal-section">
-            <div className="tp-section-label">Class Test <span>10 + 10 + 10 + 20 = /50</span></div>
-            <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
-              {[["ct1",10],["ct2",10],["ct3",10],["ct4",20]].map(([k,max]) => (
-                <div className="tp-modal-field" key={k}>
-                  <label>CT{k.slice(2)} /{max}</label>
-                  <input type="number" min="0" max={max} step="0.5" placeholder="0" value={vals[k]}
-                    onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value)||0)))} />
-                </div>
-              ))}
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-              {totalField(ctTotal, 50)}
-            </div>
+          {/* Combined total */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#f0fdf4",borderRadius:"10px",border:"1px solid #bbf7d0"}}>
+            <span style={{fontSize:"13px",color:"#166534",fontWeight:"600"}}>CA + MGT Combined Total</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"800",color:"#166534",fontSize:"18px"}}>{combined.toFixed(1)} / 40</span>
           </div>
         </div>
+
         <div className="tp-modal-footer">
           <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="tp-modal-btn-apply" onClick={() => onApply(score, vals)}>
+          <button className="tp-modal-btn-apply" onClick={() => onApply(combined, vals)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Apply {score.toFixed(1)} / 40
+            Apply {combined.toFixed(1)} / 40
           </button>
         </div>
       </div>
@@ -476,7 +568,7 @@ function CAModal({ studentName, initial, onApply, onClose }) {
 }
 
 // ─────────────────────────────────────────────
-// EXAMS MODAL
+// EXAMS MODAL — raw /100 → /40
 // ─────────────────────────────────────────────
 
 function ExamsModal({ studentName, initial, onApply, onClose }) {
@@ -488,7 +580,10 @@ function ExamsModal({ studentName, initial, onApply, onClose }) {
     <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="tp-modal" style={{maxWidth:"380px"}}>
         <div className="tp-modal-header">
-          <div><p className="tp-modal-title">Examination Score</p><p className="tp-modal-subtitle">{studentName}</p></div>
+          <div>
+            <p className="tp-modal-title">Examination Score</p>
+            <p className="tp-modal-subtitle">{studentName}</p>
+          </div>
           <button className="tp-modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="tp-modal-body">
@@ -504,7 +599,7 @@ function ExamsModal({ studentName, initial, onApply, onClose }) {
             </div>
             <div className="tp-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
               <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
-              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"monospace"}}>(raw/100)×40</span>
+              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>(raw/100)×40</span>
             </div>
           </div>
           <div className="tp-modal-section">
@@ -599,9 +694,9 @@ const ChangePasswordModal = ({ onClose }) => {
         ) : (
           <>
             {[
-              { label:"Current Password", value:current, set:setCurrent, show:showCur, setShow:setShowCur },
-              { label:"New Password",     value:next,    set:setNext,    show:showNew, setShow:setShowNew },
-              { label:"Confirm New Password", value:confirm, set:setConfirm, show:showCon, setShow:setShowCon },
+              { label:"Current Password",     value:current, set:setCurrent, show:showCur, setShow:setShowCur },
+              { label:"New Password",          value:next,    set:setNext,    show:showNew, setShow:setShowNew },
+              { label:"Confirm New Password",  value:confirm, set:setConfirm, show:showCon, setShow:setShowCon },
             ].map(({ label, value, set, show, setShow }, i) => (
               <div key={i} className="mb-4">
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">{label}</label>
@@ -776,13 +871,10 @@ const TeacherPortal = () => {
   const [subjects, setSubjects]               = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [scores, setScores]                   = useState({});
-  // breakdowns: { [studentId]: { reopen: {...}, ca: {...}, exams: {...} } }
   const [breakdowns, setBreakdowns]           = useState({});
-  // existingIds: { [studentId]: resultId } — tracks which students have saved results
   const [existingIds, setExistingIds]         = useState({});
   const [saving, setSaving]                   = useState(false);
   const [deleting, setDeleting]               = useState(null);
-  // scoreModal: { type: 'reopen'|'ca'|'exams', studentId, studentName }
   const [scoreModal, setScoreModal]           = useState(null);
 
   const [selectedStudent, setSelectedStudent]   = useState("");
@@ -990,7 +1082,6 @@ const TeacherPortal = () => {
   const handleDeleteResult = async (studentId) => {
     const id = existingIds[studentId];
     if (!id) return;
-    if (!window.confirm("Delete this student's result for the selected subject and term?")) return;
     setDeleting(studentId);
     try {
       await API.delete(`/results/${id}/`);
@@ -1443,7 +1534,7 @@ const TeacherPortal = () => {
                                 </div>
                               </td>
 
-                              {/* CA */}
+                              {/* CA / MGT */}
                               <td className="px-3 py-2.5 text-center">
                                 <div className="tp-score-cell">
                                   <button
