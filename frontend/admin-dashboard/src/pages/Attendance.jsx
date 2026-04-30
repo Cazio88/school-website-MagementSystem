@@ -14,8 +14,7 @@ import API from "../services/api";
 // IMPROVEMENT: read from env so a Vite/CRA build can set these per-environment
 // without touching source. Falls back to the safe defaults.
 const CURRENT_TERM = import.meta?.env?.VITE_CURRENT_TERM ?? "term3";
-const CURRENT_YEAR = Number(import.meta?.env?.VITE_CURRENT_YEAR ?? 2025);
-
+const CURRENT_YEAR = Number(import.meta?.env?.VITE_CURRENT_YEAR ?? 2026);
 // IMPROVEMENT: cap page fetches to prevent an infinite loop if the backend
 // ever returns a malformed "next" cursor that points back to itself.
 const MAX_SUMMARY_PAGES = 20;
