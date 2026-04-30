@@ -1,4 +1,5 @@
 # apps/attendance/models.py
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -6,19 +7,38 @@ from apps.students.models import Student
 from apps.classes.models import SchoolClass
 
 
-def _derive_term(month: int) -> str:
-    """Map a calendar month to a Term value."""
-    if month <= 4:
-        return Attendance.Term.TERM1
-    if month <= 8:
-        return Attendance.Term.TERM2
-    return Attendance.Term.TERM3
+# ---------------------------------------------------------------------------
+# Term helpers
+# ---------------------------------------------------------------------------
+
+def _get_current_term() -> str:
+    """
+    Default callable for Attendance.term.
+
+    Reads CURRENT_TERM from Django settings — the single place the school
+    updates at the start of each term.
+
+    WHY NOT derive from calendar month?
+    The old _derive_term(month) mapped month <= 4 → term1, which meant
+    April (month 4) always produced "term1" even though the school is in
+    Term 3. School terms do not align with calendar months, so deriving
+    term from the date is inherently wrong and was the root cause of
+    attendance records landing on the wrong term.
+
+    Set in settings.py:
+        CURRENT_TERM = "term3"   # update at the start of each term
+        CURRENT_YEAR = 2025
+    """
+    return getattr(settings, "CURRENT_TERM", "term3")
 
 
-def _get_current_term():
-    """Default callable — derives term from today's date at record creation."""
-    return _derive_term(timezone.localdate().month)
+def _get_current_year() -> int:
+    return getattr(settings, "CURRENT_YEAR", 2025)
 
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
 
 class Attendance(models.Model):
 
@@ -42,37 +62,46 @@ class Attendance(models.Model):
         on_delete=models.CASCADE,
         related_name="attendances",
     )
+    # FIX: default is now a callable that reads settings.CURRENT_TERM,
+    # not a function that derives term from the calendar month.
     term = models.CharField(
         max_length=10,
         choices=Term.choices,
         default=_get_current_term,
     )
-    date = models.DateField()
+    year = models.PositiveIntegerField(
+        default=_get_current_year,
+    )
+    date   = models.DateField()
     status = models.CharField(
         max_length=10,
         choices=Status.choices,
         default=Status.PRESENT,
     )
-    notes = models.TextField(blank=True, default="")
+    notes      = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Attendance"
+        verbose_name        = "Attendance"
         verbose_name_plural = "Attendances"
-        unique_together = ["student", "school_class", "date"]
-        ordering = ["-date", "student"]
+        unique_together     = ["student", "school_class", "date"]
+        ordering            = ["-date", "student"]
         indexes = [
             models.Index(fields=["date"]),
             models.Index(fields=["student", "term"]),
             models.Index(fields=["school_class", "date"]),
-            # IMPROVEMENT: composite index for term-scoped summary queries
-            # (e.g. /attendance/?school_class=X&term=term1)
             models.Index(fields=["school_class", "term", "date"]),
         ]
 
     def __str__(self):
         return f"{self.student} — {self.date} — {self.get_status_display()}"
+
+    # ------------------------------------------------------------------
+    # Validation — called by full_clean(), ModelForms, and the admin.
+    # The serializer calls full_clean() before any DB write (see
+    # attendance_serializer.py) so this runs at the API boundary too.
+    # ------------------------------------------------------------------
 
     def clean(self):
         super().clean()
@@ -82,33 +111,26 @@ class Attendance(models.Model):
                 {"date": "Attendance cannot be recorded for a future date."}
             )
 
-        # Derive term from the record's own date so historical imports are
-        # always labelled correctly, regardless of when they're created.
-        if self.date:
-            self.term = _derive_term(self.date.month)
+        valid_terms = {choice[0] for choice in self.Term.choices}
+        if self.term not in valid_terms:
+            raise ValidationError(
+                {
+                    "term": (
+                        f"'{self.term}' is not a valid term. "
+                        f"Expected one of: {', '.join(sorted(valid_terms))}."
+                    )
+                }
+            )
+
+    # ------------------------------------------------------------------
+    # Save — no full_clean() here (see docstring on old model for why)
+    # ------------------------------------------------------------------
 
     def save(self, *args, **kwargs):
-        # BUG FIX: Removed full_clean() from save().
-        #
-        # Calling full_clean() inside save() causes two problems:
-        #   1. bulk_create / bulk_update bypass save() entirely, so validation
-        #      is inconsistently applied — you get a false sense of safety.
-        #   2. Django admin and DRF already call full_clean() before save(),
-        #      so placing it here too runs validation twice and can surface
-        #      confusing duplicate errors.
-        #
-        # Validation is now enforced at the API boundary in the serializer
-        # (via validate()) and in the viewset (via perform_create/perform_update).
-        # The clean() method remains for use with ModelForms and the admin.
-        #
-        # We do still derive term here so that any direct .save() call (e.g.
-        # from management commands or bulk operations) keeps the field accurate.
-        if self.date:
-            self.term = _derive_term(self.date.month)
         super().save(*args, **kwargs)
 
     # ------------------------------------------------------------------
-    # Convenience helpers
+    # Convenience properties
     # ------------------------------------------------------------------
 
     @property
