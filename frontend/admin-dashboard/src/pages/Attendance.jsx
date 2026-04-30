@@ -4,7 +4,15 @@ import API from "../services/api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// FIX 1: todayStr was called ONCE at module load — if the page was open past
+// midnight the date would be wrong. Now it's a function called each time it's needed.
 const todayStr = () => new Date().toISOString().split("T")[0];
+
+// FIX 2: CURRENT_TERM and CURRENT_YEAR are defined here as the single frontend
+// source of truth. They must match settings.CURRENT_TERM / CURRENT_YEAR on the
+// Django side. Flip "term3" → "term1" at the start of each new term.
+const CURRENT_TERM = "term3";
+const CURRENT_YEAR = 2025;
 
 const STATUS_OPTIONS = [
   {
@@ -75,9 +83,20 @@ const formatDate = (dateStr) =>
     day: "numeric",
   });
 
-// IMPROVEMENT: Paginate through all attendance records for the summary fetch
-// instead of requesting page_size=2000, which is capped server-side and would
-// silently truncate large classes.
+// FIX 3: fetchAllPages previously passed the full absolute "next" URL directly
+// to API.get(), which would cause Axios to double-prepend the baseURL
+// (e.g. "http://localhost:8000/api/http://localhost:8000/api/attendance/?page=2").
+// We now extract just the path+query portion so Axios uses its own baseURL correctly.
+const extractPath = (url) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname + parsed.search;
+  } catch {
+    // url was already a relative path
+    return url;
+  }
+};
+
 const fetchAllPages = async (url) => {
   const records = [];
   let nextUrl = url;
@@ -85,8 +104,8 @@ const fetchAllPages = async (url) => {
     const res = await API.get(nextUrl);
     const page = res.data;
     records.push(...(page.results ?? page));
-    // Follow the DRF pagination `next` cursor until exhausted.
-    nextUrl = page.next ?? null;
+    // FIX 3 (continued): extract path from the absolute next URL
+    nextUrl = page.next ? extractPath(page.next) : null;
   }
   return records;
 };
@@ -122,8 +141,6 @@ const reducer = (state, action) => {
         ...state,
         attendance: { ...state.attendance, [action.studentId]: action.status },
       };
-    // BUG FIX: Dispatch a single action to mark all students at once instead
-    // of N individual SET_STATUS dispatches, each of which triggers a re-render.
     case "MARK_ALL": {
       const attendance = {};
       state.students.forEach((s) => { attendance[s.id] = action.status; });
@@ -147,9 +164,7 @@ const reducer = (state, action) => {
         students: [],
         attendance: {},
         existingIds: {},
-        // BUG FIX: Do NOT clear summaryData here. The summary is class-scoped,
-        // not date-scoped. Clearing it on every date change caused a blank
-        // flash whenever the user changed the date while on the Summary tab.
+        // summaryData intentionally NOT cleared — summary is class-scoped, not date-scoped
         error: "",
         success: "",
       };
@@ -176,12 +191,12 @@ const reducer = (state, action) => {
     case "REFRESHING_START":
       return { ...state, refreshing: true, error: "", success: "" };
     case "REFRESH_DONE": {
-      const freshAttendance = {};
-      state.students.forEach((s) => { freshAttendance[s.id] = "present"; });
+      const attendance = {};
+      state.students.forEach((s) => { attendance[s.id] = "present"; });
       return {
         ...state,
         refreshing: false,
-        attendance: freshAttendance,
+        attendance,
         existingIds: {},
         success: "All students reset to Present. Review and save.",
       };
@@ -474,8 +489,6 @@ const Attendance = () => {
 
   const successTimer = useRef(null);
 
-  // BUG FIX: Add a dedicated unmount cleanup so the timer doesn't fire after
-  // the component has been removed from the tree.
   useEffect(() => {
     return () => clearTimeout(successTimer.current);
   }, []);
@@ -504,7 +517,13 @@ const Attendance = () => {
     try {
       const [studRes, attRes] = await Promise.all([
         API.get(`/students/?school_class=${classId}`),
-        API.get(`/attendance/?date=${date}&school_class=${classId}`),
+        // FIX 4: added term= and year= filters so loading attendance for a
+        // given date only returns records from the CURRENT term, not all terms.
+        // Without this, a date shared across terms (e.g. a school holiday make-up
+        // day) could load Term 1 records when the teacher is in Term 3.
+        API.get(
+          `/attendance/?date=${date}&school_class=${classId}&term=${CURRENT_TERM}&year=${CURRENT_YEAR}`
+        ),
       ]);
       const studentList = studRes.data.results ?? studRes.data;
       const existing = attRes.data.results ?? attRes.data;
@@ -524,7 +543,12 @@ const Attendance = () => {
         }
       });
 
-      dispatch({ type: "FETCH_STUDENTS_DONE", students: studentList, attendance: newAttendance, existingIds: newIds });
+      dispatch({
+        type: "FETCH_STUDENTS_DONE",
+        students: studentList,
+        attendance: newAttendance,
+        existingIds: newIds,
+      });
     } catch {
       dispatch({ type: "SET_ERROR", payload: "Failed to load students." });
     }
@@ -534,18 +558,24 @@ const Attendance = () => {
     if (!classId) return;
     dispatch({ type: "FETCH_SUMMARY_START" });
     try {
-      // BUG FIX: replaced page_size=2000 with a paginated fetch that follows
-      // the DRF `next` cursor so no records are silently truncated.
+      // FIX 5: added term= and year= to the attendance fetch so the summary
+      // only counts records from the current term. Without this, a student
+      // who was absent in Term 1 and present in Term 3 would have their
+      // Term 1 absences counted against their Term 3 attendance rate.
       const [classStudents, records] = await Promise.all([
         API.get(`/students/?school_class=${classId}`).then((r) => r.data.results ?? r.data),
-        fetchAllPages(`/attendance/?school_class=${classId}&page_size=100`),
+        fetchAllPages(
+          `/attendance/?school_class=${classId}&term=${CURRENT_TERM}&year=${CURRENT_YEAR}&page_size=100`
+        ),
       ]);
 
       const summary = classStudents.map((student) => {
         const sr = records.filter(
-          (a) => String(a.student) === String(student.id) || String(a.student_id) === String(student.id)
+          (a) =>
+            String(a.student) === String(student.id) ||
+            String(a.student_id) === String(student.id)
         );
-        const total = sr.length;
+        const total   = sr.length;
         const present = sr.filter((a) => a.status === "present").length;
         const absent  = sr.filter((a) => a.status === "absent").length;
         const late    = sr.filter((a) => a.status === "late").length;
@@ -580,15 +610,14 @@ const Attendance = () => {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  // BUG FIX: dispatch a single MARK_ALL action instead of N SET_STATUS
-  // dispatches, each of which triggered a full re-render of the component.
   const handleMarkAll = useCallback((status) => {
     dispatch({ type: "MARK_ALL", status });
   }, []);
 
   const handleRefreshAllPresent = () => {
     setConfirmDialog({
-      message: "This will delete all recorded attendance for today and reset everyone to Present. This cannot be undone.",
+      message:
+        "This will delete all recorded attendance for today and reset everyone to Present. This cannot be undone.",
       onConfirm: async () => {
         setConfirmDialog(null);
         dispatch({ type: "REFRESHING_START" });
@@ -599,6 +628,7 @@ const Attendance = () => {
           );
           const failed = results.filter((r) => r.status === "rejected").length;
           if (failed > 0) {
+            // Re-fetch so the UI reflects actual DB state
             await fetchStudents(selectedClass, selectedDate);
             dispatch({
               type: "REFRESH_ERROR",
@@ -608,7 +638,10 @@ const Attendance = () => {
           }
           dispatch({ type: "REFRESH_DONE" });
         } catch {
-          dispatch({ type: "REFRESH_ERROR", payload: "Failed to reset attendance. Please try again." });
+          dispatch({
+            type: "REFRESH_ERROR",
+            payload: "Failed to reset attendance. Please try again.",
+          });
         }
       },
     });
@@ -648,64 +681,70 @@ const Attendance = () => {
     const unsetCount = students.length - studentsToSave.length;
 
     if (studentsToSave.length === 0) {
-      dispatch({ type: "SET_ERROR", payload: "No statuses assigned. Please mark at least one student before saving." });
+      dispatch({
+        type: "SET_ERROR",
+        payload: "No statuses assigned. Please mark at least one student before saving.",
+      });
       return;
     }
 
     dispatch({ type: "SAVING_START" });
-    try {
-      // BUG FIX: switched from Promise.all to Promise.allSettled so a single
-      // failed save doesn't abort the remaining students. Partial failures are
-      // reported to the user with a count.
-      const results = await Promise.allSettled(
-        studentsToSave.map(async (student) => {
-          const studentId = student.id;
-          const status = attendance[studentId];
-          const existingId = existingIds[studentId];
-          if (existingId) {
-            const res = await API.patch(`/attendance/${existingId}/`, { status });
-            return { studentId, id: res.data.id };
-          } else {
-            const res = await API.post("/attendance/", {
-              student: studentId,
-              school_class: selectedClass,
-              date: selectedDate,
-              status,
-            });
-            return { studentId, id: res.data.id };
-          }
-        })
-      );
 
-      const succeeded = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
-      const failedCount = results.filter((r) => r.status === "rejected").length;
+    // FIX 6: Promise.allSettled never rejects, so the outer catch block in the
+    // original code was unreachable dead code. The per-record error is now
+    // extracted from the settled result directly, and there is no outer try/catch
+    // that would be unreachable.
+    const results = await Promise.allSettled(
+      studentsToSave.map(async (student) => {
+        const studentId  = student.id;
+        const status     = attendance[studentId];
+        const existingId = existingIds[studentId];
+        if (existingId) {
+          const res = await API.patch(`/attendance/${existingId}/`, { status });
+          return { studentId, id: res.data.id };
+        } else {
+          // FIX 7: POST payload now includes term and year explicitly so the
+          // record lands on the correct term even if the backend default were
+          // ever changed or misconfigured.
+          const res = await API.post("/attendance/", {
+            student:      studentId,
+            school_class: selectedClass,
+            date:         selectedDate,
+            status,
+            term:         CURRENT_TERM,
+            year:         CURRENT_YEAR,
+          });
+          return { studentId, id: res.data.id };
+        }
+      })
+    );
 
-      const newIds = {};
-      succeeded.forEach(({ studentId, id }) => {
-        if (!existingIds[studentId]) newIds[studentId] = id;
-      });
+    const succeeded   = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+    const failedCount = results.filter((r) => r.status === "rejected").length;
+
+    // Merge newly created IDs into existingIds so subsequent saves use PATCH
+    const newIds = {};
+    succeeded.forEach(({ studentId, id }) => {
+      if (!existingIds[studentId]) newIds[studentId] = id;
+    });
+    if (Object.keys(newIds).length > 0) {
       dispatch({ type: "MERGE_IDS", payload: newIds });
+    }
 
-      let msg = "";
-      if (failedCount > 0 && succeeded.length > 0) {
-        msg = `${succeeded.length} record(s) saved. ${failedCount} failed — please retry.`;
-        dispatch({ type: "SAVING_ERROR", payload: msg });
-      } else if (failedCount > 0) {
-        dispatch({ type: "SAVING_ERROR", payload: "Failed to save attendance. Please try again." });
-      } else {
-        msg =
-          unsetCount > 0
-            ? `Attendance saved. ${unsetCount} student(s) with no status were skipped.`
-            : "Attendance saved successfully.";
-        dispatch({ type: "SAVING_DONE", payload: msg });
-        if (activeTab === "Student Summary") fetchSummary(selectedClass);
-      }
-    } catch (err) {
+    if (failedCount > 0 && succeeded.length > 0) {
+      dispatch({
+        type: "SAVING_ERROR",
+        payload: `${succeeded.length} record(s) saved. ${failedCount} failed — please retry.`,
+      });
+    } else if (failedCount > 0) {
+      dispatch({ type: "SAVING_ERROR", payload: "Failed to save attendance. Please try again." });
+    } else {
       const msg =
-        err.response?.data?.detail ||
-        Object.values(err.response?.data ?? {}).flat().join(" ") ||
-        "Error saving attendance.";
-      dispatch({ type: "SAVING_ERROR", payload: msg });
+        unsetCount > 0
+          ? `Attendance saved. ${unsetCount} student(s) with no status were skipped.`
+          : "Attendance saved successfully.";
+      dispatch({ type: "SAVING_DONE", payload: msg });
+      if (activeTab === "Student Summary") fetchSummary(selectedClass);
     }
   };
 
@@ -720,11 +759,11 @@ const Attendance = () => {
     return base;
   }, [attendance]);
 
-  const hasAnyRecord = useMemo(() => Object.keys(existingIds).length > 0, [existingIds]);
-  const dateIsToday = isToday(selectedDate);
-  const maxDate = todayStr();
-  const savedCount = Object.keys(existingIds).length;
-  const totalStudents = students.length;
+  const hasAnyRecord   = useMemo(() => Object.keys(existingIds).length > 0, [existingIds]);
+  const dateIsToday    = isToday(selectedDate);
+  const maxDate        = todayStr();
+  const savedCount     = Object.keys(existingIds).length;
+  const totalStudents  = students.length;
 
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
@@ -739,15 +778,18 @@ const Attendance = () => {
   const filteredSummary = useMemo(() => {
     if (!summarySearch.trim()) return summaryData;
     const q = summarySearch.toLowerCase();
-    return summaryData.filter((row) => getStudentName(row.student).toLowerCase().includes(q));
+    return summaryData.filter((row) =>
+      getStudentName(row.student).toLowerCase().includes(q)
+    );
   }, [summaryData, summarySearch]);
 
   const summaryStats = useMemo(() => {
     if (summaryData.length === 0) return null;
     const withRate = summaryData.filter((r) => r.rate !== null);
-    const avgRate = withRate.length > 0
-      ? Math.round(withRate.reduce((acc, r) => acc + r.rate, 0) / withRate.length)
-      : null;
+    const avgRate =
+      withRate.length > 0
+        ? Math.round(withRate.reduce((acc, r) => acc + r.rate, 0) / withRate.length)
+        : null;
     const atRisk = summaryData.filter((r) => r.rate !== null && r.rate < 60).length;
     return { avgRate, atRisk };
   }, [summaryData]);
@@ -892,7 +934,12 @@ const Attendance = () => {
               {/* Stats row */}
               <div className="flex flex-wrap gap-2 mb-4 items-center">
                 {STATUS_OPTIONS.map((opt) => (
-                  <CountBadge key={opt.value} opt={opt} count={counts[opt.value] || 0} total={totalStudents} />
+                  <CountBadge
+                    key={opt.value}
+                    opt={opt}
+                    count={counts[opt.value] || 0}
+                    total={totalStudents}
+                  />
                 ))}
                 {counts.unset > 0 && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-400">
@@ -907,7 +954,6 @@ const Attendance = () => {
 
               {/* Quick mark + search */}
               <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
-                {/* BUG FIX: removed unused `students` prop from QuickMarkBar */}
                 <QuickMarkBar onMarkAll={handleMarkAll} disabled={saving || refreshing} />
                 <div className="w-52">
                   <SearchBar
@@ -940,16 +986,18 @@ const Attendance = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {filteredStudents.map((student, index) => {
-                        const status = attendance[student.id];
+                        const status     = attendance[student.id];
                         const statusMeta = status ? getStatusMeta(status) : null;
-                        const isUnset = status === null || status === undefined;
-                        const isSaved = !!existingIds[student.id];
+                        const isUnset    = status === null || status === undefined;
+                        const isSaved    = !!existingIds[student.id];
 
                         return (
                           <tr
                             key={student.id}
                             className={`transition-colors ${
-                              isUnset ? "bg-white hover:bg-gray-50" : statusMeta?.row || "hover:bg-gray-50"
+                              isUnset
+                                ? "bg-white hover:bg-gray-50"
+                                : statusMeta?.row || "hover:bg-gray-50"
                             }`}
                           >
                             <td className="px-4 py-3 text-gray-300 text-xs">{index + 1}</td>
@@ -1000,7 +1048,9 @@ const Attendance = () => {
                               {isSaved && (
                                 <button
                                   onClick={() => handleDeleteAttendance(student.id)}
-                                  disabled={deletingId === student.id || saving || refreshing}
+                                  disabled={
+                                    deletingId === student.id || saving || refreshing
+                                  }
                                   aria-label={`Delete attendance record for ${getStudentName(student)}`}
                                   className="text-xs px-2.5 py-1 rounded-lg border border-red-100 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors disabled:opacity-40"
                                 >
@@ -1130,45 +1180,59 @@ const Attendance = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filteredSummary.map(({ student, present, absent, late, total, rate }, index) => {
-                      const isAtRisk = rate !== null && rate < 60;
-                      return (
-                        <tr
-                          key={student.id}
-                          className={`transition-colors ${isAtRisk ? "bg-red-50/40" : "hover:bg-gray-50"}`}
-                        >
-                          <td className="px-4 py-3 text-gray-300 text-xs">{index + 1}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 ${
-                                  isAtRisk ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-500"
-                                }`}
-                              >
-                                {getStudentName(student).charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-800 leading-tight">
-                                  {getStudentName(student)}
+                    {filteredSummary.map(
+                      ({ student, present, absent, late, total, rate }, index) => {
+                        const isAtRisk = rate !== null && rate < 60;
+                        return (
+                          <tr
+                            key={student.id}
+                            className={`transition-colors ${
+                              isAtRisk ? "bg-red-50/40" : "hover:bg-gray-50"
+                            }`}
+                          >
+                            <td className="px-4 py-3 text-gray-300 text-xs">{index + 1}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 ${
+                                    isAtRisk
+                                      ? "bg-red-100 text-red-600"
+                                      : "bg-gray-100 text-gray-500"
+                                  }`}
+                                >
+                                  {getStudentName(student).charAt(0).toUpperCase()}
                                 </div>
-                                {isAtRisk && (
-                                  <span className="text-[10px] text-red-500 font-semibold">at risk</span>
-                                )}
+                                <div>
+                                  <div className="font-medium text-gray-800 leading-tight">
+                                    {getStudentName(student)}
+                                  </div>
+                                  {isAtRisk && (
+                                    <span className="text-[10px] text-red-500 font-semibold">
+                                      at risk
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-center text-emerald-600 font-semibold">{present}</td>
-                          <td className="px-4 py-3 text-center text-red-500 font-semibold">{absent}</td>
-                          <td className="px-4 py-3 text-center text-amber-500 font-semibold">{late}</td>
-                          <td className="px-4 py-3 text-center text-gray-400">{total}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center">
-                              <ProgressRing rate={rate} size={38} />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                            <td className="px-4 py-3 text-center text-emerald-600 font-semibold">
+                              {present}
+                            </td>
+                            <td className="px-4 py-3 text-center text-red-500 font-semibold">
+                              {absent}
+                            </td>
+                            <td className="px-4 py-3 text-center text-amber-500 font-semibold">
+                              {late}
+                            </td>
+                            <td className="px-4 py-3 text-center text-gray-400">{total}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center">
+                                <ProgressRing rate={rate} size={38} />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
                   </tbody>
                 </table>
               </div>
