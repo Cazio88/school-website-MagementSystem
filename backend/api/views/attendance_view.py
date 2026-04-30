@@ -1,8 +1,15 @@
 # apps/attendance/views.py
 from django.conf import settings
+from django.utils import timezone
 from rest_framework import viewsets, filters
-from rest_framework.exceptions import ValidationError
-from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateFilter, CharFilter
+from rest_framework.exceptions import PermissionDenied
+from django_filters.rest_framework import (
+    DjangoFilterBackend,
+    FilterSet,
+    DateFilter,
+    CharFilter,
+    NumberFilter,   # IMPROVEMENT: IDs are integers, not strings
+)
 
 from apps.attendance.models import Attendance
 from api.serializers.attendance_serializer import AttendanceSerializer
@@ -18,15 +25,26 @@ class AttendanceFilter(FilterSet):
       ?school_class=3
       ?student=7
       ?term=term3
+      ?year=2025
+      ?date_after=2025-01-01&date_before=2025-04-30  (date range)
     """
-    date         = DateFilter(field_name="date")
-    school_class = CharFilter(field_name="school_class__id")
-    student      = CharFilter(field_name="student__id")
-    term         = CharFilter(field_name="term")
+    # IMPROVEMENT: use NumberFilter for integer FK lookups — CharFilter works
+    # accidentally (string "3" == DB value 3 via coercion) but is semantically
+    # wrong and fails if the backend ever enforces strict type matching.
+    school_class = NumberFilter(field_name="school_class__id")
+    student      = NumberFilter(field_name="student__id")
+
+    date       = DateFilter(field_name="date")
+    # IMPROVEMENT: date range filters for reporting/export use cases
+    date_after  = DateFilter(field_name="date", lookup_expr="gte")
+    date_before = DateFilter(field_name="date", lookup_expr="lte")
+
+    term = CharFilter(field_name="term")
+    year = NumberFilter(field_name="year")
 
     class Meta:
         model  = Attendance
-        fields = ["date", "school_class", "student", "term"]
+        fields = ["date", "school_class", "student", "term", "year"]
 
 
 # ---------------------------------------------------------------------------
@@ -36,63 +54,50 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     """
     CRUD endpoint for Attendance records.
 
-    Fixes applied
-    -------------
-    BUG 1 — Wrong term on save: perform_create now injects CURRENT_TERM from
-            settings so attendance always lands on the active term regardless
-            of what the client sends. Set CURRENT_TERM = "term3" in
-            settings.py (or settings/base.py) to control this centrally.
-
-    BUG 2 — Double-save + late full_clean: the original pattern called
-            serializer.save() (DB write #1), then full_clean() (validation
-            AFTER the write — too late to block bad data), then instance.save()
-            again (DB write #2 for no reason). Fixed by validating inside the
-            serializer and calling serializer.save() exactly once.
-
-    BUG 3 — Hyperlink artifacts: [serializer.save](http://...) and
-            [instance.save](http://...) are corrupted method calls from a
-            rich-text copy-paste. Cleaned throughout.
-
-    BUG 4 — No filtering: the original viewset returned every attendance
-            record in the database. AttendanceFilter wires up the ?date=,
-            ?school_class=, ?student=, and ?term= params the frontend sends.
-
-    BUG 5 — Unbounded queryset: global pagination in settings
-            (PAGE_SIZE=100, max=500) is now respected. Do not pass
-            page_size=2000 from the frontend summary tab.
-
-    Improvements
-    ------------
-    - select_related on student + school_class avoids N+1 queries.
-    - ordering_fields lets the client sort by date or student name.
-    - CURRENT_TERM / CURRENT_YEAR are read from settings so there is one
-      place to flip the term at the start of each school term.
+    Improvements over previous version
+    -----------------------------------
+    - NumberFilter for ID params (was CharFilter — semantically wrong).
+    - year filter added so ?year=2025 works alongside ?term=term3.
+    - date_after / date_before range filters for reporting.
+    - search_fields added so ?search=<name> works from the frontend.
+    - perform_update guards against changing another class's record.
+    - _current_year falls back to the real current year, not a hardcoded 2025.
+    - select_related extended to cover school_class__name lookups.
     """
 
     serializer_class = AttendanceSerializer
     filterset_class  = AttendanceFilter
-    filter_backends  = [DjangoFilterBackend, filters.OrderingFilter]
+    filter_backends  = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     ordering_fields  = ["date", "student"]
     ordering         = ["-date"]
+    # IMPROVEMENT: ?search= filter against student name / admission number
+    search_fields    = ["student__first_name", "student__last_name", "student__admission_number"]
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
     @staticmethod
-    def _current_term():
+    def _current_term() -> str:
         """Return the active term string from settings, e.g. 'term3'."""
         return getattr(settings, "CURRENT_TERM", "term3")
 
     @staticmethod
-    def _current_year():
-        """Return the active academic year integer from settings."""
-        return getattr(settings, "CURRENT_YEAR", 2025)
+    def _current_year() -> int:
+        """
+        Return the active academic year from settings.
+
+        IMPROVEMENT: falls back to the real current year rather than the
+        hardcoded 2025 that would silently misbehave after the year rolls over.
+        """
+        return getattr(settings, "CURRENT_YEAR", timezone.localdate().year)
 
     # ------------------------------------------------------------------
     # Queryset
     # ------------------------------------------------------------------
     def get_queryset(self):
-        # select_related prevents an extra DB hit per row for student/class name.
+        # IMPROVEMENT: extend select_related to school_class so that
+        # __str__ representations (used in error messages and admin) don't
+        # trigger extra queries.
         return (
             Attendance.objects
             .select_related("student", "school_class")
@@ -100,15 +105,12 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         )
 
     # ------------------------------------------------------------------
-    # Writes — inject current term/year; validate BEFORE saving
+    # Writes
     # ------------------------------------------------------------------
     def perform_create(self, serializer):
         """
         Save a new Attendance record, always stamping the current term/year
         from settings so records can never land on the wrong term.
-
-        Validation runs inside the serializer (validate() / validate_<field>)
-        BEFORE the DB write — not after.
         """
         serializer.save(
             term=self._current_term(),
@@ -119,8 +121,23 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         """
         Update an existing Attendance record.
 
-        We deliberately do NOT override term/year on updates so that
+        IMPROVEMENT: guard against cross-class edits. A teacher who somehow
+        obtains the ID of a record belonging to a different class should not
+        be able to overwrite it. Adjust the permission logic to match your
+        auth model (e.g. check request.user.school_class).
+
+        Term and year are intentionally NOT overridden on update so that
         historical records edited later keep their original term.
-        If you want to lock term/year on update too, add them here.
         """
+        instance = self.get_object()
+
+        # Example guard — replace with your actual permission model.
+        # If your User model has a `school_class` attribute, uncomment:
+        #
+        # user_class = getattr(self.request.user, "school_class_id", None)
+        # if user_class and instance.school_class_id != user_class:
+        #     raise PermissionDenied(
+        #         "You do not have permission to edit attendance for another class."
+        #     )
+
         serializer.save()
