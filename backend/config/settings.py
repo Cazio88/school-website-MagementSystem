@@ -85,6 +85,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# ── School Term ────────────────────────────────────────────────
+
+CURRENT_TERM = "term3"
+CURRENT_YEAR = 2026
 
 # ── Database ───────────────────────────────────────────────────
 
