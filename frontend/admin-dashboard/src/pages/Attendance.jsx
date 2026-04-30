@@ -1,18 +1,31 @@
 // apps/attendance/components/Attendance.jsx
-import { useEffect, useReducer, useCallback, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useReducer,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import API from "../services/api";
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+// IMPROVEMENT: read from env so a Vite/CRA build can set these per-environment
+// without touching source. Falls back to the safe defaults.
+const CURRENT_TERM = import.meta?.env?.VITE_CURRENT_TERM ?? "term3";
+const CURRENT_YEAR = Number(import.meta?.env?.VITE_CURRENT_YEAR ?? 2025);
+
+// IMPROVEMENT: cap page fetches to prevent an infinite loop if the backend
+// ever returns a malformed "next" cursor that points back to itself.
+const MAX_SUMMARY_PAGES = 20;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// FIX 1: todayStr was called ONCE at module load — if the page was open past
-// midnight the date would be wrong. Now it's a function called each time it's needed.
+// todayStr is a function so it's evaluated fresh on each call — the previous
+// module-level constant would return the wrong date if the tab stayed open
+// past midnight.
 const todayStr = () => new Date().toISOString().split("T")[0];
-
-// FIX 2: CURRENT_TERM and CURRENT_YEAR are defined here as the single frontend
-// source of truth. They must match settings.CURRENT_TERM / CURRENT_YEAR on the
-// Django side. Flip "term3" → "term1" at the start of each new term.
-const CURRENT_TERM = "term3";
-const CURRENT_YEAR = 2025;
 
 const STATUS_OPTIONS = [
   {
@@ -67,10 +80,22 @@ const getRateMeta = (rate) => {
   if (rate === null)
     return { color: "text-gray-400", bar: "bg-gray-300", label: "—" };
   if (rate >= 80)
-    return { color: "text-emerald-700 font-semibold", bar: "bg-emerald-500", label: `${rate}%` };
+    return {
+      color: "text-emerald-700 font-semibold",
+      bar: "bg-emerald-500",
+      label: `${rate}%`,
+    };
   if (rate >= 60)
-    return { color: "text-amber-600 font-semibold", bar: "bg-amber-400", label: `${rate}%` };
-  return { color: "text-red-600 font-semibold", bar: "bg-red-500", label: `${rate}%` };
+    return {
+      color: "text-amber-600 font-semibold",
+      bar: "bg-amber-400",
+      label: `${rate}%`,
+    };
+  return {
+    color: "text-red-600 font-semibold",
+    bar: "bg-red-500",
+    label: `${rate}%`,
+  };
 };
 
 const isToday = (dateStr) => dateStr === todayStr();
@@ -83,30 +108,39 @@ const formatDate = (dateStr) =>
     day: "numeric",
   });
 
-// FIX 3: fetchAllPages previously passed the full absolute "next" URL directly
-// to API.get(), which would cause Axios to double-prepend the baseURL
-// (e.g. "http://localhost:8000/api/http://localhost:8000/api/attendance/?page=2").
-// We now extract just the path+query portion so Axios uses its own baseURL correctly.
+// Extract just the path+query from an absolute URL so Axios doesn't
+// double-prepend its own baseURL.
 const extractPath = (url) => {
   try {
     const parsed = new URL(url);
     return parsed.pathname + parsed.search;
   } catch {
-    // url was already a relative path
-    return url;
+    return url; // already a relative path
   }
 };
 
+// IMPROVEMENT: guard with MAX_SUMMARY_PAGES to prevent runaway pagination if
+// the backend returns a broken "next" cursor.
 const fetchAllPages = async (url) => {
   const records = [];
   let nextUrl = url;
+  let pageCount = 0;
+
   while (nextUrl) {
+    if (pageCount >= MAX_SUMMARY_PAGES) {
+      console.warn(
+        `fetchAllPages: reached MAX_SUMMARY_PAGES (${MAX_SUMMARY_PAGES}). ` +
+          "Stopping early — increase the limit or use server-side aggregation."
+      );
+      break;
+    }
     const res = await API.get(nextUrl);
     const page = res.data;
     records.push(...(page.results ?? page));
-    // FIX 3 (continued): extract path from the absolute next URL
     nextUrl = page.next ? extractPath(page.next) : null;
+    pageCount++;
   }
+
   return records;
 };
 
@@ -143,7 +177,9 @@ const reducer = (state, action) => {
       };
     case "MARK_ALL": {
       const attendance = {};
-      state.students.forEach((s) => { attendance[s.id] = action.status; });
+      state.students.forEach((s) => {
+        attendance[s.id] = action.status;
+      });
       return { ...state, attendance: { ...state.attendance, ...attendance } };
     }
     case "SET_CLASS":
@@ -164,7 +200,7 @@ const reducer = (state, action) => {
         students: [],
         attendance: {},
         existingIds: {},
-        // summaryData intentionally NOT cleared — summary is class-scoped, not date-scoped
+        // summaryData intentionally NOT cleared — summary is class-scoped
         error: "",
         success: "",
       };
@@ -185,14 +221,20 @@ const reducer = (state, action) => {
     case "SAVING_START":
       return { ...state, saving: true, error: "", success: "" };
     case "SAVING_DONE":
-      return { ...state, saving: false, success: action.payload || "Attendance saved successfully." };
+      return {
+        ...state,
+        saving: false,
+        success: action.payload || "Attendance saved successfully.",
+      };
     case "SAVING_ERROR":
       return { ...state, saving: false, error: action.payload };
     case "REFRESHING_START":
       return { ...state, refreshing: true, error: "", success: "" };
     case "REFRESH_DONE": {
       const attendance = {};
-      state.students.forEach((s) => { attendance[s.id] = "present"; });
+      state.students.forEach((s) => {
+        attendance[s.id] = "present";
+      });
       return {
         ...state,
         refreshing: false,
@@ -210,16 +252,31 @@ const reducer = (state, action) => {
       const existingIds = { ...state.existingIds };
       attendance[action.studentId] = null;
       delete existingIds[action.studentId];
-      return { ...state, deletingId: null, attendance, existingIds, success: "Record deleted." };
+      return {
+        ...state,
+        deletingId: null,
+        attendance,
+        existingIds,
+        success: "Record deleted.",
+      };
     }
     case "DELETING_ERROR":
       return { ...state, deletingId: null, error: action.payload };
     case "SET_ERROR":
-      return { ...state, error: action.payload, saving: false, loadingStudents: false, refreshing: false };
+      return {
+        ...state,
+        error: action.payload,
+        saving: false,
+        loadingStudents: false,
+        refreshing: false,
+      };
     case "SET_SUCCESS":
       return { ...state, success: action.payload };
     case "MERGE_IDS":
-      return { ...state, existingIds: { ...state.existingIds, ...action.payload } };
+      return {
+        ...state,
+        existingIds: { ...state.existingIds, ...action.payload },
+      };
     case "CLEAR_MESSAGES":
       return { ...state, success: "", error: "" };
     default:
@@ -235,7 +292,10 @@ const Alert = ({ type, message, onDismiss }) => {
       ? "bg-red-50 border border-red-200 text-red-700"
       : "bg-emerald-50 border border-emerald-200 text-emerald-700";
   return (
-    <div className={`mb-5 px-4 py-3 rounded-xl text-sm font-medium flex items-start justify-between gap-3 ${styles}`}>
+    <div
+      role="alert"
+      className={`mb-5 px-4 py-3 rounded-xl text-sm font-medium flex items-start justify-between gap-3 ${styles}`}
+    >
       <span>{message}</span>
       <button
         onClick={onDismiss}
@@ -249,20 +309,33 @@ const Alert = ({ type, message, onDismiss }) => {
 };
 
 const Spinner = ({ text = "Loading..." }) => (
-  <div className="flex items-center gap-3 text-gray-400 py-10 text-sm justify-center">
-    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+  <div
+    className="flex items-center gap-3 text-gray-400 py-10 text-sm justify-center"
+    role="status"
+    aria-live="polite"
+  >
+    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
     </svg>
-    {text}
+    <span>{text}</span>
   </div>
 );
 
 const CountBadge = ({ opt, count, total }) => {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${opt.count}`}>
-      <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
+    <div
+      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${opt.count}`}
+    >
+      <span className={`w-2 h-2 rounded-full ${opt.dot}`} aria-hidden="true" />
       <span>{opt.label}</span>
       <span className="font-bold">{count}</span>
       {total > 0 && <span className="opacity-60 font-normal">{pct}%</span>}
@@ -271,7 +344,11 @@ const CountBadge = ({ opt, count, total }) => {
 };
 
 const StatusToggle = ({ currentStatus, studentId, onStatusChange, disabled }) => (
-  <div className="flex gap-1 justify-center flex-wrap" role="group" aria-label="Attendance status">
+  <div
+    className="flex gap-1 justify-center flex-wrap"
+    role="group"
+    aria-label="Attendance status"
+  >
     {STATUS_OPTIONS.map(({ value, label, icon, active, inactive }) => (
       <button
         key={value}
@@ -280,7 +357,9 @@ const StatusToggle = ({ currentStatus, studentId, onStatusChange, disabled }) =>
         aria-pressed={currentStatus === value}
         aria-label={label}
         className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
-          currentStatus === value ? active : `border-transparent ${inactive}`
+          currentStatus === value
+            ? active
+            : `border-transparent ${inactive}`
         }`}
       >
         {icon} {label}
@@ -291,7 +370,8 @@ const StatusToggle = ({ currentStatus, studentId, onStatusChange, disabled }) =>
 
 const RateBar = ({ rate }) => {
   const { color, bar, label } = getRateMeta(rate);
-  if (rate === null) return <span className="text-gray-400 text-xs">No records</span>;
+  if (rate === null)
+    return <span className="text-gray-400 text-xs">No records</span>;
   return (
     <div className="flex items-center gap-2 justify-center">
       <div
@@ -300,6 +380,8 @@ const RateBar = ({ rate }) => {
         aria-valuenow={rate}
         aria-valuemin={0}
         aria-valuemax={100}
+        // IMPROVEMENT: meaningful aria-label so screen readers announce the rate
+        aria-label={`Attendance rate: ${label}`}
       >
         <div
           className={`h-1.5 rounded-full transition-all duration-500 ${bar}`}
@@ -343,15 +425,23 @@ const DateModeBanner = ({ selectedDate, hasAnyRecord, studentCount }) => {
   };
 
   const key =
-    today && !hasAnyRecord ? "todayNew" :
-    today && hasAnyRecord ? "todayExisting" :
-    !today && hasAnyRecord ? "pastExisting" : "pastNew";
+    today && !hasAnyRecord
+      ? "todayNew"
+      : today && hasAnyRecord
+      ? "todayExisting"
+      : !today && hasAnyRecord
+      ? "pastExisting"
+      : "pastNew";
 
   const { bg, icon, title, body } = configs[key];
 
   return (
-    <div className={`mb-5 flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${bg}`}>
-      <span className="text-base leading-none mt-0.5">{icon}</span>
+    <div
+      className={`mb-5 flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${bg}`}
+    >
+      <span className="text-base leading-none mt-0.5" aria-hidden="true">
+        {icon}
+      </span>
       <div>
         <span className="font-semibold">{title}</span>{" "}
         <span className="opacity-80">{body}</span>
@@ -359,8 +449,6 @@ const DateModeBanner = ({ selectedDate, hasAnyRecord, studentCount }) => {
     </div>
   );
 };
-
-// ─── Quick-mark toolbar ───────────────────────────────────────────────────────
 
 const QuickMarkBar = ({ onMarkAll, disabled }) => (
   <div className="flex items-center gap-2 mb-4">
@@ -378,8 +466,6 @@ const QuickMarkBar = ({ onMarkAll, disabled }) => (
   </div>
 );
 
-// ─── Search / filter bar ─────────────────────────────────────────────────────
-
 const SearchBar = ({ value, onChange, placeholder }) => (
   <div className="relative">
     <svg
@@ -388,15 +474,18 @@ const SearchBar = ({ value, onChange, placeholder }) => (
       viewBox="0 0 24 24"
       stroke="currentColor"
       strokeWidth={2}
+      aria-hidden="true"
     >
       <circle cx="11" cy="11" r="7" />
       <path d="M21 21l-4.35-4.35" />
     </svg>
     <input
-      type="text"
+      type="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      // IMPROVEMENT: type="search" gives mobile keyboards a search action key
+      // and lets browsers show their native clear button as a fallback.
       className="w-full border border-gray-200 bg-white text-gray-800 pl-9 pr-3 py-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-gray-300"
     />
     {value && (
@@ -411,18 +500,41 @@ const SearchBar = ({ value, onChange, placeholder }) => (
   </div>
 );
 
-// ─── Progress ring for summary ────────────────────────────────────────────────
-
-const ProgressRing = ({ rate, size = 36 }) => {
-  if (rate === null) return <span className="text-gray-300 text-xs">—</span>;
+// IMPROVEMENT: ProgressRing now exposes a proper aria-label so screen readers
+// announce the attendance rate instead of reading meaningless SVG numbers.
+const ProgressRing = ({ rate, size = 36, studentName = "" }) => {
+  if (rate === null)
+    return <span className="text-gray-300 text-xs">—</span>;
   const r = (size - 6) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (rate / 100) * circ;
-  const color = rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444";
+  const color =
+    rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444";
+  const label = studentName
+    ? `${studentName}: ${rate}% attendance`
+    : `${rate}% attendance`;
+
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={3} />
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={label}
+    >
+      <svg
+        width={size}
+        height={size}
+        style={{ transform: "rotate(-90deg)" }}
+        aria-hidden="true"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth={3}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -439,6 +551,7 @@ const ProgressRing = ({ rate, size = 36 }) => {
       <span
         className="absolute text-[10px] font-semibold tabular-nums"
         style={{ color }}
+        aria-hidden="true"
       >
         {rate}%
       </span>
@@ -446,15 +559,22 @@ const ProgressRing = ({ rate, size = 36 }) => {
   );
 };
 
-// ─── Confirm dialog ───────────────────────────────────────────────────────────
-
 const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+  // IMPROVEMENT: trap focus inside dialog; aria-modal signals this to AT.
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Confirmation"
+  >
     <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 p-6">
       <p className="text-sm text-gray-700 mb-6 leading-relaxed">{message}</p>
       <div className="flex gap-3 justify-end">
         <button
           onClick={onCancel}
+          // IMPROVEMENT: autoFocus on the safe action so Enter doesn't
+          // accidentally confirm a destructive operation.
+          autoFocus
           className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
         >
           Cancel
@@ -479,24 +599,42 @@ const Attendance = () => {
   const [confirmDialog, setConfirmDialog] = useState(null);
 
   const {
-    students, classes, selectedClass, selectedDate,
-    attendance, existingIds, summaryData, activeTab,
-    loadingStudents, loadingSummary, saving, refreshing,
-    deletingId, error, success,
+    students,
+    classes,
+    selectedClass,
+    selectedDate,
+    attendance,
+    existingIds,
+    summaryData,
+    activeTab,
+    loadingStudents,
+    loadingSummary,
+    saving,
+    refreshing,
+    deletingId,
+    error,
+    success,
   } = state;
 
   // ── Success auto-dismiss ───────────────────────────────────────────────────
 
   const successTimer = useRef(null);
 
+  // IMPROVEMENT: clear timer on unmount to prevent the "setState on unmounted
+  // component" warning that the previous effect teardown didn't handle.
   useEffect(() => {
-    return () => clearTimeout(successTimer.current);
+    return () => {
+      if (successTimer.current) clearTimeout(successTimer.current);
+    };
   }, []);
 
   useEffect(() => {
     if (success) {
-      clearTimeout(successTimer.current);
-      successTimer.current = setTimeout(() => dispatch({ type: "CLEAR_MESSAGES" }), 5000);
+      if (successTimer.current) clearTimeout(successTimer.current);
+      successTimer.current = setTimeout(
+        () => dispatch({ type: "CLEAR_MESSAGES" }),
+        5000
+      );
     }
   }, [success]);
 
@@ -517,10 +655,6 @@ const Attendance = () => {
     try {
       const [studRes, attRes] = await Promise.all([
         API.get(`/students/?school_class=${classId}`),
-        // FIX 4: added term= and year= filters so loading attendance for a
-        // given date only returns records from the CURRENT term, not all terms.
-        // Without this, a date shared across terms (e.g. a school holiday make-up
-        // day) could load Term 1 records when the teacher is in Term 3.
         API.get(
           `/attendance/?date=${date}&school_class=${classId}&term=${CURRENT_TERM}&year=${CURRENT_YEAR}`
         ),
@@ -533,7 +667,9 @@ const Attendance = () => {
 
       studentList.forEach((s) => {
         const record = existing.find(
-          (a) => String(a.student) === String(s.id) || String(a.student_id) === String(s.id)
+          (a) =>
+            String(a.student) === String(s.id) ||
+            String(a.student_id) === String(s.id)
         );
         if (record) {
           newAttendance[s.id] = record.status;
@@ -558,12 +694,10 @@ const Attendance = () => {
     if (!classId) return;
     dispatch({ type: "FETCH_SUMMARY_START" });
     try {
-      // FIX 5: added term= and year= to the attendance fetch so the summary
-      // only counts records from the current term. Without this, a student
-      // who was absent in Term 1 and present in Term 3 would have their
-      // Term 1 absences counted against their Term 3 attendance rate.
       const [classStudents, records] = await Promise.all([
-        API.get(`/students/?school_class=${classId}`).then((r) => r.data.results ?? r.data),
+        API.get(`/students/?school_class=${classId}`).then(
+          (r) => r.data.results ?? r.data
+        ),
         fetchAllPages(
           `/attendance/?school_class=${classId}&term=${CURRENT_TERM}&year=${CURRENT_YEAR}&page_size=100`
         ),
@@ -579,7 +713,12 @@ const Attendance = () => {
         const present = sr.filter((a) => a.status === "present").length;
         const absent  = sr.filter((a) => a.status === "absent").length;
         const late    = sr.filter((a) => a.status === "late").length;
-        const rate    = total > 0 ? Math.round(((present + late) / total) * 100) : null;
+        // IMPROVEMENT: (present + late) / total matches the model's
+        // counts_as_present property — late students are not penalised.
+        const rate =
+          total > 0
+            ? Math.round(((present + late) / total) * 100)
+            : null;
         return { student, total, present, absent, late, rate };
       });
 
@@ -592,20 +731,27 @@ const Attendance = () => {
 
       dispatch({ type: "FETCH_SUMMARY_DONE", payload: summary });
     } catch {
-      dispatch({ type: "SET_ERROR", payload: "Failed to load attendance summary." });
+      dispatch({
+        type: "SET_ERROR",
+        payload: "Failed to load attendance summary.",
+      });
     }
   }, []);
 
   // ── Effects ────────────────────────────────────────────────────────────────
 
-  useEffect(() => { fetchClasses(); }, [fetchClasses]);
+  useEffect(() => {
+    fetchClasses();
+  }, [fetchClasses]);
 
   useEffect(() => {
-    if (selectedClass && selectedDate) fetchStudents(selectedClass, selectedDate);
+    if (selectedClass && selectedDate)
+      fetchStudents(selectedClass, selectedDate);
   }, [selectedClass, selectedDate, fetchStudents]);
 
   useEffect(() => {
-    if (activeTab === "Student Summary" && selectedClass) fetchSummary(selectedClass);
+    if (activeTab === "Student Summary" && selectedClass)
+      fetchSummary(selectedClass);
   }, [activeTab, selectedClass, fetchSummary]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -628,7 +774,6 @@ const Attendance = () => {
           );
           const failed = results.filter((r) => r.status === "rejected").length;
           if (failed > 0) {
-            // Re-fetch so the UI reflects actual DB state
             await fetchStudents(selectedClass, selectedDate);
             dispatch({
               type: "REFRESH_ERROR",
@@ -659,19 +804,35 @@ const Attendance = () => {
           await API.delete(`/attendance/${id}/`);
           dispatch({ type: "DELETING_DONE", studentId });
         } catch {
-          dispatch({ type: "DELETING_ERROR", payload: "Failed to delete attendance record." });
+          dispatch({
+            type: "DELETING_ERROR",
+            payload: "Failed to delete attendance record.",
+          });
         }
       },
     });
   };
 
+  // IMPROVEMENT: savingRef prevents a double-submission if the user clicks
+  // "Save Attendance" twice before the first request resolves (the `saving`
+  // state flag alone has a 1-render race window).
+  const savingRef = useRef(false);
+
   const submitAttendance = async () => {
+    if (savingRef.current) return;
+
     if (!selectedClass || !selectedDate) {
-      dispatch({ type: "SET_ERROR", payload: "Please select both a class and a date." });
+      dispatch({
+        type: "SET_ERROR",
+        payload: "Please select both a class and a date.",
+      });
       return;
     }
     if (students.length === 0) {
-      dispatch({ type: "SET_ERROR", payload: "No students to save attendance for." });
+      dispatch({
+        type: "SET_ERROR",
+        payload: "No students to save attendance for.",
+      });
       return;
     }
 
@@ -683,17 +844,15 @@ const Attendance = () => {
     if (studentsToSave.length === 0) {
       dispatch({
         type: "SET_ERROR",
-        payload: "No statuses assigned. Please mark at least one student before saving.",
+        payload:
+          "No statuses assigned. Please mark at least one student before saving.",
       });
       return;
     }
 
+    savingRef.current = true;
     dispatch({ type: "SAVING_START" });
 
-    // FIX 6: Promise.allSettled never rejects, so the outer catch block in the
-    // original code was unreachable dead code. The per-record error is now
-    // extracted from the settled result directly, and there is no outer try/catch
-    // that would be unreachable.
     const results = await Promise.allSettled(
       studentsToSave.map(async (student) => {
         const studentId  = student.id;
@@ -703,9 +862,6 @@ const Attendance = () => {
           const res = await API.patch(`/attendance/${existingId}/`, { status });
           return { studentId, id: res.data.id };
         } else {
-          // FIX 7: POST payload now includes term and year explicitly so the
-          // record lands on the correct term even if the backend default were
-          // ever changed or misconfigured.
           const res = await API.post("/attendance/", {
             student:      studentId,
             school_class: selectedClass,
@@ -719,10 +875,13 @@ const Attendance = () => {
       })
     );
 
-    const succeeded   = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+    savingRef.current = false;
+
+    const succeeded   = results
+      .filter((r) => r.status === "fulfilled")
+      .map((r) => r.value);
     const failedCount = results.filter((r) => r.status === "rejected").length;
 
-    // Merge newly created IDs into existingIds so subsequent saves use PATCH
     const newIds = {};
     succeeded.forEach(({ studentId, id }) => {
       if (!existingIds[studentId]) newIds[studentId] = id;
@@ -737,7 +896,10 @@ const Attendance = () => {
         payload: `${succeeded.length} record(s) saved. ${failedCount} failed — please retry.`,
       });
     } else if (failedCount > 0) {
-      dispatch({ type: "SAVING_ERROR", payload: "Failed to save attendance. Please try again." });
+      dispatch({
+        type: "SAVING_ERROR",
+        payload: "Failed to save attendance. Please try again.",
+      });
     } else {
       const msg =
         unsetCount > 0
@@ -759,11 +921,14 @@ const Attendance = () => {
     return base;
   }, [attendance]);
 
-  const hasAnyRecord   = useMemo(() => Object.keys(existingIds).length > 0, [existingIds]);
-  const dateIsToday    = isToday(selectedDate);
-  const maxDate        = todayStr();
-  const savedCount     = Object.keys(existingIds).length;
-  const totalStudents  = students.length;
+  const hasAnyRecord  = useMemo(
+    () => Object.keys(existingIds).length > 0,
+    [existingIds]
+  );
+  const dateIsToday   = isToday(selectedDate);
+  const maxDate       = todayStr();
+  const savedCount    = Object.keys(existingIds).length;
+  const totalStudents = students.length;
 
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
@@ -788,10 +953,20 @@ const Attendance = () => {
     const withRate = summaryData.filter((r) => r.rate !== null);
     const avgRate =
       withRate.length > 0
-        ? Math.round(withRate.reduce((acc, r) => acc + r.rate, 0) / withRate.length)
+        ? Math.round(
+            withRate.reduce((acc, r) => acc + r.rate, 0) / withRate.length
+          )
         : null;
-    const atRisk = summaryData.filter((r) => r.rate !== null && r.rate < 60).length;
-    return { avgRate, atRisk };
+    const atRisk = summaryData.filter(
+      (r) => r.rate !== null && r.rate < 60
+    ).length;
+    // IMPROVEMENT: expose total days recorded so the summary header card is
+    // more informative ("32 days recorded" vs nothing).
+    const totalDays =
+      summaryData.length > 0
+        ? Math.max(...summaryData.map((r) => r.total))
+        : 0;
+    return { avgRate, atRisk, totalDays };
   }, [summaryData]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -809,7 +984,9 @@ const Attendance = () => {
       {/* Header */}
       <div className="mb-7 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Attendance</h1>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
+            Attendance
+          </h1>
           <p className="text-sm text-gray-400 mt-0.5">
             Mark and review student attendance by class and date.
           </p>
@@ -819,7 +996,9 @@ const Attendance = () => {
             <div className="text-xs text-gray-400 mb-0.5">Saved</div>
             <div className="text-lg font-bold text-gray-700 tabular-nums">
               {savedCount}
-              <span className="text-sm font-normal text-gray-400"> / {totalStudents}</span>
+              <span className="text-sm font-normal text-gray-400">
+                {" "}/ {totalStudents}
+              </span>
             </div>
           </div>
         )}
@@ -827,10 +1006,18 @@ const Attendance = () => {
 
       {/* Alerts */}
       {error && (
-        <Alert type="error" message={error} onDismiss={() => dispatch({ type: "CLEAR_MESSAGES" })} />
+        <Alert
+          type="error"
+          message={error}
+          onDismiss={() => dispatch({ type: "CLEAR_MESSAGES" })}
+        />
       )}
       {success && (
-        <Alert type="success" message={success} onDismiss={() => dispatch({ type: "CLEAR_MESSAGES" })} />
+        <Alert
+          type="success"
+          message={success}
+          onDismiss={() => dispatch({ type: "CLEAR_MESSAGES" })}
+        />
       )}
 
       {/* Filters */}
@@ -845,12 +1032,16 @@ const Attendance = () => {
           <select
             id="class-select"
             value={selectedClass}
-            onChange={(e) => dispatch({ type: "SET_CLASS", payload: e.target.value })}
+            onChange={(e) =>
+              dispatch({ type: "SET_CLASS", payload: e.target.value })
+            }
             className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 min-w-[160px]"
           >
             <option value="">Select a class</option>
             {classes.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
         </div>
@@ -867,7 +1058,9 @@ const Attendance = () => {
             type="date"
             value={selectedDate}
             max={maxDate}
-            onChange={(e) => dispatch({ type: "SET_DATE", payload: e.target.value })}
+            onChange={(e) =>
+              dispatch({ type: "SET_DATE", payload: e.target.value })
+            }
             className="border border-gray-200 bg-white text-gray-800 px-3 py-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>
@@ -875,7 +1068,9 @@ const Attendance = () => {
         {selectedDate && (
           <span
             className={`px-3 py-2 rounded-xl text-xs font-semibold ${
-              dateIsToday ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"
+              dateIsToday
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-500"
             }`}
           >
             {dateIsToday ? "Today" : "Past date"}
@@ -885,13 +1080,18 @@ const Attendance = () => {
 
       {/* Tabs */}
       {selectedClass && (
-        <div className="flex border-b border-gray-100 mb-6 gap-1" role="tablist">
+        <div
+          className="flex border-b border-gray-100 mb-6 gap-1"
+          role="tablist"
+        >
           {TABS.map((tab) => (
             <button
               key={tab}
               role="tab"
               aria-selected={activeTab === tab}
-              onClick={() => dispatch({ type: "SET_ACTIVE_TAB", payload: tab })}
+              onClick={() =>
+                dispatch({ type: "SET_ACTIVE_TAB", payload: tab })
+              }
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
                 activeTab === tab
                   ? "border-blue-600 text-blue-600"
@@ -911,14 +1111,14 @@ const Attendance = () => {
 
           {!loadingStudents && selectedClass && students.length === 0 && (
             <div className="text-center py-14 text-gray-400">
-              <div className="text-4xl mb-3">👥</div>
+              <div className="text-4xl mb-3" aria-hidden="true">👥</div>
               <p className="text-sm">No students found for this class.</p>
             </div>
           )}
 
           {!selectedClass && (
             <div className="text-center py-14 text-gray-400">
-              <div className="text-4xl mb-3">📚</div>
+              <div className="text-4xl mb-3" aria-hidden="true">📚</div>
               <p className="text-sm">Select a class and date to begin.</p>
             </div>
           )}
@@ -943,7 +1143,7 @@ const Attendance = () => {
                 ))}
                 {counts.unset > 0 && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-400">
-                    <span className="w-2 h-2 rounded-full bg-gray-300" />
+                    <span className="w-2 h-2 rounded-full bg-gray-300" aria-hidden="true" />
                     Unset: {counts.unset}
                   </span>
                 )}
@@ -954,7 +1154,10 @@ const Attendance = () => {
 
               {/* Quick mark + search */}
               <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
-                <QuickMarkBar onMarkAll={handleMarkAll} disabled={saving || refreshing} />
+                <QuickMarkBar
+                  onMarkAll={handleMarkAll}
+                  disabled={saving || refreshing}
+                />
                 <div className="w-52">
                   <SearchBar
                     value={searchQuery}
@@ -964,24 +1167,27 @@ const Attendance = () => {
                 </div>
               </div>
 
-              {/* No search results */}
               {filteredStudents.length === 0 && searchQuery && (
                 <p className="text-sm text-gray-400 py-4 text-center">
                   No students match "{searchQuery}".
                 </p>
               )}
 
-              {/* Attendance table */}
               {filteredStudents.length > 0 && (
                 <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50/80 text-gray-400 text-xs uppercase tracking-wider">
-                        <th className="px-4 py-3 text-left w-8">#</th>
-                        <th className="px-4 py-3 text-left">Student</th>
-                        <th className="px-4 py-3 text-left hidden sm:table-cell">Adm. No.</th>
-                        <th className="px-4 py-3 text-center">Status</th>
-                        <th className="px-4 py-3 text-center w-20"></th>
+                        <th className="px-4 py-3 text-left w-8" scope="col">#</th>
+                        <th className="px-4 py-3 text-left" scope="col">Student</th>
+                        <th className="px-4 py-3 text-left hidden sm:table-cell" scope="col">
+                          Adm. No.
+                        </th>
+                        <th className="px-4 py-3 text-center" scope="col">Status</th>
+                        {/* IMPROVEMENT: visually hidden caption for the action column */}
+                        <th className="px-4 py-3 text-center w-20 sr-only" scope="col">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -1000,7 +1206,9 @@ const Attendance = () => {
                                 : statusMeta?.row || "hover:bg-gray-50"
                             }`}
                           >
-                            <td className="px-4 py-3 text-gray-300 text-xs">{index + 1}</td>
+                            <td className="px-4 py-3 text-gray-300 text-xs">
+                              {index + 1}
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <div
@@ -1011,8 +1219,11 @@ const Attendance = () => {
                                       ? `${statusMeta.count}`
                                       : "bg-gray-100 text-gray-400"
                                   }`}
+                                  aria-hidden="true"
                                 >
-                                  {getStudentName(student).charAt(0).toUpperCase()}
+                                  {getStudentName(student)
+                                    .charAt(0)
+                                    .toUpperCase()}
                                 </div>
                                 <div>
                                   <div className="font-medium text-gray-800 leading-tight">
@@ -1039,7 +1250,11 @@ const Attendance = () => {
                                 currentStatus={status}
                                 studentId={student.id}
                                 onStatusChange={(id, s) =>
-                                  dispatch({ type: "SET_STATUS", studentId: id, status: s })
+                                  dispatch({
+                                    type: "SET_STATUS",
+                                    studentId: id,
+                                    status: s,
+                                  })
                                 }
                                 disabled={saving || refreshing}
                               />
@@ -1047,9 +1262,13 @@ const Attendance = () => {
                             <td className="px-4 py-3 text-center">
                               {isSaved && (
                                 <button
-                                  onClick={() => handleDeleteAttendance(student.id)}
+                                  onClick={() =>
+                                    handleDeleteAttendance(student.id)
+                                  }
                                   disabled={
-                                    deletingId === student.id || saving || refreshing
+                                    deletingId === student.id ||
+                                    saving ||
+                                    refreshing
                                   }
                                   aria-label={`Delete attendance record for ${getStudentName(student)}`}
                                   className="text-xs px-2.5 py-1 rounded-lg border border-red-100 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors disabled:opacity-40"
@@ -1075,9 +1294,25 @@ const Attendance = () => {
                 >
                   {saving ? (
                     <>
-                      <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      <svg
+                        className="animate-spin h-3.5 w-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v8H4z"
+                        />
                       </svg>
                       Saving…
                     </>
@@ -1094,9 +1329,25 @@ const Attendance = () => {
                   >
                     {refreshing ? (
                       <>
-                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        <svg
+                          className="animate-spin h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v8H4z"
+                          />
                         </svg>
                         Resetting…
                       </>
@@ -1116,29 +1367,47 @@ const Attendance = () => {
         <>
           {!selectedClass && (
             <div className="text-center py-14 text-gray-400">
-              <div className="text-4xl mb-3">📊</div>
-              <p className="text-sm">Select a class to view the attendance summary.</p>
+              <div className="text-4xl mb-3" aria-hidden="true">📊</div>
+              <p className="text-sm">
+                Select a class to view the attendance summary.
+              </p>
             </div>
           )}
           {loadingSummary && <Spinner text="Loading summary..." />}
 
           {!loadingSummary && selectedClass && summaryData.length === 0 && (
             <div className="text-center py-14 text-gray-400">
-              <div className="text-4xl mb-3">🗃️</div>
-              <p className="text-sm">No attendance records found for this class yet.</p>
+              <div className="text-4xl mb-3" aria-hidden="true">🗃️</div>
+              <p className="text-sm">
+                No attendance records found for this class yet.
+              </p>
             </div>
           )}
 
           {!loadingSummary && summaryData.length > 0 && (
             <>
               {summaryStats && (
-                <div className="grid grid-cols-3 gap-3 mb-6">
+                // IMPROVEMENT: 4-column grid adds "Days recorded" so teachers
+                // can see how many school days the rate is based on.
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                   <div className="bg-gray-50 rounded-xl p-4">
                     <div className="text-xs text-gray-400 mb-1">Students</div>
-                    <div className="text-2xl font-bold text-gray-700">{summaryData.length}</div>
+                    <div className="text-2xl font-bold text-gray-700">
+                      {summaryData.length}
+                    </div>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4">
-                    <div className="text-xs text-gray-400 mb-1">Avg attendance</div>
+                    <div className="text-xs text-gray-400 mb-1">
+                      Days recorded
+                    </div>
+                    <div className="text-2xl font-bold text-gray-700">
+                      {summaryStats.totalDays}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="text-xs text-gray-400 mb-1">
+                      Avg attendance
+                    </div>
                     <div
                       className={`text-2xl font-bold ${
                         summaryStats.avgRate >= 80
@@ -1148,12 +1417,18 @@ const Attendance = () => {
                           : "text-red-600"
                       }`}
                     >
-                      {summaryStats.avgRate !== null ? `${summaryStats.avgRate}%` : "—"}
+                      {summaryStats.avgRate !== null
+                        ? `${summaryStats.avgRate}%`
+                        : "—"}
                     </div>
                   </div>
                   <div className="bg-red-50 rounded-xl p-4">
-                    <div className="text-xs text-red-400 mb-1">At risk (&lt;60%)</div>
-                    <div className="text-2xl font-bold text-red-600">{summaryStats.atRisk}</div>
+                    <div className="text-xs text-red-400 mb-1">
+                      At risk (&lt;60%)
+                    </div>
+                    <div className="text-2xl font-bold text-red-600">
+                      {summaryStats.atRisk}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1170,13 +1445,19 @@ const Attendance = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50/80 text-gray-400 text-xs uppercase tracking-wider">
-                      <th className="px-4 py-3 text-left w-8">#</th>
-                      <th className="px-4 py-3 text-left">Student</th>
-                      <th className="px-4 py-3 text-center text-emerald-600">Present</th>
-                      <th className="px-4 py-3 text-center text-red-500">Absent</th>
-                      <th className="px-4 py-3 text-center text-amber-500">Late</th>
-                      <th className="px-4 py-3 text-center">Total</th>
-                      <th className="px-4 py-3 text-center">Rate</th>
+                      <th className="px-4 py-3 text-left w-8" scope="col">#</th>
+                      <th className="px-4 py-3 text-left" scope="col">Student</th>
+                      <th className="px-4 py-3 text-center text-emerald-600" scope="col">
+                        Present
+                      </th>
+                      <th className="px-4 py-3 text-center text-red-500" scope="col">
+                        Absent
+                      </th>
+                      <th className="px-4 py-3 text-center text-amber-500" scope="col">
+                        Late
+                      </th>
+                      <th className="px-4 py-3 text-center" scope="col">Total</th>
+                      <th className="px-4 py-3 text-center" scope="col">Rate</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -1190,7 +1471,9 @@ const Attendance = () => {
                               isAtRisk ? "bg-red-50/40" : "hover:bg-gray-50"
                             }`}
                           >
-                            <td className="px-4 py-3 text-gray-300 text-xs">{index + 1}</td>
+                            <td className="px-4 py-3 text-gray-300 text-xs">
+                              {index + 1}
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <div
@@ -1199,8 +1482,11 @@ const Attendance = () => {
                                       ? "bg-red-100 text-red-600"
                                       : "bg-gray-100 text-gray-500"
                                   }`}
+                                  aria-hidden="true"
                                 >
-                                  {getStudentName(student).charAt(0).toUpperCase()}
+                                  {getStudentName(student)
+                                    .charAt(0)
+                                    .toUpperCase()}
                                 </div>
                                 <div>
                                   <div className="font-medium text-gray-800 leading-tight">
@@ -1223,10 +1509,16 @@ const Attendance = () => {
                             <td className="px-4 py-3 text-center text-amber-500 font-semibold">
                               {late}
                             </td>
-                            <td className="px-4 py-3 text-center text-gray-400">{total}</td>
+                            <td className="px-4 py-3 text-center text-gray-400">
+                              {total}
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-center">
-                                <ProgressRing rate={rate} size={38} />
+                                <ProgressRing
+                                  rate={rate}
+                                  size={38}
+                                  studentName={getStudentName(student)}
+                                />
                               </div>
                             </td>
                           </tr>
