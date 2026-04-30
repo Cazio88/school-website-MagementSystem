@@ -1,6 +1,12 @@
 # api/serializers/attendance_serializer.py
+import logging
+
+from django.utils import timezone
 from rest_framework import serializers
+
 from apps.attendance.models import Attendance
+
+logger = logging.getLogger(__name__)
 
 
 class AttendanceSerializer(serializers.ModelSerializer):
@@ -19,18 +25,6 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "status",
             "notes",
         ]
-        # FIX: term must NOT be read_only.
-        #
-        # The previous serializer marked term as read_only because the old
-        # model derived term from the calendar month inside save() — so client
-        # input was silently ignored regardless. That derivation has been
-        # removed (it was the root cause of the wrong-term bug).
-        #
-        # Term and year are now stamped by perform_create in the viewset using
-        # settings.CURRENT_TERM / CURRENT_YEAR. They must be writable so that
-        # stamp actually reaches the database. They are also kept writable for
-        # admin commands that need to set them explicitly (e.g. historical
-        # data imports).
         read_only_fields = ["id", "student_name"]
 
     # ------------------------------------------------------------------
@@ -46,20 +40,26 @@ class AttendanceSerializer(serializers.ModelSerializer):
 
     def validate_date(self, value):
         """Reject future dates before anything else runs."""
-        from django.utils import timezone
         if value > timezone.localdate():
             raise serializers.ValidationError(
                 "Attendance cannot be recorded for a future date."
             )
         return value
 
-    def validate_term(self, value):
-        """Ensure the submitted term is one of the known choices."""
-        valid = {choice[0] for choice in Attendance.Term.choices}
-        if value not in valid:
+    # IMPROVEMENT: validate_term removed — it exactly duplicates the model's
+    # clean() which fires via full_clean() in validate() below. Having the
+    # same check in two places means two different error messages can appear
+    # for the same violation, and any future change must be made twice.
+    # The model is the authoritative source of truth for field constraints.
+
+    # IMPROVEMENT: validate_year added so implausible years are rejected at
+    # the API boundary with a clear message rather than relying solely on the
+    # model's clean().
+    def validate_year(self, value):
+        current_year = timezone.localdate().year
+        if value < 2000 or value > current_year + 1:
             raise serializers.ValidationError(
-                f"'{value}' is not a valid term. "
-                f"Expected one of: {', '.join(sorted(valid))}."
+                f"'{value}' is not a plausible school year."
             )
         return value
 
@@ -92,8 +92,14 @@ class AttendanceSerializer(serializers.ModelSerializer):
 
         # 2 — Django model validation (clean, unique_together, etc.)
         if self.instance:
-            # PATCH: overlay changed fields onto the live instance
-            tmp = self.instance
+            # PATCH: overlay changed fields onto a *copy* of the live instance
+            # so we don't mutate the cached instance before the save.
+            # IMPROVEMENT: previously `tmp = self.instance` then mutated it in
+            # place — that corrupts the cached object if validation raises.
+            tmp = Attendance(**{
+                f.attname: getattr(self.instance, f.attname)
+                for f in Attendance._meta.concrete_fields
+            })
             for attr, val in data.items():
                 setattr(tmp, attr, val)
         else:
@@ -120,10 +126,9 @@ class AttendanceSerializer(serializers.ModelSerializer):
           Case A — ForeignKey:   Student.school_class  → SchoolClass
           Case B — ManyToMany:   Student.school_classes → SchoolClass
 
-        Adjust the attribute names if your Student model differs.
-        If the relationship cannot be determined, returns True so the
-        DB constraint is the last line of defence rather than silently
-        blocking valid records.
+        IMPROVEMENT: unknown relationship now logs a warning so developers
+        are alerted during testing rather than silently falling through to DB
+        constraints (which produce less readable errors).
         """
         # Case A: direct FK
         if hasattr(student, "school_class_id"):
@@ -133,4 +138,10 @@ class AttendanceSerializer(serializers.ModelSerializer):
         if hasattr(student, "school_classes"):
             return student.school_classes.filter(pk=school_class.pk).exists()
 
-        return True  # unknown relationship — let DB constraints decide
+        # IMPROVEMENT: log the gap rather than failing silently
+        logger.warning(
+            "AttendanceSerializer._is_enrolled: could not determine enrollment "
+            "relationship for student pk=%s. Falling back to DB constraints.",
+            student.pk,
+        )
+        return True  # let DB constraints be the last line of defence
