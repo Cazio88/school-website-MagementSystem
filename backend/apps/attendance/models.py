@@ -18,13 +18,6 @@ def _get_current_term() -> str:
     Reads CURRENT_TERM from Django settings — the single place the school
     updates at the start of each term.
 
-    WHY NOT derive from calendar month?
-    The old _derive_term(month) mapped month <= 4 → term1, which meant
-    April (month 4) always produced "term1" even though the school is in
-    Term 3. School terms do not align with calendar months, so deriving
-    term from the date is inherently wrong and was the root cause of
-    attendance records landing on the wrong term.
-
     Set in settings.py:
         CURRENT_TERM = "term3"   # update at the start of each term
         CURRENT_YEAR = 2025
@@ -33,7 +26,7 @@ def _get_current_term() -> str:
 
 
 def _get_current_year() -> int:
-    return getattr(settings, "CURRENT_YEAR", 2025)
+    return getattr(settings, "CURRENT_YEAR", timezone.now().year)
 
 
 # ---------------------------------------------------------------------------
@@ -62,8 +55,6 @@ class Attendance(models.Model):
         on_delete=models.CASCADE,
         related_name="attendances",
     )
-    # FIX: default is now a callable that reads settings.CURRENT_TERM,
-    # not a function that derives term from the calendar month.
     term = models.CharField(
         max_length=10,
         choices=Term.choices,
@@ -92,15 +83,17 @@ class Attendance(models.Model):
             models.Index(fields=["student", "term"]),
             models.Index(fields=["school_class", "date"]),
             models.Index(fields=["school_class", "term", "date"]),
+            # IMPROVEMENT: composite index covering the common summary query
+            # (class + term + year + status) avoids a sequential scan when
+            # computing per-student attendance rates for a given term.
+            models.Index(fields=["school_class", "term", "year", "status"]),
         ]
 
     def __str__(self):
         return f"{self.student} — {self.date} — {self.get_status_display()}"
 
     # ------------------------------------------------------------------
-    # Validation — called by full_clean(), ModelForms, and the admin.
-    # The serializer calls full_clean() before any DB write (see
-    # attendance_serializer.py) so this runs at the API boundary too.
+    # Validation
     # ------------------------------------------------------------------
 
     def clean(self):
@@ -109,6 +102,14 @@ class Attendance(models.Model):
         if self.date and self.date > timezone.localdate():
             raise ValidationError(
                 {"date": "Attendance cannot be recorded for a future date."}
+            )
+
+        # IMPROVEMENT: validate year is a plausible school year so garbage
+        # data from imports cannot slip through. Adjust the lower bound as
+        # needed for historical data.
+        if self.year and (self.year < 2000 or self.year > timezone.localdate().year + 1):
+            raise ValidationError(
+                {"year": f"'{self.year}' is not a plausible school year."}
             )
 
         valid_terms = {choice[0] for choice in self.Term.choices}
@@ -123,11 +124,9 @@ class Attendance(models.Model):
             )
 
     # ------------------------------------------------------------------
-    # Save — no full_clean() here (see docstring on old model for why)
+    # Save — no-op override removed; super().save() is called implicitly.
+    # Keeping a pass-through save() adds maintenance surface for no gain.
     # ------------------------------------------------------------------
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
 
     # ------------------------------------------------------------------
     # Convenience properties
@@ -144,3 +143,10 @@ class Attendance(models.Model):
     @property
     def is_late(self) -> bool:
         return self.status == self.Status.LATE
+
+    # IMPROVEMENT: single helper used by views/serializers that need to check
+    # "counts toward attendance rate" logic in one place.
+    @property
+    def counts_as_present(self) -> bool:
+        """Present *and* late both count toward the attendance rate."""
+        return self.status in (self.Status.PRESENT, self.Status.LATE)
