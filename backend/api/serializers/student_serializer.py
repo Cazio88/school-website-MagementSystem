@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from apps.students.models import Student
 
+
 class StudentSerializer(serializers.ModelSerializer):
     # ── Read-only computed fields ──────────────────────────────
     username     = serializers.SerializerMethodField()
@@ -41,11 +42,22 @@ class StudentSerializer(serializers.ModelSerializer):
             "previous_school": {"required": False},
         }
 
+    def _get_user(self, obj):
+        """Safely return the related user, or None if missing/broken."""
+        if not obj.user_id:          # check the raw FK column — no DB query
+            return None
+        try:
+            return obj.user          # hits cache if select_related was used
+        except Exception:
+            return None
+
     def get_username(self, obj):
-        return obj.user.username if obj.user else None
+        user = self._get_user(obj)
+        return user.username if user else None
 
     def get_email(self, obj):
-        return obj.user.email if obj.user else None
+        user = self._get_user(obj)
+        return user.email if user else None
 
     def get_student_name(self, obj):
         return obj.full_name
