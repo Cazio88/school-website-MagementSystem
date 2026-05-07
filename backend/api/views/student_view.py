@@ -5,10 +5,8 @@ from api.serializers.student_serializer import StudentSerializer
 
 
 class StudentViewSet(ModelViewSet):
-
-    queryset         = Student.objects.all()
+    queryset         = Student.objects.select_related("user", "school_class").all()
     serializer_class = StudentSerializer
-    # Accept multipart so photo uploads work on PUT/PATCH
     parser_classes   = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
