@@ -1,12 +1,10 @@
 from rest_framework import serializers
 from apps.students.models import Student
 
-
 class StudentSerializer(serializers.ModelSerializer):
-
     # ── Read-only computed fields ──────────────────────────────
-    username     = serializers.CharField(source="user.username", read_only=True)
-    email        = serializers.EmailField(source="user.email",   read_only=True)
+    username     = serializers.SerializerMethodField()
+    email        = serializers.SerializerMethodField()
     student_name = serializers.SerializerMethodField()
     class_name   = serializers.CharField(
         source="school_class.name", read_only=True, allow_null=True
@@ -16,27 +14,14 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Student
         fields = [
-            # identity
             "id", "username", "email",
             "admission_number", "admission_date",
-
-            # names
             "student_name", "first_name", "last_name",
-
-            # class
             "school_class", "class_name",
-
-            # photo
             "photo", "photo_url",
-
-            # personal
             "gender", "date_of_birth", "phone", "address",
             "nationality", "religion", "health_notes",
-
-            # parent
             "parent_name", "parent_phone",
-
-            # academic history
             "previous_school",
         ]
         extra_kwargs = {
@@ -56,7 +41,12 @@ class StudentSerializer(serializers.ModelSerializer):
             "previous_school": {"required": False},
         }
 
-    # ── Custom field getters ───────────────────────────────────
+    def get_username(self, obj):
+        return obj.user.username if obj.user else None
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else None
+
     def get_student_name(self, obj):
         return obj.full_name
 
@@ -68,7 +58,6 @@ class StudentSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
-    # ── Always serve photo as URL, never raw Cloudinary ID ────
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["photo"] = self.get_photo_url(instance)
