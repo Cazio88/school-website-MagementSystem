@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class AdmissionViewSet(ModelViewSet):
-
-    queryset         = Admission.objects.all().order_by("-application_date")
+    queryset         = Admission.objects.select_related("applied_class").all().order_by("-application_date")
     serializer_class = AdmissionSerializer
     parser_classes   = [MultiPartParser, FormParser, JSONParser]
 
