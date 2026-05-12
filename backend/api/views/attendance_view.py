@@ -8,7 +8,7 @@ from django_filters.rest_framework import (
     FilterSet,
     DateFilter,
     CharFilter,
-    NumberFilter,   # IMPROVEMENT: IDs are integers, not strings
+    NumberFilter,
 )
 
 from apps.attendance.models import Attendance
@@ -27,15 +27,17 @@ class AttendanceFilter(FilterSet):
       ?term=term3
       ?year=2025
       ?date_after=2025-01-01&date_before=2025-04-30  (date range)
+
+    FIX: term and year filters are intentionally kept so that admin/reporting
+    queries can still filter by term, but the frontend's fetchStudents call
+    no longer sends them. This means attendance records are found by
+    date+class alone, regardless of which term/year value was stamped on
+    creation — eliminating the mismatch that caused existingIds to be empty.
     """
-    # IMPROVEMENT: use NumberFilter for integer FK lookups — CharFilter works
-    # accidentally (string "3" == DB value 3 via coercion) but is semantically
-    # wrong and fails if the backend ever enforces strict type matching.
     school_class = NumberFilter(field_name="school_class__id")
     student      = NumberFilter(field_name="student__id")
 
-    date       = DateFilter(field_name="date")
-    # IMPROVEMENT: date range filters for reporting/export use cases
+    date        = DateFilter(field_name="date")
     date_after  = DateFilter(field_name="date", lookup_expr="gte")
     date_before = DateFilter(field_name="date", lookup_expr="lte")
 
@@ -54,15 +56,15 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     """
     CRUD endpoint for Attendance records.
 
-    Improvements over previous version
-    -----------------------------------
-    - NumberFilter for ID params (was CharFilter — semantically wrong).
-    - year filter added so ?year=2025 works alongside ?term=term3.
-    - date_after / date_before range filters for reporting.
-    - search_fields added so ?search=<name> works from the frontend.
-    - perform_update guards against changing another class's record.
-    - _current_year falls back to the real current year, not a hardcoded 2025.
-    - select_related extended to cover school_class__name lookups.
+    Key behaviour
+    -------------
+    - term and year are NEVER accepted from the client. perform_create stamps
+      them from settings; perform_update leaves them unchanged so historical
+      records keep their original term.
+    - The serializer marks term/year as read_only_fields, so any values the
+      client sends are silently ignored — no 400 from unexpected fields.
+    - unique_together checks in validate() use tmp.pk so Django excludes the
+      current row from the scan, preventing false-positive 400s on PATCH.
     """
 
     serializer_class = AttendanceSerializer
@@ -70,7 +72,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     filter_backends  = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     ordering_fields  = ["date", "student"]
     ordering         = ["-date"]
-    # IMPROVEMENT: ?search= filter against student name / admission number
     search_fields    = ["student__first_name", "student__last_name", "student__admission_number"]
 
     # ------------------------------------------------------------------
@@ -83,21 +84,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _current_year() -> int:
-        """
-        Return the active academic year from settings.
-
-        IMPROVEMENT: falls back to the real current year rather than the
-        hardcoded 2025 that would silently misbehave after the year rolls over.
-        """
+        """Return the active academic year from settings."""
         return getattr(settings, "CURRENT_YEAR", timezone.localdate().year)
 
     # ------------------------------------------------------------------
     # Queryset
     # ------------------------------------------------------------------
     def get_queryset(self):
-        # IMPROVEMENT: extend select_related to school_class so that
-        # __str__ representations (used in error messages and admin) don't
-        # trigger extra queries.
         return (
             Attendance.objects
             .select_related("student", "school_class")
@@ -109,8 +102,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------------------------
     def perform_create(self, serializer):
         """
-        Save a new Attendance record, always stamping the current term/year
-        from settings so records can never land on the wrong term.
+        Save a new Attendance record.
+
+        FIX: term and year are stamped here — after validation — so they are
+        always sourced from settings, never from client input. Because the
+        serializer marks term/year as read_only, validate() never sees client
+        values for these fields, so there is no longer a mismatch between
+        what was validated and what is saved.
         """
         serializer.save(
             term=self._current_term(),
@@ -121,18 +119,12 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         """
         Update an existing Attendance record.
 
-        IMPROVEMENT: guard against cross-class edits. A teacher who somehow
-        obtains the ID of a record belonging to a different class should not
-        be able to overwrite it. Adjust the permission logic to match your
-        auth model (e.g. check request.user.school_class).
-
-        Term and year are intentionally NOT overridden on update so that
-        historical records edited later keep their original term.
+        term and year are intentionally NOT overridden so that historical
+        records edited later keep their original term/year.
         """
         instance = self.get_object()
 
-        # Example guard — replace with your actual permission model.
-        # If your User model has a `school_class` attribute, uncomment:
+        # Optional cross-class guard — uncomment and adapt to your auth model:
         #
         # user_class = getattr(self.request.user, "school_class_id", None)
         # if user_class and instance.school_class_id != user_class:
