@@ -25,10 +25,10 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "status",
             "notes",
         ]
-        # FIX: term and year are now read-only — the backend (perform_create)
-        # is the sole authority for stamping them. Clients can read these
-        # values but can never supply conflicting ones that would cause
-        # validate() to see different values than what actually gets saved.
+        # term and year are read-only — perform_create is the sole authority
+        # for stamping them. Clients can read these values but cannot supply
+        # conflicting ones that would cause validate() to see different values
+        # than what actually gets saved.
         read_only_fields = ["id", "student_name", "term", "year"]
 
     # ------------------------------------------------------------------
@@ -51,10 +51,8 @@ class AttendanceSerializer(serializers.ModelSerializer):
         return value
 
     def validate_year(self, value):
-        # NOTE: this only fires when year is writable. With year in
-        # read_only_fields this method is never called from client input,
-        # but is kept here as a safeguard in case read_only_fields is
-        # changed in future.
+        # Only fires when year is writable. Kept as a safeguard in case
+        # read_only_fields is changed in future.
         current_year = timezone.localdate().year
         if value < 2000 or value > current_year + 1:
             raise serializers.ValidationError(
@@ -74,16 +72,26 @@ class AttendanceSerializer(serializers.ModelSerializer):
            submitted school_class. PATCH-safe: falls back to the existing
            instance values for any field not included in the request.
 
-        2. Model-level clean() — builds a temporary unsaved instance and
-           calls full_clean() so Django's own constraints (unique_together,
-           clean() hooks) fire BEFORE any DB write. Errors are re-raised as
-           DRF ValidationError so the response shape stays consistent.
+        2. Model-level clean() — builds a temporary instance and calls
+           full_clean() so Django's constraints (unique_together, clean()
+           hooks) fire BEFORE any DB write.
 
-        FIX: tmp.pk is explicitly set to self.instance.pk so that Django's
-        unique_together check knows to exclude this very row from the
-        uniqueness scan (the previous code set pk via the attname loop which
-        should have worked, but being explicit removes all ambiguity and
-        makes the intent clear to future readers).
+        Why _state.adding = False matters
+        ----------------------------------
+        Django's validate_unique() excludes the current row from the
+        unique_together scan by checking two things:
+          a) instance.pk is not None
+          b) instance._state.adding is False
+
+        A freshly constructed Attendance(**{...}) always has _state.adding=True
+        even when pk is set manually, because Django sets that flag in
+        Model.__init__ based on whether the instance was loaded from the DB.
+        With _state.adding=True Django treats the object as a brand-new unsaved
+        row and finds the live DB record as a conflict — producing the false
+        "already exists" 400 on every PATCH.
+
+        Setting tmp._state.adding = False after construction tells Django
+        "this object already exists in the DB; exclude it from the scan."
         """
         # PATCH safety: use current instance values for omitted fields
         student      = data.get("student")      or (self.instance and self.instance.student)
@@ -105,29 +113,25 @@ class AttendanceSerializer(serializers.ModelSerializer):
             })
             for attr, val in data.items():
                 setattr(tmp, attr, val)
+
+            # Tell Django this is an existing DB row so validate_unique()
+            # excludes it from the unique_together scan. Without this,
+            # _state.adding defaults to True and the live row is seen as a
+            # duplicate of itself, producing a false 400 on every PATCH.
+            tmp.pk = self.instance.pk
+            tmp._state.adding = False
         else:
             tmp = Attendance(**data)
-
-        # FIX: set pk explicitly so Django excludes this row from
-        # unique_together checks — prevents "already exists" false positives
-        # on PATCH requests and on POST when term/year are stamped by
-        # perform_create after validation.
-        tmp.pk = self.instance.pk if self.instance else None
+            # New record: pk=None, _state.adding=True — Django defaults,
+            # no changes needed.
 
         try:
-            # Always exclude "id" from full_clean.
-            #
-            # Django's AutoField carries its own unique constraint and
-            # full_clean() validates it independently of unique_together.
-            # On updates, even with tmp.pk correctly set, the id field
-            # validator queries the DB for any row with that id and raises
-            # "Attendance with this ID already exists." — because the live
-            # row IS there. Setting tmp.pk only suppresses the unique_together
-            # check, not the per-field unique check on id itself.
-            #
-            # Excluding "id" is always safe: DRF already validates the PK
-            # via the URL kwarg lookup before the serializer runs, so we are
-            # not losing any real validation here.
+            # Always exclude "id": the AutoField has its own unique constraint
+            # that full_clean() checks independently of unique_together. Even
+            # with _state.adding=False, the per-field unique check on id still
+            # finds the live row and raises "already exists". Excluding "id" is
+            # safe — DRF validates the PK via the URL lookup before the
+            # serializer runs.
             tmp.full_clean(exclude=["id"])
         except Exception as exc:
             logger.error(
