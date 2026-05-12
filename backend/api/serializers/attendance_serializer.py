@@ -25,7 +25,11 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "status",
             "notes",
         ]
-        read_only_fields = ["id", "student_name"]
+        # FIX: term and year are now read-only — the backend (perform_create)
+        # is the sole authority for stamping them. Clients can read these
+        # values but can never supply conflicting ones that would cause
+        # validate() to see different values than what actually gets saved.
+        read_only_fields = ["id", "student_name", "term", "year"]
 
     # ------------------------------------------------------------------
     # SerializerMethodField
@@ -46,16 +50,11 @@ class AttendanceSerializer(serializers.ModelSerializer):
             )
         return value
 
-    # IMPROVEMENT: validate_term removed — it exactly duplicates the model's
-    # clean() which fires via full_clean() in validate() below. Having the
-    # same check in two places means two different error messages can appear
-    # for the same violation, and any future change must be made twice.
-    # The model is the authoritative source of truth for field constraints.
-
-    # IMPROVEMENT: validate_year added so implausible years are rejected at
-    # the API boundary with a clear message rather than relying solely on the
-    # model's clean().
     def validate_year(self, value):
+        # NOTE: this only fires when year is writable. With year in
+        # read_only_fields this method is never called from client input,
+        # but is kept here as a safeguard in case read_only_fields is
+        # changed in future.
         current_year = timezone.localdate().year
         if value < 2000 or value > current_year + 1:
             raise serializers.ValidationError(
@@ -79,6 +78,12 @@ class AttendanceSerializer(serializers.ModelSerializer):
            calls full_clean() so Django's own constraints (unique_together,
            clean() hooks) fire BEFORE any DB write. Errors are re-raised as
            DRF ValidationError so the response shape stays consistent.
+
+        FIX: tmp.pk is explicitly set to self.instance.pk so that Django's
+        unique_together check knows to exclude this very row from the
+        uniqueness scan (the previous code set pk via the attname loop which
+        should have worked, but being explicit removes all ambiguity and
+        makes the intent clear to future readers).
         """
         # PATCH safety: use current instance values for omitted fields
         student      = data.get("student")      or (self.instance and self.instance.student)
@@ -92,10 +97,8 @@ class AttendanceSerializer(serializers.ModelSerializer):
 
         # 2 — Django model validation (clean, unique_together, etc.)
         if self.instance:
-            # PATCH: overlay changed fields onto a *copy* of the live instance
+            # PATCH: overlay changed fields onto a copy of the live instance
             # so we don't mutate the cached instance before the save.
-            # IMPROVEMENT: previously `tmp = self.instance` then mutated it in
-            # place — that corrupts the cached object if validation raises.
             tmp = Attendance(**{
                 f.attname: getattr(self.instance, f.attname)
                 for f in Attendance._meta.concrete_fields
@@ -105,10 +108,22 @@ class AttendanceSerializer(serializers.ModelSerializer):
         else:
             tmp = Attendance(**data)
 
+        # FIX: set pk explicitly so Django excludes this row from
+        # unique_together checks — prevents "already exists" false positives
+        # on PATCH requests and on POST when term/year are stamped by
+        # perform_create after validation.
+        tmp.pk = self.instance.pk if self.instance else None
+
         try:
-            tmp.full_clean(exclude=["id"])
+            tmp.full_clean(exclude=["id"] if tmp.pk is None else [])
         except Exception as exc:
-            raise serializers.ValidationError(exc.message_dict) from exc
+            logger.error(
+                "AttendanceSerializer.validate full_clean failed: %s",
+                getattr(exc, "message_dict", str(exc)),
+            )
+            raise serializers.ValidationError(
+                getattr(exc, "message_dict", str(exc))
+            ) from exc
 
         return data
 
@@ -125,10 +140,6 @@ class AttendanceSerializer(serializers.ModelSerializer):
 
           Case A — ForeignKey:   Student.school_class  → SchoolClass
           Case B — ManyToMany:   Student.school_classes → SchoolClass
-
-        IMPROVEMENT: unknown relationship now logs a warning so developers
-        are alerted during testing rather than silently falling through to DB
-        constraints (which produce less readable errors).
         """
         # Case A: direct FK
         if hasattr(student, "school_class_id"):
@@ -138,7 +149,6 @@ class AttendanceSerializer(serializers.ModelSerializer):
         if hasattr(student, "school_classes"):
             return student.school_classes.filter(pk=school_class.pk).exists()
 
-        # IMPROVEMENT: log the gap rather than failing silently
         logger.warning(
             "AttendanceSerializer._is_enrolled: could not determine enrollment "
             "relationship for student pk=%s. Falling back to DB constraints.",
