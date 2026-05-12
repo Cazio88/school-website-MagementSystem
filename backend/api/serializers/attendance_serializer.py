@@ -115,7 +115,20 @@ class AttendanceSerializer(serializers.ModelSerializer):
         tmp.pk = self.instance.pk if self.instance else None
 
         try:
-            tmp.full_clean(exclude=["id"] if tmp.pk is None else [])
+            # Always exclude "id" from full_clean.
+            #
+            # Django's AutoField carries its own unique constraint and
+            # full_clean() validates it independently of unique_together.
+            # On updates, even with tmp.pk correctly set, the id field
+            # validator queries the DB for any row with that id and raises
+            # "Attendance with this ID already exists." — because the live
+            # row IS there. Setting tmp.pk only suppresses the unique_together
+            # check, not the per-field unique check on id itself.
+            #
+            # Excluding "id" is always safe: DRF already validates the PK
+            # via the URL kwarg lookup before the serializer runs, so we are
+            # not losing any real validation here.
+            tmp.full_clean(exclude=["id"])
         except Exception as exc:
             logger.error(
                 "AttendanceSerializer.validate full_clean failed: %s",
