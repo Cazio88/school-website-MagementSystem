@@ -11,19 +11,18 @@ import API from "../services/api";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-// IMPROVEMENT: read from env so a Vite/CRA build can set these per-environment
-// without touching source. Falls back to the safe defaults.
+// FIX: CURRENT_TERM and CURRENT_YEAR are no longer sent to the backend on
+// writes — the backend (perform_create) stamps them authoritatively. These
+// constants are kept only for the summary fetch filter, which is a reporting
+// query where term-scoping is intentional. They are explicitly NOT used in
+// fetchStudents or submitAttendance to avoid mismatches with settings values.
 const CURRENT_TERM = import.meta?.env?.VITE_CURRENT_TERM ?? "term3";
 const CURRENT_YEAR = Number(import.meta?.env?.VITE_CURRENT_YEAR ?? 2026);
-// IMPROVEMENT: cap page fetches to prevent an infinite loop if the backend
-// ever returns a malformed "next" cursor that points back to itself.
+
 const MAX_SUMMARY_PAGES = 20;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// todayStr is a function so it's evaluated fresh on each call — the previous
-// module-level constant would return the wrong date if the tab stayed open
-// past midnight.
 const todayStr = () => new Date().toISOString().split("T")[0];
 
 const STATUS_OPTIONS = [
@@ -107,19 +106,15 @@ const formatDate = (dateStr) =>
     day: "numeric",
   });
 
-// Extract just the path+query from an absolute URL so Axios doesn't
-// double-prepend its own baseURL.
 const extractPath = (url) => {
   try {
     const parsed = new URL(url);
     return parsed.pathname + parsed.search;
   } catch {
-    return url; // already a relative path
+    return url;
   }
 };
 
-// IMPROVEMENT: guard with MAX_SUMMARY_PAGES to prevent runaway pagination if
-// the backend returns a broken "next" cursor.
 const fetchAllPages = async (url) => {
   const records = [];
   let nextUrl = url;
@@ -199,7 +194,6 @@ const reducer = (state, action) => {
         students: [],
         attendance: {},
         existingIds: {},
-        // summaryData intentionally NOT cleared — summary is class-scoped
         error: "",
         success: "",
       };
@@ -379,7 +373,6 @@ const RateBar = ({ rate }) => {
         aria-valuenow={rate}
         aria-valuemin={0}
         aria-valuemax={100}
-        // IMPROVEMENT: meaningful aria-label so screen readers announce the rate
         aria-label={`Attendance rate: ${label}`}
       >
         <div
@@ -483,8 +476,6 @@ const SearchBar = ({ value, onChange, placeholder }) => (
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      // IMPROVEMENT: type="search" gives mobile keyboards a search action key
-      // and lets browsers show their native clear button as a fallback.
       className="w-full border border-gray-200 bg-white text-gray-800 pl-9 pr-3 py-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-gray-300"
     />
     {value && (
@@ -499,8 +490,6 @@ const SearchBar = ({ value, onChange, placeholder }) => (
   </div>
 );
 
-// IMPROVEMENT: ProgressRing now exposes a proper aria-label so screen readers
-// announce the attendance rate instead of reading meaningless SVG numbers.
 const ProgressRing = ({ rate, size = 36, studentName = "" }) => {
   if (rate === null)
     return <span className="text-gray-300 text-xs">—</span>;
@@ -559,7 +548,6 @@ const ProgressRing = ({ rate, size = 36, studentName = "" }) => {
 };
 
 const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
-  // IMPROVEMENT: trap focus inside dialog; aria-modal signals this to AT.
   <div
     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
     role="dialog"
@@ -571,8 +559,6 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
       <div className="flex gap-3 justify-end">
         <button
           onClick={onCancel}
-          // IMPROVEMENT: autoFocus on the safe action so Enter doesn't
-          // accidentally confirm a destructive operation.
           autoFocus
           className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
         >
@@ -619,8 +605,6 @@ const Attendance = () => {
 
   const successTimer = useRef(null);
 
-  // IMPROVEMENT: clear timer on unmount to prevent the "setState on unmounted
-  // component" warning that the previous effect teardown didn't handle.
   useEffect(() => {
     return () => {
       if (successTimer.current) clearTimeout(successTimer.current);
@@ -654,12 +638,23 @@ const Attendance = () => {
     try {
       const [studRes, attRes] = await Promise.all([
         API.get(`/students/?school_class=${classId}`),
-        API.get(
-          `/attendance/?date=${date}&school_class=${classId}&term=${CURRENT_TERM}&year=${CURRENT_YEAR}`
-        ),
+        // FIX: removed &term=...&year=... from this query.
+        //
+        // Previously the frontend filtered attendance by its own CURRENT_TERM
+        // and CURRENT_YEAR env vars. If those differed from settings values on
+        // the backend (which stamps term/year at save time), existing records
+        // would not be found, existingIds would be empty, and every subsequent
+        // save would attempt a POST instead of a PATCH — hitting unique_together
+        // and returning 400.
+        //
+        // Querying by date+class alone finds records regardless of which
+        // term/year they were stored under, which is the correct behaviour for
+        // the mark-attendance flow.
+        API.get(`/attendance/?date=${date}&school_class=${classId}`),
       ]);
+
       const studentList = studRes.data.results ?? studRes.data;
-      const existing = attRes.data.results ?? attRes.data;
+      const existing    = attRes.data.results ?? attRes.data;
       const isDateToday = isToday(date);
       const newAttendance = {};
       const newIds = {};
@@ -697,6 +692,9 @@ const Attendance = () => {
         API.get(`/students/?school_class=${classId}`).then(
           (r) => r.data.results ?? r.data
         ),
+        // Summary intentionally keeps term+year so it stays scoped to the
+        // current academic term — this is a reporting view, not a live-edit
+        // view, so term-scoping is correct here.
         fetchAllPages(
           `/attendance/?school_class=${classId}&term=${CURRENT_TERM}&year=${CURRENT_YEAR}&page_size=100`
         ),
@@ -712,8 +710,7 @@ const Attendance = () => {
         const present = sr.filter((a) => a.status === "present").length;
         const absent  = sr.filter((a) => a.status === "absent").length;
         const late    = sr.filter((a) => a.status === "late").length;
-        // IMPROVEMENT: (present + late) / total matches the model's
-        // counts_as_present property — late students are not penalised.
+        // (present + late) / total: late counts as present per model semantics
         const rate =
           total > 0
             ? Math.round(((present + late) / total) * 100)
@@ -812,9 +809,6 @@ const Attendance = () => {
     });
   };
 
-  // IMPROVEMENT: savingRef prevents a double-submission if the user clicks
-  // "Save Attendance" twice before the first request resolves (the `saving`
-  // state flag alone has a 1-render race window).
   const savingRef = useRef(false);
 
   const submitAttendance = async () => {
@@ -857,17 +851,26 @@ const Attendance = () => {
         const studentId  = student.id;
         const status     = attendance[studentId];
         const existingId = existingIds[studentId];
+
         if (existingId) {
+          // PATCH — only send the changed field.
+          // term and year are read-only on the backend and must not be sent;
+          // sending them would be ignored anyway, but omitting keeps the
+          // payload minimal and intentions clear.
           const res = await API.patch(`/attendance/${existingId}/`, { status });
           return { studentId, id: res.data.id };
         } else {
+          // POST — send student, class, date, status only.
+          // FIX: term and year removed from POST body. The backend's
+          // perform_create stamps them from settings, which is the single
+          // source of truth. Sending them from the frontend caused a mismatch
+          // between validated values and saved values when env vars diverged
+          // from settings, triggering unique_together violations (400).
           const res = await API.post("/attendance/", {
             student:      studentId,
             school_class: selectedClass,
             date:         selectedDate,
             status,
-            term:         CURRENT_TERM,
-            year:         CURRENT_YEAR,
           });
           return { studentId, id: res.data.id };
         }
@@ -959,8 +962,6 @@ const Attendance = () => {
     const atRisk = summaryData.filter(
       (r) => r.rate !== null && r.rate < 60
     ).length;
-    // IMPROVEMENT: expose total days recorded so the summary header card is
-    // more informative ("32 days recorded" vs nothing).
     const totalDays =
       summaryData.length > 0
         ? Math.max(...summaryData.map((r) => r.total))
@@ -1183,7 +1184,6 @@ const Attendance = () => {
                           Adm. No.
                         </th>
                         <th className="px-4 py-3 text-center" scope="col">Status</th>
-                        {/* IMPROVEMENT: visually hidden caption for the action column */}
                         <th className="px-4 py-3 text-center w-20 sr-only" scope="col">
                           Actions
                         </th>
@@ -1386,8 +1386,6 @@ const Attendance = () => {
           {!loadingSummary && summaryData.length > 0 && (
             <>
               {summaryStats && (
-                // IMPROVEMENT: 4-column grid adds "Days recorded" so teachers
-                // can see how many school days the rate is based on.
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                   <div className="bg-gray-50 rounded-xl p-4">
                     <div className="text-xs text-gray-400 mb-1">Students</div>
