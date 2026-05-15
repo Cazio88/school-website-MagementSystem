@@ -65,6 +65,7 @@ const TABS = [
   { key: "Classes",       icon: "🏫", label: "Classes"       },
   { key: "Attendance",    icon: "📋", label: "Attendance"    },
   { key: "Results",       icon: "📊", label: "Results"       },
+  { key: "Character",     icon: "🌟", label: "Character"     },
   { key: "Reports",       icon: "📄", label: "Reports"       },
   { key: "Announcements", icon: "📢", label: "Announcements" },
 ];
@@ -79,24 +80,79 @@ const STATUS_CONFIG = {
 const todayStr = new Date().toISOString().split("T")[0];
 
 // ─────────────────────────────────────────────
-// Score breakdown helpers
-//
-// Re-Open : reopen_raw/10 + rda/10 → direct sum → /20
-// CA      : (hw+cw+ct)/110 × 25   → /25
-// MGT Test: mgt_raw direct         → /15
-// CA+MGT combined stored as `ca`  → /40
-// Exams   : (exam_raw/100) × 40   → /40
-// Total                            → /100
+// Character Assessment constants
 // ─────────────────────────────────────────────
 
-// Re-Open: direct sum, max 20
+// Each area: key, label, question guide, max score
+const CHAR_AREAS = [
+  { key: "punctuality",       label: "Punctuality",            guide: "How punctual was the student?"                          },
+  { key: "comportment",       label: "Comportment in Class",   guide: "Behaviour and attitude in class"                        },
+  { key: "neatness",          label: "Neatness & Dressing",    guide: "Proper dressing and hygiene"                            },
+  { key: "studying_habits",   label: "Studying Habits",        guide: "Study during free periods & consistent RDA completion"  },
+  { key: "respect_friends",   label: "Respect for Friends",    guide: "Respectful & friendly towards classmates; avoids insults" },
+  { key: "respect_rules",     label: "Respect for School Rules", guide: "Follows school rules and instructions"               },
+];
+
+const CAREER_SKILL_DEFAULTS = [
+  { key: "instrument",  label: "Instrument Skills",  exam: "Performance Test"   },
+  { key: "graphic",     label: "Graphic Design",     exam: "Project Work"       },
+  { key: "culinary",    label: "Culinary / Food Prep", exam: "Food Preparation" },
+  { key: "fashion",     label: "Fashion Design",     exam: "Sewing & Creativity" },
+  { key: "hairdressing", label: "Hairdressing",      exam: "Practical Styling"  },
+];
+
+const CHAR_SCORE_GRADES = [
+  { min: 80, grade: "A", label: "Excellent",     color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" },
+  { min: 60, grade: "B", label: "Very Good",     color: "#0284c7", bg: "bg-blue-100 text-blue-800"       },
+  { min: 50, grade: "C", label: "Good",          color: "#0891b2", bg: "bg-cyan-100 text-cyan-800"       },
+  { min: 40, grade: "D", label: "Satisfactory",  color: "#ca8a04", bg: "bg-yellow-100 text-yellow-800"   },
+  { min: 0,  grade: "E", label: "Needs Improvement", color: "#dc2626", bg: "bg-red-100 text-red-800"     },
+];
+
+const charScoreGrade = (score) => {
+  if (score === "" || score === null || score === undefined) return null;
+  const n = parseFloat(score);
+  return CHAR_SCORE_GRADES.find(g => n >= g.min) ?? CHAR_SCORE_GRADES[CHAR_SCORE_GRADES.length - 1];
+};
+
+const COHORT_OPTIONS = [
+  { value: "1st",  label: "1st Cohort" },
+  { value: "2nd",  label: "2nd Cohort" },
+  { value: "3rd",  label: "3rd Cohort" },
+];
+
+const CAREER_SCORE_GRADE = (score) => {
+  const n = parseFloat(score);
+  if (isNaN(n)) return null;
+  if (n >= 90) return { grade: "A", label: "Excellent",  color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" };
+  if (n >= 80) return { grade: "B", label: "Very Good",  color: "#0284c7", bg: "bg-blue-100 text-blue-800"       };
+  if (n >= 60) return { grade: "C", label: "Good",       color: "#0891b2", bg: "bg-cyan-100 text-cyan-800"       };
+  if (n >= 50) return { grade: "D", label: "Average",    color: "#ca8a04", bg: "bg-yellow-100 text-yellow-800"   };
+  return { grade: "F", label: "Fail", color: "#dc2626", bg: "bg-red-100 text-red-800" };
+};
+
+const mkDefaultCharState = () => ({
+  cohort: "1st",
+  areas: Object.fromEntries(CHAR_AREAS.map(a => [a.key, { score: "", remarks: "" }])),
+  career: Object.fromEntries(CAREER_SKILL_DEFAULTS.map(s => [s.key, { score: "", remarks: "", exam: s.exam }])),
+  teacher_name: "",
+  teacher_sig: "",
+  teacher_date: "",
+  trainer_name: "",
+  trainer_sig: "",
+  trainer_date: "",
+});
+
+// ─────────────────────────────────────────────
+// Score breakdown helpers
+// ─────────────────────────────────────────────
+
 const calcReopenScore = (breakdown) => {
   const reopen = Math.min(10, parseFloat(breakdown.reopen_raw) || 0);
   const rda    = Math.min(10, parseFloat(breakdown.rda)        || 0);
   return Math.round((reopen + rda) * 10) / 10;
 };
 
-// CA portion only: (hw+cw+ct)/110 × 25 = /25
 const calcCAonly = (breakdown) => {
   const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
   const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
@@ -104,15 +160,12 @@ const calcCAonly = (breakdown) => {
   return Math.round(((hw + cw + ct) / 110) * 25 * 10) / 10;
 };
 
-// MGT Test: raw entry /15 (no scaling)
 const calcMGTScore = (breakdown) =>
   Math.round(Math.min(15, parseFloat(breakdown.mgt_raw) || 0) * 10) / 10;
 
-// CA + MGT combined = /40
 const calcCAScore = (breakdown) =>
   Math.round((calcCAonly(breakdown) + calcMGTScore(breakdown)) * 10) / 10;
 
-// Exams: raw/100 × 40 = /40
 const calcExamsScore = (breakdown) =>
   Math.round(((parseFloat(breakdown.exam_raw) || 0) / 100) * 40 * 10) / 10;
 
@@ -145,7 +198,7 @@ const fmtPos = (n) => {
 };
 
 // ─────────────────────────────────────────────
-// Breakdown label helpers (sub-text under score buttons)
+// Breakdown label helpers
 // ─────────────────────────────────────────────
 
 const getReopenBreakdown = (breakdowns, studentId) => {
@@ -168,7 +221,7 @@ const getExamsBreakdown = (breakdowns, studentId) => {
 };
 
 // ─────────────────────────────────────────────
-// Modal styles (injected once)
+// Modal styles
 // ─────────────────────────────────────────────
 
 const MODAL_STYLES = `
@@ -243,13 +296,11 @@ const MODAL_STYLES = `
   }
   .tp-modal-btn-apply:hover { background:#1e293b; transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.2); }
 
-  /* Pill labels inside modals */
   .tp-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
   .tp-pill-blue   { background:#eff6ff; color:#1d4ed8; }
   .tp-pill-purple { background:#f5f3ff; color:#6d28d9; }
   .tp-pill-green  { background:#f0fdf4; color:#166534; }
 
-  /* Score buttons in table */
   .tp-score-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
   .tp-score-btn {
     min-width:72px; padding:6px 10px; border-radius:8px;
@@ -303,7 +354,6 @@ const EyeIcon = ({ open }) =>
 
 // ─────────────────────────────────────────────
 // REOPEN MODAL
-// Re-Open /10 + RDA /10 = /20 (direct sum)
 // ─────────────────────────────────────────────
 
 function ReopenModal({ studentName, initial, onApply, onClose }) {
@@ -324,9 +374,7 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
           </div>
           <button className="tp-modal-close" onClick={onClose}>✕</button>
         </div>
-
         <div className="tp-modal-body">
-          {/* Preview */}
           <div className="tp-modal-preview">
             <div className="tp-preview-item">
               <span className="tp-preview-final">{score.toFixed(1)}</span>
@@ -337,7 +385,6 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
               <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>Re-Open/10 + RDA/10</span>
             </div>
           </div>
-
           <div className="tp-modal-section">
             <div className="tp-section-label">
               Re-Open Assessment
@@ -366,7 +413,6 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
             </div>
           </div>
         </div>
-
         <div className="tp-modal-footer">
           <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="tp-modal-btn-apply" onClick={() => onApply(score, vals)}>
@@ -381,9 +427,6 @@ function ReopenModal({ studentName, initial, onApply, onClose }) {
 
 // ─────────────────────────────────────────────
 // CA / MGT MODAL
-// CA  : hw(4×5=20) + cw(4×10=40) + ct(10+10+10+20=50) = /110 → scaled to /25
-// MGT : single raw entry → /15
-// Combined total → /40
 // ─────────────────────────────────────────────
 
 function CAModal({ studentName, initial, onApply, onClose }) {
@@ -400,9 +443,9 @@ function CAModal({ studentName, initial, onApply, onClose }) {
   const hwTotal  = num("hw1")+num("hw2")+num("hw3")+num("hw4");
   const cwTotal  = num("cw1")+num("cw2")+num("cw3")+num("cw4");
   const ctTotal  = num("ct1")+num("ct2")+num("ct3")+num("ct4");
-  const caOnly   = calcCAonly(vals);   // /25
-  const mgtScore = calcMGTScore(vals); // /15
-  const combined = calcCAScore(vals);  // /40
+  const caOnly   = calcCAonly(vals);
+  const mgtScore = calcMGTScore(vals);
+  const combined = calcCAScore(vals);
 
   const totalField = (val, max) => (
     <div className="tp-modal-field">
@@ -422,9 +465,7 @@ function CAModal({ studentName, initial, onApply, onClose }) {
           </div>
           <button className="tp-modal-close" onClick={onClose}>✕</button>
         </div>
-
         <div className="tp-modal-body">
-          {/* Preview */}
           <div className="tp-modal-preview">
             <div className="tp-preview-item">
               <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{caOnly.toFixed(1)}/25</span>
@@ -450,7 +491,6 @@ function CAModal({ studentName, initial, onApply, onClose }) {
             </div>
           </div>
 
-          {/* ── CA Section ── */}
           <div className="tp-modal-section">
             <div className="tp-section-label">
               <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
@@ -459,8 +499,6 @@ function CAModal({ studentName, initial, onApply, onClose }) {
               </span>
               <span>raw total /110</span>
             </div>
-
-            {/* Homework */}
             <div style={{marginBottom:"6px"}}>
               <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
                 Homework — 4 × 5 = /20
@@ -477,8 +515,6 @@ function CAModal({ studentName, initial, onApply, onClose }) {
                 {totalField(hwTotal, 20)}
               </div>
             </div>
-
-            {/* Classwork */}
             <div style={{marginBottom:"6px"}}>
               <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
                 Classwork — 4 × 10 = /40
@@ -495,8 +531,6 @@ function CAModal({ studentName, initial, onApply, onClose }) {
                 {totalField(cwTotal, 40)}
               </div>
             </div>
-
-            {/* Class Test */}
             <div>
               <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
                 Class Test — 10+10+10+20 = /50
@@ -513,8 +547,6 @@ function CAModal({ studentName, initial, onApply, onClose }) {
                 {totalField(ctTotal, 50)}
               </div>
             </div>
-
-            {/* CA scaled result */}
             <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"4px",padding:"8px 12px",background:"#eff6ff",borderRadius:"8px",border:"1px solid #bfdbfe"}}>
               <span style={{fontSize:"12px",color:"#64748b"}}>CA raw ({(hwTotal+cwTotal+ctTotal).toFixed(1)}/110) scaled to</span>
               <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"700",color:"#1d4ed8",fontSize:"15px"}}>{caOnly.toFixed(1)} / 25</span>
@@ -523,7 +555,6 @@ function CAModal({ studentName, initial, onApply, onClose }) {
 
           <div className="tp-divider" />
 
-          {/* ── MGT Test Section ── */}
           <div className="tp-modal-section">
             <div className="tp-section-label">
               <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
@@ -541,20 +572,14 @@ function CAModal({ studentName, initial, onApply, onClose }) {
                   autoFocus
                 />
               </div>
-              <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end",paddingBottom:"4px",color:"#94a3b8",fontSize:"12px",gap:"2px"}}>
-                <span>Entered directly</span>
-                <span>No scaling applied</span>
-              </div>
             </div>
           </div>
 
-          {/* Combined total */}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#f0fdf4",borderRadius:"10px",border:"1px solid #bbf7d0"}}>
             <span style={{fontSize:"13px",color:"#166534",fontWeight:"600"}}>CA + MGT Combined Total</span>
             <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"800",color:"#166534",fontSize:"18px"}}>{combined.toFixed(1)} / 40</span>
           </div>
         </div>
-
         <div className="tp-modal-footer">
           <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="tp-modal-btn-apply" onClick={() => onApply(combined, vals)}>
@@ -568,7 +593,7 @@ function CAModal({ studentName, initial, onApply, onClose }) {
 }
 
 // ─────────────────────────────────────────────
-// EXAMS MODAL — raw /100 → /40
+// EXAMS MODAL
 // ─────────────────────────────────────────────
 
 function ExamsModal({ studentName, initial, onApply, onClose }) {
@@ -694,9 +719,9 @@ const ChangePasswordModal = ({ onClose }) => {
         ) : (
           <>
             {[
-              { label:"Current Password",     value:current, set:setCurrent, show:showCur, setShow:setShowCur },
-              { label:"New Password",          value:next,    set:setNext,    show:showNew, setShow:setShowNew },
-              { label:"Confirm New Password",  value:confirm, set:setConfirm, show:showCon, setShow:setShowCon },
+              { label:"Current Password",    value:current, set:setCurrent, show:showCur, setShow:setShowCur },
+              { label:"New Password",         value:next,    set:setNext,    show:showNew, setShow:setShowNew },
+              { label:"Confirm New Password", value:confirm, set:setConfirm, show:showCon, setShow:setShowCon },
             ].map(({ label, value, set, show, setShow }, i) => (
               <div key={i} className="mb-4">
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">{label}</label>
@@ -836,13 +861,23 @@ const Th = ({ children, center }) => (
 );
 
 // ─────────────────────────────────────────────
+// Score dot indicator (character assessment)
+// ─────────────────────────────────────────────
+
+const ScoreDot = ({ score }) => {
+  if (score === "" || score === null || score === undefined) return null;
+  const n = parseFloat(score);
+  const color = n >= 70 ? "bg-emerald-500" : n >= 40 ? "bg-amber-400" : "bg-red-500";
+  return <span className={`inline-block w-2 h-2 rounded-full ml-1 ${color}`} />;
+};
+
+// ─────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────
 
 const TeacherPortal = () => {
   const user = getUser();
 
-  // Inject modal styles once
   useEffect(() => {
     if (document.getElementById("tp-modal-styles")) return;
     const el = document.createElement("style");
@@ -889,6 +924,33 @@ const TeacherPortal = () => {
   const [remarksSaved, setRemarksSaved]   = useState(false);
   const [downloading, setDownloading]     = useState(false);
 
+  // ── Character Assessment state ──────────────────────────────────────────
+
+  // charStudentId: which student's form is open
+  const [charStudentId, setCharStudentId]   = useState("");
+  // charForms: { [studentId]: charState } — cached per student
+  const [charForms, setCharForms]           = useState({});
+  const [charLoading, setCharLoading]       = useState(false);
+  const [charSaving, setCharSaving]         = useState(false);
+  const [charSaved, setCharSaved]           = useState(false);
+  // extra career skill rows added dynamically
+  const [charExtraSkills, setCharExtraSkills] = useState([]);
+
+  // Active form for the selected student (or a fresh default)
+  const charForm = charForms[charStudentId] ?? mkDefaultCharState();
+
+  const setCharForm = useCallback((studentId, updater) => {
+    setCharForms(prev => ({
+      ...prev,
+      [studentId]: typeof updater === "function"
+        ? updater(prev[studentId] ?? mkDefaultCharState())
+        : updater,
+    }));
+    setCharSaved(false);
+  }, []);
+
+  // ── Error / success ─────────────────────────────────────────────────────
+
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
 
@@ -924,6 +986,13 @@ const TeacherPortal = () => {
     absent:  Object.values(attendance).filter(v => v === "absent").length,
     late:    Object.values(attendance).filter(v => v === "late").length,
   }), [attendance]);
+
+  // Character: count of areas with a score entered for selected student
+  const charFilledCount = useMemo(() => {
+    const form = charForms[charStudentId];
+    if (!form) return 0;
+    return Object.values(form.areas).filter(a => a.score !== "").length;
+  }, [charForms, charStudentId]);
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -963,14 +1032,10 @@ const TeacherPortal = () => {
     try {
       const r       = await API.get(`/results/?school_class=${classId}&term=${term}&subject=${subjectId}&year=${year}`);
       const records = r.data.results ?? r.data;
-
       const serverMap = Object.fromEntries(
         records.map(rec => [String(rec.student), { reopen: rec.reopen, ca: rec.ca, exams: rec.exams }])
       );
-      const idMap = Object.fromEntries(
-        records.map(rec => [rec.student, rec.id])
-      );
-
+      const idMap = Object.fromEntries(records.map(rec => [rec.student, rec.id]));
       setScores(Object.fromEntries(
         latestStudentsRef.current.map(s => [
           s.id, serverMap[String(s.id)] ?? { reopen: "", ca: "", exams: "" },
@@ -1001,6 +1066,61 @@ const TeacherPortal = () => {
     finally { setLoadingReport(false); }
   }, []);
 
+  // ── Character Assessment API calls ───────────────────────────────────────
+  // Endpoint: GET/POST/PATCH /character-assessment/?student=<id>&term=<term>&year=<year>
+  //
+  // Expected response shape (adapt to your actual API):
+  // { cohort, areas: { punctuality: {score,remarks}, … }, career: {…}, teacher_name, … }
+
+  const loadCharAssessment = useCallback(async (studentId, term, year) => {
+    if (!studentId) return;
+    // If already loaded for this student in this session, don't re-fetch
+    if (charForms[studentId]) return;
+    setCharLoading(true);
+    try {
+      const r = await API.get(`/character-assessment/?student=${studentId}&term=${term}&year=${year}`);
+      const data = r.data?.results?.[0] ?? r.data;
+      if (data && (data.areas || data.cohort)) {
+        setCharForms(prev => ({ ...prev, [studentId]: { ...mkDefaultCharState(), ...data } }));
+      }
+      // If 404 / empty, leave as default (blank form)
+    } catch {
+      // Silently keep defaults — first time filling this form
+    } finally {
+      setCharLoading(false);
+    }
+  }, [charForms]);
+
+  const saveCharAssessment = useCallback(async () => {
+    if (!charStudentId) return;
+    setCharSaving(true); setError(""); setCharSaved(false);
+    const form = charForms[charStudentId] ?? mkDefaultCharState();
+    const payload = {
+      student: charStudentId,
+      school_class: selectedClass,
+      term: selectedTerm,
+      year: selectedYear,
+      ...form,
+    };
+    try {
+      // Try PATCH first (update), fall back to POST (create)
+      try {
+        await API.patch(`/character-assessment/${charStudentId}/`, payload);
+      } catch (patchErr) {
+        if (patchErr.response?.status === 404 || patchErr.response?.status === 405) {
+          await API.post("/character-assessment/", payload);
+        } else throw patchErr;
+      }
+      setCharSaved(true);
+      setSuccess("Character assessment saved successfully.");
+      setTimeout(() => setCharSaved(false), 3000);
+    } catch {
+      setError("Failed to save character assessment. Please try again.");
+    } finally {
+      setCharSaving(false);
+    }
+  }, [charStudentId, charForms, selectedClass, selectedTerm, selectedYear]);
+
   // ── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => { fetchClasses(); fetchSubjects(); }, [fetchClasses, fetchSubjects]);
@@ -1024,6 +1144,20 @@ const TeacherPortal = () => {
     if (tab === "Reports" && selectedClass && selectedTerm)
       fetchSummary(selectedClass, selectedTerm, selectedYear);
   }, [tab, selectedClass, selectedTerm, selectedYear, fetchSummary]);
+
+  // When Character tab opens and a student is selected, load their assessment
+  useEffect(() => {
+    if (tab === "Character" && charStudentId) {
+      loadCharAssessment(charStudentId, selectedTerm, selectedYear);
+    }
+  }, [tab, charStudentId, selectedTerm, selectedYear, loadCharAssessment]);
+
+  // Auto-select first student when entering Character tab
+  useEffect(() => {
+    if (tab === "Character" && students.length > 0 && !charStudentId) {
+      setCharStudentId(String(students[0].id));
+    }
+  }, [tab, students, charStudentId]);
 
   useEffect(() => { setError(""); setSuccess(""); }, [tab]);
 
@@ -1055,8 +1189,6 @@ const TeacherPortal = () => {
     } catch { setError("Failed to save attendance."); }
     finally { setSavingAtt(false); }
   };
-
-  // ── Score modal apply handlers ──────────────────────────────────────────
 
   const applyReopen = (score, breakdown) => {
     const { studentId } = scoreModal;
@@ -1161,12 +1293,72 @@ const TeacherPortal = () => {
     setAttendance({}); setSummary([]);
     setReport(null); setSelectedStudent(""); setExpandedStudent(null);
     setRemarks({ conduct: "", interest: "", teacher_remark: "" });
-    setRemarksSaved(false); setError(""); setSuccess("");
+    setRemarksSaved(false);
+    // Reset character state for the new class
+    setCharStudentId(""); setCharForms({}); setCharSaved(false);
+    setError(""); setSuccess("");
+  };
+
+  // ── Character helpers ────────────────────────────────────────────────────
+
+  const updateCharArea = (field, subField, value) => {
+    setCharForm(charStudentId, prev => ({
+      ...prev,
+      areas: {
+        ...prev.areas,
+        [field]: { ...(prev.areas?.[field] ?? { score: "", remarks: "" }), [subField]: value },
+      },
+    }));
+  };
+
+  const updateCareerSkill = (key, subField, value) => {
+    setCharForm(charStudentId, prev => ({
+      ...prev,
+      career: {
+        ...prev.career,
+        [key]: { ...(prev.career?.[key] ?? { score: "", remarks: "", exam: "" }), [subField]: value },
+      },
+    }));
+  };
+
+  const updateCharField = (field, value) => {
+    setCharForm(charStudentId, prev => ({ ...prev, [field]: value }));
+  };
+
+  const addExtraCareerSkill = () => {
+    const key = `extra_${Date.now()}`;
+    setCharExtraSkills(prev => [...prev, { key, label: "", exam: "" }]);
+    setCharForm(charStudentId, prev => ({
+      ...prev,
+      career: { ...prev.career, [key]: { score: "", remarks: "", exam: "" } },
+    }));
+  };
+
+  const updateExtraSkillLabel = (key, label) => {
+    setCharExtraSkills(prev => prev.map(s => s.key === key ? { ...s, label } : s));
+  };
+
+  const removeExtraSkill = (key) => {
+    setCharExtraSkills(prev => prev.filter(s => s.key !== key));
+    setCharForm(charStudentId, prev => {
+      const career = { ...prev.career };
+      delete career[key];
+      return { ...prev, career };
+    });
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
 
   const isB16 = selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg";
+
+  // All career skill rows (default + extra)
+  const allCareerSkills = [
+    ...CAREER_SKILL_DEFAULTS,
+    ...charExtraSkills.map(s => ({ key: s.key, label: s.label || "New Skill", exam: s.exam, isExtra: true })),
+  ];
+
+  // Selected student name
+  const charStudentName = students.find(s => String(s.id) === String(charStudentId))?.student_name ?? "";
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -1303,6 +1495,31 @@ const TeacherPortal = () => {
                   className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
             )}
+            {tab === "Character" && selectedClass && (
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Student</label>
+                <select value={charStudentId}
+                  onChange={e => {
+                    const id = e.target.value;
+                    setCharStudentId(id);
+                    setCharSaved(false);
+                    if (id) loadCharAssessment(id, selectedTerm, selectedYear);
+                  }}
+                  className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  <option value="">— Select a student —</option>
+                  {students.map(s => {
+                    const filled = charForms[s.id]
+                      ? Object.values(charForms[s.id].areas ?? {}).filter(a => a.score !== "").length
+                      : 0;
+                    return (
+                      <option key={s.id} value={s.id}>
+                        {s.student_name}{filled > 0 ? ` ✓ (${filled}/${CHAR_AREAS.length})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
             <div className="sm:hidden ml-auto">
               <button onClick={() => setShowPwModal(true)}
                 className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 px-3 py-2 rounded-xl transition-colors">
@@ -1425,7 +1642,6 @@ const TeacherPortal = () => {
             )}
             {selectedSubject && students.length > 0 && (
               <>
-                {/* KPI bar */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
                   <KpiCard label="Filled"    value={`${filledCount} / ${students.length}`} color="text-blue-600" />
                   <KpiCard label="Saved"     value={savedCount}     color="text-emerald-600" />
@@ -1478,9 +1694,7 @@ const TeacherPortal = () => {
                           const info    = grade ? GRADE_REMARK[grade] : null;
                           const isSaved = !!existingIds[student.id];
 
-                          const rVal    = s.reopen;
-                          const cVal    = s.ca;
-                          const eVal    = s.exams;
+                          const rVal = s.reopen; const cVal = s.ca; const eVal = s.exams;
                           const rFilled = rVal !== "" && rVal !== 0;
                           const cFilled = cVal !== "" && cVal !== 0;
                           const eFilled = eVal !== "" && eVal !== 0;
@@ -1521,44 +1735,33 @@ const TeacherPortal = () => {
                                   </div>
                                 </div>
                               </td>
-
-                              {/* RE-OPEN */}
                               <td className="px-3 py-2.5 text-center">
                                 <div className="tp-score-cell">
-                                  <button
-                                    className={`tp-score-btn ${rFilled ? (parseFloat(rVal)===20?"tp-score-btn-max":"tp-score-btn-filled") : "tp-score-btn-empty"}`}
+                                  <button className={`tp-score-btn ${rFilled?(parseFloat(rVal)===20?"tp-score-btn-max":"tp-score-btn-filled"):"tp-score-btn-empty"}`}
                                     onClick={() => setScoreModal({ type:"reopen", studentId:student.id, studentName:student.student_name })}>
                                     {rFilled ? <>{editIcon}{parseFloat(rVal).toFixed(1)}</> : <>{addIcon}Enter</>}
                                   </button>
                                   {reopenBreak && <span className="tp-score-breakdown">{reopenBreak}</span>}
                                 </div>
                               </td>
-
-                              {/* CA / MGT */}
                               <td className="px-3 py-2.5 text-center">
                                 <div className="tp-score-cell">
-                                  <button
-                                    className={`tp-score-btn ${cFilled ? (parseFloat(cVal)===40?"tp-score-btn-max":"tp-score-btn-filled") : "tp-score-btn-empty"}`}
+                                  <button className={`tp-score-btn ${cFilled?(parseFloat(cVal)===40?"tp-score-btn-max":"tp-score-btn-filled"):"tp-score-btn-empty"}`}
                                     onClick={() => setScoreModal({ type:"ca", studentId:student.id, studentName:student.student_name })}>
                                     {cFilled ? <>{editIcon}{parseFloat(cVal).toFixed(1)}</> : <>{addIcon}Enter</>}
                                   </button>
                                   {caBreak && <span className="tp-score-breakdown">{caBreak}</span>}
                                 </div>
                               </td>
-
-                              {/* EXAMS */}
                               <td className="px-3 py-2.5 text-center">
                                 <div className="tp-score-cell">
-                                  <button
-                                    className={`tp-score-btn ${eFilled ? (parseFloat(eVal)===40?"tp-score-btn-max":"tp-score-btn-filled") : "tp-score-btn-empty"}`}
+                                  <button className={`tp-score-btn ${eFilled?(parseFloat(eVal)===40?"tp-score-btn-max":"tp-score-btn-filled"):"tp-score-btn-empty"}`}
                                     onClick={() => setScoreModal({ type:"exams", studentId:student.id, studentName:student.student_name })}>
                                     {eFilled ? <>{editIcon}{parseFloat(eVal).toFixed(1)}</> : <>{addIcon}Enter</>}
                                   </button>
                                   {examsBreak && <span className="tp-score-breakdown">{examsBreak}</span>}
                                 </div>
                               </td>
-
-                              {/* Total */}
                               <td className="px-4 py-3 text-center">
                                 {total !== null ? (
                                   <span className={`font-black tabular-nums font-mono ${total >= 50 ? "text-blue-700" : "text-red-600"}`}>
@@ -1566,28 +1769,18 @@ const TeacherPortal = () => {
                                   </span>
                                 ) : <span className="text-slate-300">—</span>}
                               </td>
-
-                              {/* Grade */}
                               <td className="px-4 py-3 text-center">
                                 {grade ? (
                                   <span className="inline-block px-2 py-0.5 rounded-md text-xs font-bold"
-                                    style={{background:`${info.color}18`, color:info.color}}>
-                                    {grade}
-                                  </span>
+                                    style={{background:`${info.color}18`, color:info.color}}>{grade}</span>
                                 ) : <span className="text-slate-300 text-xs">—</span>}
                               </td>
-
-                              {/* Remark */}
                               <td className="px-4 py-3 text-center" style={{fontSize:"12px", color: info ? info.color : "#cbd5e1"}}>
                                 {info ? info.label : "—"}
                               </td>
-
-                              {/* Action */}
                               <td className="px-4 py-3 text-center">
                                 {isSaved && (
-                                  <button
-                                    onClick={() => handleDeleteResult(student.id)}
-                                    disabled={deleting === student.id}
+                                  <button onClick={() => handleDeleteResult(student.id)} disabled={deleting === student.id}
                                     className="px-3 py-1 rounded-md text-xs font-medium border border-red-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all disabled:opacity-40">
                                     {deleting === student.id ? "…" : "Delete"}
                                   </button>
@@ -1600,7 +1793,6 @@ const TeacherPortal = () => {
                     </table>
                   </div>
 
-                  {/* Grade scale */}
                   <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Grade Scale</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -1613,7 +1805,6 @@ const TeacherPortal = () => {
                   </div>
                 </div>
 
-                {/* Save button */}
                 <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
                   <p className="text-sm text-slate-400">
                     {filledCount === 0
@@ -1637,6 +1828,338 @@ const TeacherPortal = () => {
               </>
             )}
           </>
+        )}
+
+        {/* ══════════════════════════════════════
+            TAB: Character Assessment
+        ══════════════════════════════════════ */}
+        {tab === "Character" && selectedClass && (
+          <div className="space-y-5">
+
+            {!charStudentId && (
+              <EmptyState icon="🌟" title="Select a student above to fill their character assessment"
+                sub="Assessments are saved per student, per term" />
+            )}
+
+            {charStudentId && (
+              <>
+                {/* KPI bar */}
+                <div className="grid grid-cols-3 gap-4">
+                  <KpiCard label="Areas Filled" value={`${charFilledCount} / ${CHAR_AREAS.length}`} color="text-blue-600" />
+                  <KpiCard label="Student"      value={charStudentName || "—"}                      color="text-slate-800" />
+                  <KpiCard label="Cohort"       value={charForm.cohort ? `${charForm.cohort} Cohort` : "—"} color="text-slate-700" />
+                </div>
+
+                {charLoading ? (
+                  <div className="text-center text-slate-400 text-sm py-12 bg-white rounded-2xl border border-slate-100">
+                    Loading assessment…
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+
+                    {/* ── Form header ── */}
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+                      <div>
+                        <p className="font-black text-base">Character Assessment Form</p>
+                        <p className="text-slate-400 text-xs mt-0.5">
+                          {charStudentName} · {selectedClassName} · {TERMS.find(t => t.value === selectedTerm)?.label} {selectedYear}
+                        </p>
+                      </div>
+                      {/* Cohort selector inline */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-slate-400">Cohort</label>
+                        <select
+                          value={charForm.cohort}
+                          onChange={e => updateCharField("cohort", e.target.value)}
+                          className="border border-slate-600 bg-slate-700 text-white px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                          {COHORT_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* ── Section 1: Character Areas ── */}
+                    <div className="px-5 pt-5 pb-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                          {charForm.cohort} Cohort — Character Assessment
+                        </p>
+                        <span className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                          Score out of 100
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-100">
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left w-[180px]">Assessment Area</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left hidden sm:table-cell">Questionnaire / Observation</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-blue-500 uppercase tracking-wide text-center w-[110px]">Score /100</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-center w-[80px]">Grade</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left">Remarks</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {CHAR_AREAS.map(area => {
+                              const entry = charForm.areas?.[area.key] ?? { score: "", remarks: "" };
+                              const gradeInfo = charScoreGrade(entry.score);
+                              return (
+                                <tr key={area.key} className="hover:bg-blue-50/20 transition-colors">
+                                  <td className="px-4 py-3">
+                                    <p className="font-medium text-slate-800 text-sm leading-tight">{area.label}</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-400 text-xs hidden sm:table-cell leading-relaxed">
+                                    {area.guide}
+                                  </td>
+                                  <td className="px-3 py-3 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <input
+                                        type="number" min="0" max="100" step="1"
+                                        placeholder="—"
+                                        value={entry.score}
+                                        onChange={e => {
+                                          const v = e.target.value === "" ? "" : Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                                          updateCharArea(area.key, "score", v);
+                                        }}
+                                        className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-center text-sm font-semibold font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
+                                      />
+                                      <ScoreDot score={entry.score} />
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    {gradeInfo ? (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${gradeInfo.bg}`}>
+                                        {gradeInfo.grade}
+                                      </span>
+                                    ) : <span className="text-slate-300 text-xs">—</span>}
+                                  </td>
+                                  <td className="px-3 py-2.5">
+                                    <input
+                                      type="text"
+                                      placeholder="Add remarks…"
+                                      value={entry.remarks}
+                                      onChange={e => updateCharArea(area.key, "remarks", e.target.value)}
+                                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 text-slate-700"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Grade scale legend */}
+                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                        {CHAR_SCORE_GRADES.map(g => (
+                          <span key={g.grade} className="text-[11px] text-slate-400">
+                            <b className="text-slate-600">{g.grade}</b> {g.label} ({g.min}+)
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 mx-5" />
+
+                    {/* ── Section 2: Career Development ── */}
+                    <div className="px-5 pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                          Career Development Assessment
+                        </p>
+                        <p className="text-xs text-slate-400 hidden sm:block">Practical skills training programmes</p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-100">
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left w-[160px]">Skill Training Area</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left hidden sm:table-cell">Practical Examination</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-blue-500 uppercase tracking-wide text-center w-[110px]">Score /100</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-center w-[70px]">Grade</th>
+                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left">Remarks</th>
+                              <th className="w-8" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {allCareerSkills.map(skill => {
+                              const entry = charForm.career?.[skill.key] ?? { score: "", remarks: "", exam: skill.exam };
+                              const gradeInfo = CAREER_SCORE_GRADE(entry.score);
+                              return (
+                                <tr key={skill.key} className="hover:bg-blue-50/20 transition-colors">
+                                  <td className="px-4 py-3">
+                                    {skill.isExtra ? (
+                                      <input
+                                        type="text"
+                                        placeholder="Skill name…"
+                                        value={skill.label === "New Skill" ? "" : skill.label}
+                                        onChange={e => updateExtraSkillLabel(skill.key, e.target.value)}
+                                        className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 font-medium text-slate-800"
+                                      />
+                                    ) : (
+                                      <p className="font-medium text-slate-800 text-sm">{skill.label}</p>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3 hidden sm:table-cell">
+                                    <input
+                                      type="text"
+                                      placeholder="Exam type…"
+                                      value={entry.exam ?? skill.exam}
+                                      onChange={e => updateCareerSkill(skill.key, "exam", e.target.value)}
+                                      className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 text-slate-600"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-3 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <input
+                                        type="number" min="0" max="100" step="1"
+                                        placeholder="—"
+                                        value={entry.score}
+                                        onChange={e => {
+                                          const v = e.target.value === "" ? "" : Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                                          updateCareerSkill(skill.key, "score", v);
+                                        }}
+                                        className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-center text-sm font-semibold font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
+                                      />
+                                      <ScoreDot score={entry.score} />
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    {gradeInfo ? (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${gradeInfo.bg}`}>
+                                        {gradeInfo.grade}
+                                      </span>
+                                    ) : <span className="text-slate-300 text-xs">—</span>}
+                                  </td>
+                                  <td className="px-3 py-2.5">
+                                    <input
+                                      type="text"
+                                      placeholder="Remarks…"
+                                      value={entry.remarks}
+                                      onChange={e => updateCareerSkill(skill.key, "remarks", e.target.value)}
+                                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 text-slate-700"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-3 text-center">
+                                    {skill.isExtra && (
+                                      <button onClick={() => removeExtraSkill(skill.key)}
+                                        className="text-slate-300 hover:text-red-500 transition-colors text-lg leading-none" title="Remove">
+                                        ×
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <button onClick={addExtraCareerSkill}
+                        className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 border border-dashed border-slate-300 hover:border-blue-300 px-3 py-2 rounded-xl transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
+                        </svg>
+                        Add skill area
+                      </button>
+                    </div>
+
+                    <div className="border-t border-slate-100 mx-5" />
+
+                    {/* ── Section 3: Sign-off ── */}
+                    <div className="px-5 pt-4 pb-5">
+                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Sign-off</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Class Teacher */}
+                        <div className="border border-slate-100 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-slate-500 mb-3">Class Teacher</p>
+                          <div className="space-y-2.5">
+                            {[
+                              { label: "Name",      field: "teacher_name", placeholder: "Full name" },
+                              { label: "Signature", field: "teacher_sig",  placeholder: "Signature" },
+                              { label: "Date",      field: "teacher_date", type: "date"              },
+                            ].map(({ label, field, placeholder, type }) => (
+                              <div key={field} className="flex items-center gap-3">
+                                <label className="text-[11px] text-slate-400 w-16 flex-shrink-0">{label}</label>
+                                <input
+                                  type={type ?? "text"}
+                                  placeholder={placeholder}
+                                  value={charForm[field] ?? ""}
+                                  onChange={e => updateCharField(field, e.target.value)}
+                                  className="flex-1 border-b border-slate-200 bg-transparent px-1 py-1 text-sm text-slate-700 focus:outline-none focus:border-blue-400 transition-colors"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Skills Trainer */}
+                        <div className="border border-slate-100 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-slate-500 mb-3">Skills Trainer</p>
+                          <div className="space-y-2.5">
+                            {[
+                              { label: "Name",      field: "trainer_name", placeholder: "Full name" },
+                              { label: "Signature", field: "trainer_sig",  placeholder: "Signature" },
+                              { label: "Date",      field: "trainer_date", type: "date"              },
+                            ].map(({ label, field, placeholder, type }) => (
+                              <div key={field} className="flex items-center gap-3">
+                                <label className="text-[11px] text-slate-400 w-16 flex-shrink-0">{label}</label>
+                                <input
+                                  type={type ?? "text"}
+                                  placeholder={placeholder}
+                                  value={charForm[field] ?? ""}
+                                  onChange={e => updateCharField(field, e.target.value)}
+                                  className="flex-1 border-b border-slate-200 bg-transparent px-1 py-1 text-sm text-slate-700 focus:outline-none focus:border-blue-400 transition-colors"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Save footer ── */}
+                    <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3 flex-wrap">
+                      <p className="text-xs text-slate-400">
+                        {charFilledCount === 0
+                          ? "Enter scores above to fill this student's assessment"
+                          : `${charFilledCount} of ${CHAR_AREAS.length} character areas filled`}
+                      </p>
+                      <div className="flex items-center gap-3">
+                        {charSaved && (
+                          <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Saved
+                          </span>
+                        )}
+                        <button
+                          onClick={saveCharAssessment}
+                          disabled={charSaving}
+                          className="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all shadow-sm flex items-center gap-2 hover:-translate-y-px hover:shadow-md">
+                          {charSaving ? (
+                            <>
+                              <div style={{width:"13px",height:"13px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"tp-spin .6s linear infinite"}}/>
+                              Saving…
+                            </>
+                          ) : (
+                            <>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                                <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                              </svg>
+                              Save Assessment
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {/* ══════════════════════════════════════
