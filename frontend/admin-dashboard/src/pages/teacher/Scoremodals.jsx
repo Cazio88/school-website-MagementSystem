@@ -24,6 +24,7 @@ export function ReopenModal({ studentName, initial, onApply, onClose }) {
   });
 
   const set   = (k, v) => setVals((p) => ({ ...p, [k]: v }));
+  const reset = () => setVals({ reopen_raw: "", rda: "" });
   const score = calcReopenScore(vals);
 
   return (
@@ -60,7 +61,7 @@ export function ReopenModal({ studentName, initial, onApply, onClose }) {
               <div className="tp-modal-field">
                 <label>Re-Open <span style={{ color: "#94a3b8", fontWeight: 400 }}>/10</span></label>
                 <input
-                  type="number" min="0" max="10" step="0.5" placeholder="0"
+                  type="number" inputMode="decimal" min="0" max="10" step="0.5" placeholder="0"
                   value={vals.reopen_raw}
                   onChange={(e) => set("reopen_raw", Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))}
                 />
@@ -69,7 +70,7 @@ export function ReopenModal({ studentName, initial, onApply, onClose }) {
               <div className="tp-modal-field">
                 <label>RDA <span style={{ color: "#94a3b8", fontWeight: 400 }}>/10</span></label>
                 <input
-                  type="number" min="0" max="10" step="0.5" placeholder="0"
+                  type="number" inputMode="decimal" min="0" max="10" step="0.5" placeholder="0"
                   value={vals.rda}
                   onChange={(e) => set("rda", Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))}
                 />
@@ -87,6 +88,7 @@ export function ReopenModal({ studentName, initial, onApply, onClose }) {
         </div>
 
         <div className="tp-modal-footer">
+          <button className="tp-modal-btn-cancel" onClick={reset}>Reset</button>
           <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="tp-modal-btn-apply" onClick={() => onApply(score, vals)}>
             <CheckIcon /> Apply {score.toFixed(1)} / 20
@@ -108,6 +110,12 @@ export function CAModal({ studentName, initial, onApply, onClose }) {
   });
 
   const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));
+  const reset = () => setVals({
+    hw1: "", hw2: "", hw3: "", hw4: "",
+    cw1: "", cw2: "", cw3: "", cw4: "",
+    ct1: "", ct2: "", ct3: "", ct4: "",
+    mgt_raw: "",
+  });
   const num = (k)    => parseFloat(vals[k]) || 0;
 
   const hwTotal  = num("hw1") + num("hw2") + num("hw3") + num("hw4");
@@ -254,6 +262,7 @@ export function CAModal({ studentName, initial, onApply, onClose }) {
         </div>
 
         <div className="tp-modal-footer">
+          <button className="tp-modal-btn-cancel" onClick={reset}>Reset</button>
           <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="tp-modal-btn-apply" onClick={() => onApply(combined, vals)}>
             <CheckIcon /> Apply {combined.toFixed(1)} / 40
@@ -268,6 +277,7 @@ export function CAModal({ studentName, initial, onApply, onClose }) {
 
 export function ExamsModal({ studentName, initial, onApply, onClose }) {
   const [examRaw, setExamRaw] = useState(initial?.exam_raw ?? "");
+  const reset = () => setExamRaw("");
   const raw   = parseFloat(examRaw) || 0;
   const score = Math.round((raw / 100) * 40 * 10) / 10;
 
@@ -307,7 +317,7 @@ export function ExamsModal({ studentName, initial, onApply, onClose }) {
               <div className="tp-modal-field" style={{ flex: "none", width: "120px" }}>
                 <label>Raw Mark</label>
                 <input
-                  type="number" min="0" max="100" step="0.5" placeholder="0" value={examRaw}
+                  type="number" inputMode="decimal" min="0" max="100" step="0.5" placeholder="0" value={examRaw}
                   style={{ fontSize: "24px", padding: "12px 10px" }} autoFocus
                   onChange={(e) => setExamRaw(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
                 />
@@ -322,6 +332,7 @@ export function ExamsModal({ studentName, initial, onApply, onClose }) {
         </div>
 
         <div className="tp-modal-footer">
+          <button className="tp-modal-btn-cancel" onClick={reset}>Reset</button>
           <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="tp-modal-btn-apply" onClick={() => onApply(score, { exam_raw: raw })}>
             <CheckIcon /> Apply {score.toFixed(1)} / 40

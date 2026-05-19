@@ -22,15 +22,18 @@ const ClassesTab = ({ students = [], loading = false, selectedClassName = "", se
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {students.map((s, index) => (
-            <div key={s.id} className={`flex flex-col gap-2 py-4 ${index !== 0 ? "border-t border-slate-100" : ""}`}>
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <span className="font-medium text-slate-800">{s.student_name || s.name || `Student ${s.id}`}</span>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">ID: {s.id}</span>
+          {students.map((s, index) => {
+            const studentId = s.admission_number || s.username || s.id;
+            return (
+              <div key={s.id} className={`flex flex-col gap-2 py-4 ${index !== 0 ? "border-t border-slate-100" : ""}`}>
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-medium text-slate-800">{s.student_name || s.name || `Student ${s.id}`}</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Student ID: {studentId}</span>
+                </div>
+                <p className="text-sm text-slate-500">{s.roll_number ? `Roll No: ${s.roll_number}` : "Student record"}</p>
               </div>
-              <p className="text-sm text-slate-500">{s.roll_number ? `Roll No: ${s.roll_number}` : "Student record"}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

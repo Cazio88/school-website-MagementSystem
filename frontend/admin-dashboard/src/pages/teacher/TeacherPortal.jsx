@@ -259,12 +259,12 @@ const TeacherPortal = () => {
         <div className="max-w-5xl mx-auto px-5 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-              {user.username?.[0]?.toUpperCase()}
+              {(user.full_name || user.username)?.[0]?.toUpperCase()}
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm leading-tight">{user.username}</p>
+              <p className="font-bold text-slate-800 text-sm leading-tight">{user.full_name || user.username}</p>
               <p className="text-slate-400 text-xs">
-                {user.teacher_id}{user.subject ? ` · ${user.subject}` : ""}
+                {user.teacher_id || user.username}{user.subject ? ` · ${user.subject}` : ""}
               </p>
             </div>
           </div>
@@ -497,6 +497,7 @@ const TeacherPortal = () => {
             {tab === "Character" && (
               <CharacterTab
                 students={teacherData.students}
+                selectedClass={teacherData.selectedClass}
                 selectedClassName={teacherData.selectedClassName}
                 selectedTerm={selectedTerm}
                 selectedYear={selectedYear}

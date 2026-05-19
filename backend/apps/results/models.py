@@ -49,6 +49,44 @@ class Result(models.Model):
         super().save(*args, **kwargs)
 
 
+class CharacterAssessment(models.Model):
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="character_assessments",
+    )
+    school_class = models.ForeignKey(
+        SchoolClass,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="character_assessments",
+    )
+    term = models.CharField(max_length=10, choices=TERM_CHOICES)
+    year = models.PositiveIntegerField()
+
+    cohort = models.CharField(max_length=50, blank=True, default="1st")
+    areas = models.JSONField(blank=True, default=dict)
+    career = models.JSONField(blank=True, default=dict)
+
+    teacher_name = models.CharField(max_length=255, blank=True, default="")
+    teacher_sig = models.CharField(max_length=255, blank=True, default="")
+    teacher_date = models.CharField(max_length=50, blank=True, default="")
+
+    trainer_name = models.CharField(max_length=255, blank=True, default="")
+    trainer_sig = models.CharField(max_length=255, blank=True, default="")
+    trainer_date = models.CharField(max_length=50, blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["student", "term", "year"]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.student} — {self.term} {self.year}"
+
+
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
