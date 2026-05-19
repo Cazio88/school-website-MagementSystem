@@ -1102,9 +1102,28 @@ const StudentPortal = () => {
   const fetchCharAssessment = useCallback(async (quiet = false) => {
     if (!quiet) setLoadingChar(true);
     try {
+      // Try current year first, then fall back to any matching record (no year filter)
       const year = new Date().getFullYear();
-      const r = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}&year=${year}`);
-      const data = r.data?.results?.[0] ?? r.data;
+      let r = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}&year=${year}`);
+      let data = r.data?.results?.[0] ?? r.data;
+      if (!data) {
+        // No record for current year — request all matching records and pick the latest
+        const r2 = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}`);
+        const all = r2.data?.results ?? r2.data;
+        if (Array.isArray(all) && all.length > 0) {
+          all.sort((a, b) => {
+            const ay = parseInt(a.year) || 0;
+            const by = parseInt(b.year) || 0;
+            if (by !== ay) return by - ay;
+            const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return bt - at;
+          });
+          data = all[0];
+        } else if (all && (all.areas || all.cohort)) {
+          data = all;
+        }
+      }
       setCharAssessment(data && (data.areas || data.cohort) ? data : null);
       setLastFetchedChar(Date.now());
     } catch {
@@ -1504,12 +1523,12 @@ const StudentPortal = () => {
                   const avgScore     = scores.length ? Math.round(scores.reduce((s,v)=>s+v,0)/scores.length) : null;
                   const avgGradeInfo = avgScore != null ? charScoreGrade(avgScore) : null;
                   return (
-                    <div className="sp-kpi-grid">
-                      <KpiCard label="Cohort"        value={charAssessment.cohort ? `${charAssessment.cohort} Cohort` : "—"}/>
-                      <KpiCard label="Areas Assessed" value={`${filledAreas.length} / ${CHAR_AREAS.length}`}/>
-                      <KpiCard label="Avg Score"      value={avgScore ?? "—"}/>
-                      <KpiCard label="Overall Grade"  value={avgGradeInfo?.grade ?? "—"}/>
-                    </div>
+                    <div className="sp-kpi-grid grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <KpiCard label="Cohort"        value={charAssessment.cohort ? `${charAssessment.cohort} Cohort` : "—"}/>
+                        <KpiCard label="Areas Assessed" value={`${filledAreas.length} / ${CHAR_AREAS.length}`}/>
+                        <KpiCard label="Avg Score"      value={avgScore ?? "—"}/>
+                        <KpiCard label="Overall Grade"  value={avgGradeInfo?.grade ?? "—"}/>
+                      </div>
                   );
                 })()}
 
@@ -1534,7 +1553,7 @@ const StudentPortal = () => {
                     const pct       = score !== "" && score != null ? Math.min(100, parseFloat(score)) : 0;
                     const barColor  = gradeInfo?.color ?? "#e2e8f0";
                     return (
-                      <div key={area.key} className="sp-char-area-row">
+                      <div key={area.key} className={`sp-char-area-row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
                         <div className="sp-char-area-name">{area.label}</div>
                         {score !== "" && score != null ? (
                           <>
@@ -1585,7 +1604,7 @@ const StudentPortal = () => {
                       // Label from key (replace underscores, title-case)
                       const label = key.replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase());
                       return (
-                        <div key={key} className="sp-char-area-row">
+                        <div key={key} className={`sp-char-area-row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
                           <div>
                             <div className="sp-char-area-name">{label}</div>
                             {entry.exam && <div style={{fontSize:"11px",color:"#94a3b8",marginTop:"2px"}}>{entry.exam}</div>}
@@ -1620,7 +1639,7 @@ const StudentPortal = () => {
                 {(charAssessment.teacher_name || charAssessment.trainer_name) && (
                   <div className="sp-card">
                     <div className="sp-card-head"><span className="sp-card-title">Signed Off By</span></div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",padding:"16px 18px"}}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
                       {[
                         {
                           role: "Class Teacher",
@@ -1635,7 +1654,7 @@ const StudentPortal = () => {
                           signature: charAssessment.trainer_sig,
                         },
                       ].filter(s => s.name).map(s => (
-                        <div key={s.role} style={{background:"#f8fafc",borderRadius:"10px",padding:"12px 14px",border:"1px solid #f1f5f9"}}>
+                        <div key={s.role} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                           <div style={{fontSize:"10px",fontWeight:"700",color:"#94a3b8",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"4px"}}>{s.role}</div>
                           <div style={{fontWeight:"700",color:"#1e293b",fontSize:"14px"}}>{s.name}</div>
                           {s.signature && (
