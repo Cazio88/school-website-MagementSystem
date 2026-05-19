@@ -138,6 +138,15 @@ const PORTAL_STYLES = `
   .sp-att-present .sp-att-kpi-val { color: var(--green); }
   .sp-att-present .sp-att-kpi-lbl { color: #166534; }
   .sp-att-absent  { background: var(--red-l);   border-color: #fecaca; }
+
+  /* Extra mobile tweaks */
+  @media (max-width: 700px) {
+    .sp-body { padding: 12px 10px 40px; }
+    .sp-card-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .sp-term-bar { flex-direction: column; align-items: stretch; }
+    .sp-table thead th { font-size: 10px; }
+    .sp-kpi-grid { grid-template-columns: repeat(2,1fr); }
+  }
   .sp-att-absent  .sp-att-kpi-val { color: var(--red); }
   .sp-att-absent  .sp-att-kpi-lbl { color: #991b1b; }
   .sp-att-late    { background: var(--amber-l); border-color: #fde68a; }
@@ -1122,6 +1131,29 @@ const StudentPortal = () => {
           data = all[0];
         } else if (all && (all.areas || all.cohort)) {
           data = all;
+        }
+      }
+
+      // If nothing found using numeric student id, try admission number (some saves use admission_number)
+      if (!data && user?.admission_number && String(user.admission_number) !== String(user.student_id)) {
+        try {
+          const r3 = await API.get(`/character-assessment/?student=${user.admission_number}&term=${selectedTerm}`);
+          const all2 = r3.data?.results ?? r3.data;
+          if (Array.isArray(all2) && all2.length > 0) {
+            all2.sort((a, b) => {
+              const ay = parseInt(a.year) || 0;
+              const by = parseInt(b.year) || 0;
+              if (by !== ay) return by - ay;
+              const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return bt - at;
+            });
+            data = all2[0];
+          } else if (all2 && (all2.areas || all2.cohort)) {
+            data = all2;
+          }
+        } catch {
+          // ignore
         }
       }
       setCharAssessment(data && (data.areas || data.cohort) ? data : null);

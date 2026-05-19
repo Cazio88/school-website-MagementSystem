@@ -23,7 +23,11 @@ class CharacterAssessmentViewSet(ModelViewSet):
         year = params.get("year")
 
         if student:
-            qs = qs.filter(student_id=student)
+            # Accept either numeric PK or admission number string
+            if str(student).isdigit():
+                qs = qs.filter(student_id=student)
+            else:
+                qs = qs.filter(student__admission_number__iexact=student)
         if school_class:
             qs = qs.filter(school_class_id=school_class)
         if term:
@@ -45,6 +49,10 @@ class CharacterAssessmentViewSet(ModelViewSet):
         if not term or not year:
             raise ValidationError({"detail": "term and year are required to identify a character assessment"})
 
-        obj = get_object_or_404(queryset, student_id=lookup_value, term=term, year=year)
+        # Allow lookup by numeric PK or admission number
+        if str(lookup_value).isdigit():
+            obj = get_object_or_404(queryset, student_id=lookup_value, term=term, year=year)
+        else:
+            obj = get_object_or_404(queryset, student__admission_number__iexact=lookup_value, term=term, year=year)
         self.check_object_permissions(self.request, obj)
         return obj
