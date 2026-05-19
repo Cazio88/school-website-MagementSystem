@@ -1115,10 +1115,12 @@ const StudentPortal = () => {
       const year = new Date().getFullYear();
       let r = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}&year=${year}`);
       let data = r.data?.results?.[0] ?? r.data;
+      if (!data) console.debug("[char] primary query returned:", r.data);
       if (!data) {
         // No record for current year — request all matching records and pick the latest
         const r2 = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}`);
         const all = r2.data?.results ?? r2.data;
+        if (!all || (Array.isArray(all) && all.length === 0)) console.debug("[char] year-less query returned:", r2.data);
         if (Array.isArray(all) && all.length > 0) {
           all.sort((a, b) => {
             const ay = parseInt(a.year) || 0;
@@ -1139,6 +1141,7 @@ const StudentPortal = () => {
         try {
           const r3 = await API.get(`/character-assessment/?student=${user.admission_number}&term=${selectedTerm}`);
           const all2 = r3.data?.results ?? r3.data;
+          if (!all2 || (Array.isArray(all2) && all2.length === 0)) console.debug("[char] admission_number query returned:", r3.data);
           if (Array.isArray(all2) && all2.length > 0) {
             all2.sort((a, b) => {
               const ay = parseInt(a.year) || 0;
