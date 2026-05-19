@@ -5,7 +5,7 @@
 // and `onClose()` — no internal API calls.
 
 import React, { useState } from "react";
-import { calcReopenScore, calcCAonly, calcMGTScore, calcCAScore } from "../helpers";
+import { calcReopenScore, calcCAonly, calcMGTScore, calcCAScore } from "./Helpers";
 
 // ── Shared check icon ─────────────────────────────────────────────────────
 

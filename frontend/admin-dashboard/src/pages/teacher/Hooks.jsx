@@ -4,8 +4,8 @@
 // Each hook owns its state slice and exposes a stable API to the portal.
 
 import { useState, useCallback, useRef } from "react";
-import * as svc from "./teacherPortalService";
-import { mkDefaultCharState } from "./helpers";
+import * as svc from "./Teacherportalservice";
+import { mkDefaultCharState } from "./Helpers";
 
 // ── useTeacherData ────────────────────────────────────────────────────────
 // Loads classes, subjects, and students. Resets derived state on class change.

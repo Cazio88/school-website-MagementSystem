@@ -18,14 +18,14 @@ import {
   useAttendance,
   useResults,
   useCharAssessment,
-} from "./hooks";
+} from "./Hooks";
 
 // Shared UI
-import { Alert, EmptyState } from "./components/ui";
+import { Alert, EmptyState } from "./Ui";
 
 // Modals
-import { ReopenModal, CAModal, ExamsModal } from "./components/ScoreModals";
-import { ChangePasswordModal, ConfirmModal } from "./components/AuthModals";
+import { ReopenModal, CAModal, ExamsModal } from "./Scoremodals";
+import { ChangePasswordModal, ConfirmModal } from "./Authmodals";
 
 // Tabs (created in next step — stub imports for now)
 import ClassesTab     from "./tabs/ClassesTab";

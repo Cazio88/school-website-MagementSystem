@@ -33,9 +33,8 @@ export const GRADE_SCALE_B79 = [
   { range: "80–89",  grade: "2", label: "HIGHER"       },
   { range: "60–79",  grade: "3", label: "HIGH"         },
   { range: "55–59",  grade: "4", label: "HIGH AVERAGE" },
-  { range: "50–54",  grade: "5", label: "AVERAGE"      },
-  { range: "45–49",  grade: "6", label: "LOW AVERAGE"  },
-  { range: "40–44",  grade: "7", label: "LOW"          },
+  { range: "45–49",  grade: "5", label: "AVERAGE"      },
+  { range: "40–44",  grade: "6", label: "LOW AVERAGE"  },
   { range: "35–39",  grade: "8", label: "LOWER"        },
   { range: "0–34",   grade: "9", label: "LOWEST"       },
 ];
@@ -71,8 +70,6 @@ export const STATUS_CONFIG = {
 
 export const todayStr = new Date().toISOString().split("T")[0];
 
-// ── Character assessment ──────────────────────────────────────────────────
-
 export const CHAR_AREAS = [
   { key: "punctuality",     label: "Punctuality",              guide: "How punctual was the student?"                            },
   { key: "comportment",     label: "Comportment in Class",     guide: "Behaviour and attitude in class"                          },
@@ -104,8 +101,6 @@ export const COHORT_OPTIONS = [
   { value: "3rd", label: "3rd Cohort" },
 ];
 
-// Injected once into <head> for portal-specific modal animations.
-// Kept here so it travels with the constants and isn't duplicated.
 export const MODAL_STYLES = `
   @keyframes tp-modal-fadein  { from{opacity:0} to{opacity:1} }
   @keyframes tp-modal-slideup { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }

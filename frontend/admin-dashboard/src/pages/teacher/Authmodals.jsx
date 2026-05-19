@@ -1,9 +1,9 @@
 // src/pages/teacher/components/AuthModals.jsx
 
 import React, { useState, useEffect } from "react";
-import { pwStrength } from "../helpers";
-import { changePassword } from "../teacherPortalService";
-import { EyeIcon } from "./ui";
+import { pwStrength } from "./Helpers";
+import { changePassword } from "./Teacherportalservice";
+import { EyeIcon } from "./Ui";
 
 // ── ChangePasswordModal ───────────────────────────────────────────────────
 

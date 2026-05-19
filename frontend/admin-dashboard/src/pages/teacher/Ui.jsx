@@ -4,7 +4,7 @@
 // Import individually to keep bundle splits clean.
 
 import React from "react";
-import { GRADE_REMARK } from "../constants";
+import { GRADE_REMARK } from "./constants";
 
 export const Badge = ({ grade }) => {
   const info = GRADE_REMARK[grade];
