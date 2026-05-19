@@ -56,3 +56,39 @@ class CharacterAssessmentViewSet(ModelViewSet):
             obj = get_object_or_404(queryset, student__admission_number__iexact=lookup_value, term=term, year=year)
         self.check_object_permissions(self.request, obj)
         return obj
+
+    def list(self, request, *args, **kwargs):
+        """Return queryset; if year-filtered query is empty, fall back to latest matching record for the term.
+
+        This helps the student portal find a saved assessment when the teacher used a different `year` value.
+        """
+        params = request.query_params
+        student = params.get("student")
+        term = params.get("term")
+        year = params.get("year")
+
+        queryset = self.filter_queryset(self.get_queryset())
+        results = list(queryset)
+        if results:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+        # No results for provided year — attempt fallback to any year for the same student+term
+        if student and term and year:
+            qs_fallback = CharacterAssessment.objects.order_by("-year", "-created_at")
+            if str(student).isdigit():
+                qs_fallback = qs_fallback.filter(student_id=student, term=term)
+            else:
+                qs_fallback = qs_fallback.filter(student__admission_number__iexact=student, term=term)
+            first = qs_fallback.first()
+            if first:
+                serializer = self.get_serializer(first)
+                # Return single object inside a results array to match previous list format
+                return Response({"results": [serializer.data]})
+
+        # Default empty list
+        return Response({"results": []})
