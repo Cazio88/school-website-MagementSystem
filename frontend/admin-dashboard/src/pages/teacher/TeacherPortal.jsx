@@ -1,1364 +1,179 @@
-// apps/teacher/components/TeacherPortal.jsx
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+// src/pages/teacher/TeacherPortal.jsx
+//
+// Root component — orchestration only.
+// No API calls, no calc functions, no inline CSS strings here.
+// All logic lives in hooks.js / teacherPortalService.js / helpers.js.
+
+import React, { useEffect, useState, useMemo } from "react";
 import { getUser, logout } from "../../services/auth";
-import API from "../../services/api";
+
+// Constants & helpers
+import {
+  TABS, TERMS, YEARS, MODAL_STYLES, todayStr,
+} from "./constants";
+
+// Hooks
+import {
+  useTeacherData,
+  useAttendance,
+  useResults,
+  useCharAssessment,
+} from "./hooks";
+
+// Shared UI
+import { Alert, EmptyState } from "./components/ui";
+
+// Modals
+import { ReopenModal, CAModal, ExamsModal } from "./components/ScoreModals";
+import { ChangePasswordModal, ConfirmModal } from "./components/AuthModals";
+
+// Tabs (created in next step — stub imports for now)
+import ClassesTab     from "./tabs/ClassesTab";
+import AttendanceTab  from "./tabs/AttendanceTab";
+import ResultsTab     from "./tabs/ResultsTab";
+import CharacterTab   from "./tabs/CharacterTab";
+import ReportsTab     from "./tabs/ReportsTab";
 import AnnouncementsFeed from "../AnnouncementsFeed";
 
 // ─────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────
-
-const TERMS = [
-  { value: "term1", label: "Term 1" },
-  { value: "term2", label: "Term 2" },
-  { value: "term3", label: "Term 3" },
-];
-
-const YEARS = [2026, 2025, 2024, 2023, 2022];
-
-const GRADE_REMARK = {
-  "1":  { label: "HIGHEST",       color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" },
-  "2":  { label: "HIGHER",        color: "#059669", bg: "bg-emerald-50  text-emerald-700" },
-  "3":  { label: "HIGH",          color: "#0284c7", bg: "bg-blue-100    text-blue-800"    },
-  "4":  { label: "HIGH AVERAGE",  color: "#0891b2", bg: "bg-cyan-100    text-cyan-800"    },
-  "5":  { label: "AVERAGE",       color: "#ca8a04", bg: "bg-yellow-100  text-yellow-800"  },
-  "6":  { label: "LOW AVERAGE",   color: "#ea580c", bg: "bg-orange-100  text-orange-800"  },
-  "7":  { label: "LOW",           color: "#dc2626", bg: "bg-red-100     text-red-700"     },
-  "8":  { label: "LOWER",         color: "#b91c1c", bg: "bg-red-200     text-red-800"     },
-  "9":  { label: "LOWEST",        color: "#991b1b", bg: "bg-red-300     text-red-900"     },
-  "A":  { label: "EXCELLENT",     color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" },
-  "B":  { label: "VERY GOOD",     color: "#059669", bg: "bg-emerald-50  text-emerald-700" },
-  "C":  { label: "GOOD",          color: "#0284c7", bg: "bg-blue-100    text-blue-800"    },
-  "D":  { label: "HIGH AVERAGE",  color: "#0891b2", bg: "bg-cyan-100    text-cyan-800"    },
-  "E2": { label: "BELOW AVERAGE", color: "#ea580c", bg: "bg-orange-100  text-orange-800"  },
-  "E3": { label: "LOW",           color: "#dc2626", bg: "bg-red-100     text-red-700"     },
-  "E4": { label: "LOWER",         color: "#b91c1c", bg: "bg-red-200     text-red-800"     },
-  "E5": { label: "LOWEST",        color: "#991b1b", bg: "bg-red-300     text-red-900"     },
-};
-
-const GRADE_SCALE_B79 = [
-  { range: "90–100", grade: "1",  label: "HIGHEST"      },
-  { range: "80–89",  grade: "2",  label: "HIGHER"       },
-  { range: "60–79",  grade: "3",  label: "HIGH"         },
-  { range: "55–59",  grade: "4",  label: "HIGH AVERAGE" },
-  { range: "50–54",  grade: "5",  label: "AVERAGE"      },
-  { range: "45–49",  grade: "6",  label: "LOW AVERAGE"  },
-  { range: "40–44",  grade: "7",  label: "LOW"          },
-  { range: "35–39",  grade: "8",  label: "LOWER"        },
-  { range: "0–34",   grade: "9",  label: "LOWEST"       },
-];
-
-const GRADE_SCALE_B16 = [
-  { range: "90–100", grade: "A",  label: "EXCELLENT"     },
-  { range: "80–89",  grade: "B",  label: "VERY GOOD"     },
-  { range: "60–79",  grade: "C",  label: "GOOD"          },
-  { range: "55–59",  grade: "D",  label: "HIGH AVERAGE"  },
-  { range: "45–49",  grade: "E2", label: "BELOW AVERAGE" },
-  { range: "40–44",  grade: "E3", label: "LOW"           },
-  { range: "35–39",  grade: "E4", label: "LOWER"         },
-  { range: "0–34",   grade: "E5", label: "LOWEST"        },
-];
-
-const CONDUCT_OPTIONS = ["Excellent", "Very Good", "Good", "Fair", "Poor"];
-
-const TABS = [
-  { key: "Classes",       icon: "🏫", label: "Classes"       },
-  { key: "Attendance",    icon: "📋", label: "Attendance"    },
-  { key: "Results",       icon: "📊", label: "Results"       },
-  { key: "Character",     icon: "🌟", label: "Character"     },
-  { key: "Reports",       icon: "📄", label: "Reports"       },
-  { key: "Announcements", icon: "📢", label: "Announcements" },
-];
-
-const STATUS_CYCLE  = { present: "absent", absent: "late", late: "present" };
-const STATUS_CONFIG = {
-  present: { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", label: "Present" },
-  absent:  { dot: "bg-red-500",     pill: "bg-red-50    text-red-700    ring-1 ring-red-200",        label: "Absent"  },
-  late:    { dot: "bg-amber-400",   pill: "bg-amber-50  text-amber-700  ring-1 ring-amber-200",      label: "Late"    },
-};
-
-const todayStr = new Date().toISOString().split("T")[0];
-
-// ─────────────────────────────────────────────
-// Character Assessment constants
-// ─────────────────────────────────────────────
-
-// Each area: key, label, question guide, max score
-const CHAR_AREAS = [
-  { key: "punctuality",       label: "Punctuality",            guide: "How punctual was the student?"                          },
-  { key: "comportment",       label: "Comportment in Class",   guide: "Behaviour and attitude in class"                        },
-  { key: "neatness",          label: "Neatness & Dressing",    guide: "Proper dressing and hygiene"                            },
-  { key: "studying_habits",   label: "Studying Habits",        guide: "Study during free periods & consistent RDA completion"  },
-  { key: "respect_friends",   label: "Respect for Friends",    guide: "Respectful & friendly towards classmates; avoids insults" },
-  { key: "respect_rules",     label: "Respect for School Rules", guide: "Follows school rules and instructions"               },
-];
-
-const CAREER_SKILL_DEFAULTS = [
-  { key: "instrument",  label: "Instrument Skills",  exam: "Performance Test"   },
-  { key: "graphic",     label: "Graphic Design",     exam: "Project Work"       },
-  { key: "culinary",    label: "Culinary / Food Prep", exam: "Food Preparation" },
-  { key: "fashion",     label: "Fashion Design",     exam: "Sewing & Creativity" },
-  { key: "hairdressing", label: "Hairdressing",      exam: "Practical Styling"  },
-];
-
-const CHAR_SCORE_GRADES = [
-  { min: 80, grade: "A", label: "Excellent",     color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" },
-  { min: 60, grade: "B", label: "Very Good",     color: "#0284c7", bg: "bg-blue-100 text-blue-800"       },
-  { min: 50, grade: "C", label: "Good",          color: "#0891b2", bg: "bg-cyan-100 text-cyan-800"       },
-  { min: 40, grade: "D", label: "Satisfactory",  color: "#ca8a04", bg: "bg-yellow-100 text-yellow-800"   },
-  { min: 0,  grade: "E", label: "Needs Improvement", color: "#dc2626", bg: "bg-red-100 text-red-800"     },
-];
-
-const charScoreGrade = (score) => {
-  if (score === "" || score === null || score === undefined) return null;
-  const n = parseFloat(score);
-  return CHAR_SCORE_GRADES.find(g => n >= g.min) ?? CHAR_SCORE_GRADES[CHAR_SCORE_GRADES.length - 1];
-};
-
-const COHORT_OPTIONS = [
-  { value: "1st",  label: "1st Cohort" },
-  { value: "2nd",  label: "2nd Cohort" },
-  { value: "3rd",  label: "3rd Cohort" },
-];
-
-const CAREER_SCORE_GRADE = (score) => {
-  const n = parseFloat(score);
-  if (isNaN(n)) return null;
-  if (n >= 90) return { grade: "A", label: "Excellent",  color: "#16a34a", bg: "bg-emerald-100 text-emerald-800" };
-  if (n >= 80) return { grade: "B", label: "Very Good",  color: "#0284c7", bg: "bg-blue-100 text-blue-800"       };
-  if (n >= 60) return { grade: "C", label: "Good",       color: "#0891b2", bg: "bg-cyan-100 text-cyan-800"       };
-  if (n >= 50) return { grade: "D", label: "Average",    color: "#ca8a04", bg: "bg-yellow-100 text-yellow-800"   };
-  return { grade: "F", label: "Fail", color: "#dc2626", bg: "bg-red-100 text-red-800" };
-};
-
-const mkDefaultCharState = () => ({
-  cohort: "1st",
-  areas: Object.fromEntries(CHAR_AREAS.map(a => [a.key, { score: "", remarks: "" }])),
-  career: Object.fromEntries(CAREER_SKILL_DEFAULTS.map(s => [s.key, { score: "", remarks: "", exam: s.exam }])),
-  teacher_name: "",
-  teacher_sig: "",
-  teacher_date: "",
-  trainer_name: "",
-  trainer_sig: "",
-  trainer_date: "",
-});
-
-// ─────────────────────────────────────────────
-// Score breakdown helpers
-// ─────────────────────────────────────────────
-
-const calcReopenScore = (breakdown) => {
-  const reopen = Math.min(10, parseFloat(breakdown.reopen_raw) || 0);
-  const rda    = Math.min(10, parseFloat(breakdown.rda)        || 0);
-  return Math.round((reopen + rda) * 10) / 10;
-};
-
-const calcCAonly = (breakdown) => {
-  const hw = ["hw1","hw2","hw3","hw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
-  const cw = ["cw1","cw2","cw3","cw4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
-  const ct = ["ct1","ct2","ct3","ct4"].reduce((s,k) => s + (parseFloat(breakdown[k]) || 0), 0);
-  return Math.round(((hw + cw + ct) / 110) * 25 * 10) / 10;
-};
-
-const calcMGTScore = (breakdown) =>
-  Math.round(Math.min(15, parseFloat(breakdown.mgt_raw) || 0) * 10) / 10;
-
-const calcCAScore = (breakdown) =>
-  Math.round((calcCAonly(breakdown) + calcMGTScore(breakdown)) * 10) / 10;
-
-const calcExamsScore = (breakdown) =>
-  Math.round(((parseFloat(breakdown.exam_raw) || 0) / 100) * 40 * 10) / 10;
-
-// ─────────────────────────────────────────────
-// General helpers
-// ─────────────────────────────────────────────
-
-const computeTotal = (reopen, ca, exams) =>
-  Math.round(((parseFloat(reopen)||0) + (parseFloat(ca)||0) + (parseFloat(exams)||0)) * 10) / 10;
-
-const THRESHOLDS_B79 = [
-  [90,"1"],[80,"2"],[60,"3"],[55,"4"],[50,"5"],[45,"6"],[40,"7"],[35,"8"],[0,"9"],
-];
-const THRESHOLDS_B16 = [
-  [90,"A"],[80,"B"],[60,"C"],[55,"D"],[45,"E2"],[40,"E3"],[35,"E4"],[0,"E5"],
-];
-
-const gradeFromTotal = (total, level = "basic_7_9") => {
-  const thresholds = (level === "basic_1_6" || level === "nursery_kg")
-    ? THRESHOLDS_B16 : THRESHOLDS_B79;
-  for (const [min, grade] of thresholds) if (total >= min) return grade;
-  return thresholds[thresholds.length - 1][1];
-};
-
-const fmtPos = (n) => {
-  if (n == null) return "—";
-  const s = ["th","st","nd","rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-};
-
-// ─────────────────────────────────────────────
-// Breakdown label helpers
-// ─────────────────────────────────────────────
-
-const getReopenBreakdown = (breakdowns, studentId) => {
-  const b = breakdowns[studentId]?.reopen;
-  if (!b) return null;
-  return `${parseFloat(b.reopen_raw)||0}+${parseFloat(b.rda)||0}`;
-};
-
-const getCABreakdown = (breakdowns, studentId) => {
-  const b = breakdowns[studentId]?.ca;
-  if (!b) return null;
-  const mgt = parseFloat(b.mgt_raw) || 0;
-  return `CA:${calcCAonly(b).toFixed(1)} MGT:${mgt}`;
-};
-
-const getExamsBreakdown = (breakdowns, studentId) => {
-  const b = breakdowns[studentId]?.exams;
-  if (!b) return null;
-  return `raw:${parseFloat(b.exam_raw)||0}/100`;
-};
-
-// ─────────────────────────────────────────────
-// Modal styles
-// ─────────────────────────────────────────────
-
-const MODAL_STYLES = `
-  @keyframes tp-modal-fadein  { from{opacity:0} to{opacity:1} }
-  @keyframes tp-modal-slideup { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes tp-spin          { to{transform:rotate(360deg)} }
-  @keyframes tp-slide-up      { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-
-  .tp-modal-backdrop {
-    position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(4px);
-    z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;
-    animation:tp-modal-fadein .18s ease;
-  }
-  .tp-modal {
-    background:#fff; border-radius:18px; width:100%; max-width:500px;
-    box-shadow:0 24px 60px rgba(15,23,42,.25); animation:tp-modal-slideup .2s ease; overflow:hidden;
-  }
-  .tp-modal-header {
-    padding:18px 22px 14px; border-bottom:1px solid #f1f5f9;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .tp-modal-title   { font-size:15px; font-weight:700; color:#0f172a; margin:0; }
-  .tp-modal-subtitle{ font-size:12px; color:#94a3b8; margin:0; }
-  .tp-modal-close   {
-    width:30px; height:30px; border-radius:8px; border:none; background:#f1f5f9;
-    color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;
-    font-size:16px; transition:all .15s;
-  }
-  .tp-modal-close:hover { background:#e2e8f0; color:#1e293b; }
-  .tp-modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:18px; max-height:75vh; overflow-y:auto; }
-
-  .tp-modal-preview {
-    background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
-    border-radius:12px; padding:14px 18px;
-    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-  }
-  .tp-preview-item  { display:flex; flex-direction:column; align-items:center; gap:3px; }
-  .tp-preview-val   { font-family:'DM Mono',monospace; font-size:20px; font-weight:700; color:#fff; line-height:1; }
-  .tp-preview-lbl   { font-size:10px; color:#64748b; font-weight:500; text-transform:uppercase; letter-spacing:.5px; }
-  .tp-preview-arrow { color:#475569; font-size:16px; }
-  .tp-preview-final { font-family:'DM Mono',monospace; font-size:24px; font-weight:800; color:#3b82f6; line-height:1; }
-  .tp-preview-max   { font-size:11px; color:#475569; font-weight:500; }
-
-  .tp-modal-section { display:flex; flex-direction:column; gap:8px; }
-  .tp-section-label {
-    font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.7px;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .tp-section-label span { font-weight:400; color:#94a3b8; font-size:10px; letter-spacing:0; text-transform:none; }
-  .tp-modal-inputs  { display:flex; gap:8px; flex-wrap:wrap; }
-  .tp-modal-field   { display:flex; flex-direction:column; gap:4px; flex:1; min-width:70px; }
-  .tp-modal-field label { font-size:11px; color:#64748b; font-weight:600; }
-  .tp-modal-field input {
-    border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 10px;
-    font-family:'DM Mono',monospace; font-size:14px; font-weight:600; color:#1e293b;
-    text-align:center; outline:none; transition:all .15s; width:100%; box-sizing:border-box; background:#fafafa;
-  }
-  .tp-modal-field input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.1); }
-
-  .tp-divider { height:1px; background:#f1f5f9; margin:0 -22px; }
-
-  .tp-modal-footer { padding:14px 22px 20px; display:flex; gap:10px; justify-content:flex-end; }
-  .tp-modal-btn-cancel {
-    padding:9px 20px; border-radius:9px; border:1.5px solid #e2e8f0;
-    background:#fff; color:#64748b; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s;
-  }
-  .tp-modal-btn-cancel:hover { border-color:#94a3b8; color:#1e293b; }
-  .tp-modal-btn-apply {
-    padding:9px 22px; border-radius:9px; border:none;
-    background:#0f172a; color:#fff; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s;
-    display:flex; align-items:center; gap:8px;
-  }
-  .tp-modal-btn-apply:hover { background:#1e293b; transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.2); }
-
-  .tp-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
-  .tp-pill-blue   { background:#eff6ff; color:#1d4ed8; }
-  .tp-pill-purple { background:#f5f3ff; color:#6d28d9; }
-  .tp-pill-green  { background:#f0fdf4; color:#166534; }
-
-  .tp-score-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
-  .tp-score-btn {
-    min-width:72px; padding:6px 10px; border-radius:8px;
-    font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid #e2e8f0;
-    background:#fff; color:#1e293b; transition:all .15s; text-align:center;
-    display:flex; align-items:center; justify-content:center; gap:4px; font-family:'DM Mono',monospace;
-  }
-  .tp-score-btn:hover       { border-color:#3b82f6; background:#eff6ff; color:#1d4ed8; }
-  .tp-score-btn-filled      { border-color:#93c5fd; background:#f0f7ff; color:#1d4ed8; }
-  .tp-score-btn-max         { border-color:#86efac; background:#f0fdf4; color:#166534; }
-  .tp-score-btn-empty       { border-color:#e2e8f0; color:#94a3b8; font-weight:400; }
-  .tp-score-breakdown       { font-size:10px; color:#94a3b8; white-space:nowrap; font-family:'DM Mono',monospace; }
-`;
-
-// ─────────────────────────────────────────────
-// Password strength helper
-// ─────────────────────────────────────────────
-
-function pwStrength(pw) {
-  if (!pw) return { score: 0, label: "", color: "transparent", w: "0%" };
-  let s = 0;
-  if (pw.length >= 8)           s++;
-  if (/[A-Z]/.test(pw))         s++;
-  if (/[0-9]/.test(pw))         s++;
-  if (/[^A-Za-z0-9]/.test(pw)) s++;
-  const map = [
-    { label: "Too short", color: "#f87171", w: "25%"  },
-    { label: "Weak",      color: "#fb923c", w: "40%"  },
-    { label: "Fair",      color: "#fbbf24", w: "60%"  },
-    { label: "Good",      color: "#34d399", w: "80%"  },
-    { label: "Strong",    color: "#16a34a", w: "100%" },
-  ];
-  return { score: s, ...map[Math.min(s, map.length - 1)] };
-}
-
-// ─────────────────────────────────────────────
-// Eye icon
-// ─────────────────────────────────────────────
-
-const EyeIcon = ({ open }) =>
-  open ? (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-    </svg>
-  ) : (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-
-// ─────────────────────────────────────────────
-// REOPEN MODAL
-// ─────────────────────────────────────────────
-
-function ReopenModal({ studentName, initial, onApply, onClose }) {
-  const [vals, setVals] = useState({
-    reopen_raw: initial?.reopen_raw ?? "",
-    rda:        initial?.rda        ?? "",
-  });
-  const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
-  const score = calcReopenScore(vals);
-
-  return (
-    <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="tp-modal">
-        <div className="tp-modal-header">
-          <div>
-            <p className="tp-modal-title">Re-Open Score</p>
-            <p className="tp-modal-subtitle">{studentName}</p>
-          </div>
-          <button className="tp-modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="tp-modal-body">
-          <div className="tp-modal-preview">
-            <div className="tp-preview-item">
-              <span className="tp-preview-final">{score.toFixed(1)}</span>
-              <span className="tp-preview-max">/ 20</span>
-            </div>
-            <div className="tp-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
-              <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
-              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>Re-Open/10 + RDA/10</span>
-            </div>
-          </div>
-          <div className="tp-modal-section">
-            <div className="tp-section-label">
-              Re-Open Assessment
-              <span className="tp-pill tp-pill-blue">max 20 marks total</span>
-            </div>
-            <div className="tp-modal-inputs">
-              <div className="tp-modal-field">
-                <label>Re-Open <span style={{color:"#94a3b8",fontWeight:400}}>/10</span></label>
-                <input type="number" min="0" max="10" step="0.5"
-                  placeholder="0" value={vals.reopen_raw}
-                  onChange={e => set("reopen_raw", Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
-              </div>
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>+</div>
-              <div className="tp-modal-field">
-                <label>RDA <span style={{color:"#94a3b8",fontWeight:400}}>/10</span></label>
-                <input type="number" min="0" max="10" step="0.5"
-                  placeholder="0" value={vals.rda}
-                  onChange={e => set("rda", Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
-              </div>
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-              <div className="tp-modal-field">
-                <label style={{color:"#3b82f6"}}>Total /20</label>
-                <input readOnly value={score.toFixed(1)}
-                  style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default"}} />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="tp-modal-footer">
-          <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="tp-modal-btn-apply" onClick={() => onApply(score, vals)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Apply {score.toFixed(1)} / 20
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// CA / MGT MODAL
-// ─────────────────────────────────────────────
-
-function CAModal({ studentName, initial, onApply, onClose }) {
-  const [vals, setVals] = useState({
-    hw1: initial?.hw1??"", hw2: initial?.hw2??"", hw3: initial?.hw3??"", hw4: initial?.hw4??"",
-    cw1: initial?.cw1??"", cw2: initial?.cw2??"", cw3: initial?.cw3??"", cw4: initial?.cw4??"",
-    ct1: initial?.ct1??"", ct2: initial?.ct2??"", ct3: initial?.ct3??"", ct4: initial?.ct4??"",
-    mgt_raw: initial?.mgt_raw ?? "",
-  });
-
-  const set = (k, v) => setVals(p => ({ ...p, [k]: v }));
-  const num = (k) => parseFloat(vals[k]) || 0;
-
-  const hwTotal  = num("hw1")+num("hw2")+num("hw3")+num("hw4");
-  const cwTotal  = num("cw1")+num("cw2")+num("cw3")+num("cw4");
-  const ctTotal  = num("ct1")+num("ct2")+num("ct3")+num("ct4");
-  const caOnly   = calcCAonly(vals);
-  const mgtScore = calcMGTScore(vals);
-  const combined = calcCAScore(vals);
-
-  const totalField = (val, max) => (
-    <div className="tp-modal-field">
-      <input readOnly value={val.toFixed(1)}
-        style={{background:"#f0f7ff",borderColor:"#93c5fd",color:"#1d4ed8",cursor:"default",fontWeight:"700"}} />
-      <label style={{color:"#94a3b8",fontSize:"10px",textAlign:"center"}}>/{max}</label>
-    </div>
-  );
-
-  return (
-    <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="tp-modal" style={{maxWidth:"580px"}}>
-        <div className="tp-modal-header">
-          <div>
-            <p className="tp-modal-title">CA / MGT Score</p>
-            <p className="tp-modal-subtitle">{studentName} · CA (25%) + MGT Test (15%) = 40%</p>
-          </div>
-          <button className="tp-modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="tp-modal-body">
-          <div className="tp-modal-preview">
-            <div className="tp-preview-item">
-              <span style={{fontSize:"12px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{caOnly.toFixed(1)}/25</span>
-              <span className="tp-preview-lbl">CA</span>
-            </div>
-            <span className="tp-preview-arrow">+</span>
-            <div className="tp-preview-item">
-              <span style={{fontSize:"12px",color:"#a78bfa",fontFamily:"'DM Mono',monospace"}}>{mgtScore.toFixed(1)}/15</span>
-              <span className="tp-preview-lbl">MGT</span>
-            </div>
-            <span className="tp-preview-arrow">=</span>
-            <div className="tp-preview-item">
-              <span className="tp-preview-final">{combined.toFixed(1)}</span>
-              <span className="tp-preview-max">/ 40</span>
-            </div>
-            <div style={{marginLeft:"auto",display:"flex",gap:"10px"}}>
-              {[["HW",hwTotal,20],["CW",cwTotal,40],["CT",ctTotal,50]].map(([l,v,m]) => (
-                <div key={l} className="tp-preview-item">
-                  <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{v.toFixed(1)}/{m}</span>
-                  <span className="tp-preview-lbl">{l}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="tp-modal-section">
-            <div className="tp-section-label">
-              <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                Continuous Assessment (CA)
-                <span className="tp-pill tp-pill-blue">scaled to /25</span>
-              </span>
-              <span>raw total /110</span>
-            </div>
-            <div style={{marginBottom:"6px"}}>
-              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
-                Homework — 4 × 5 = /20
-              </div>
-              <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
-                {["hw1","hw2","hw3","hw4"].map(k => (
-                  <div className="tp-modal-field" key={k}>
-                    <label>HW {k.slice(2)}</label>
-                    <input type="number" min="0" max="5" step="0.5" placeholder="0" value={vals[k]}
-                      onChange={e => set(k, Math.min(5, Math.max(0, parseFloat(e.target.value)||0)))} />
-                  </div>
-                ))}
-                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-                {totalField(hwTotal, 20)}
-              </div>
-            </div>
-            <div style={{marginBottom:"6px"}}>
-              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
-                Classwork — 4 × 10 = /40
-              </div>
-              <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
-                {["cw1","cw2","cw3","cw4"].map(k => (
-                  <div className="tp-modal-field" key={k}>
-                    <label>CW {k.slice(2)}</label>
-                    <input type="number" min="0" max="10" step="0.5" placeholder="0" value={vals[k]}
-                      onChange={e => set(k, Math.min(10, Math.max(0, parseFloat(e.target.value)||0)))} />
-                  </div>
-                ))}
-                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-                {totalField(cwTotal, 40)}
-              </div>
-            </div>
-            <div>
-              <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>
-                Class Test — 10+10+10+20 = /50
-              </div>
-              <div className="tp-modal-inputs" style={{alignItems:"flex-start"}}>
-                {[["ct1",10],["ct2",10],["ct3",10],["ct4",20]].map(([k,max]) => (
-                  <div className="tp-modal-field" key={k}>
-                    <label>CT{k.slice(2)} /{max}</label>
-                    <input type="number" min="0" max={max} step="0.5" placeholder="0" value={vals[k]}
-                      onChange={e => set(k, Math.min(max, Math.max(0, parseFloat(e.target.value)||0)))} />
-                  </div>
-                ))}
-                <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
-                {totalField(ctTotal, 50)}
-              </div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"4px",padding:"8px 12px",background:"#eff6ff",borderRadius:"8px",border:"1px solid #bfdbfe"}}>
-              <span style={{fontSize:"12px",color:"#64748b"}}>CA raw ({(hwTotal+cwTotal+ctTotal).toFixed(1)}/110) scaled to</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"700",color:"#1d4ed8",fontSize:"15px"}}>{caOnly.toFixed(1)} / 25</span>
-            </div>
-          </div>
-
-          <div className="tp-divider" />
-
-          <div className="tp-modal-section">
-            <div className="tp-section-label">
-              <span style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                MGT Test
-                <span className="tp-pill tp-pill-purple">direct entry /15</span>
-              </span>
-            </div>
-            <div className="tp-modal-inputs">
-              <div className="tp-modal-field" style={{flex:"none",width:"120px"}}>
-                <label>MGT Score <span style={{color:"#94a3b8",fontWeight:400}}>/15</span></label>
-                <input type="number" min="0" max="15" step="0.5"
-                  placeholder="0" value={vals.mgt_raw}
-                  style={{fontSize:"22px",padding:"10px"}}
-                  onChange={e => set("mgt_raw", Math.min(15, Math.max(0, parseFloat(e.target.value)||0)))}
-                  autoFocus
-                />
-              </div>
-            </div>
-          </div>
-
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#f0fdf4",borderRadius:"10px",border:"1px solid #bbf7d0"}}>
-            <span style={{fontSize:"13px",color:"#166534",fontWeight:"600"}}>CA + MGT Combined Total</span>
-            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"800",color:"#166534",fontSize:"18px"}}>{combined.toFixed(1)} / 40</span>
-          </div>
-        </div>
-        <div className="tp-modal-footer">
-          <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="tp-modal-btn-apply" onClick={() => onApply(combined, vals)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Apply {combined.toFixed(1)} / 40
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// EXAMS MODAL
-// ─────────────────────────────────────────────
-
-function ExamsModal({ studentName, initial, onApply, onClose }) {
-  const [examRaw, setExamRaw] = useState(initial?.exam_raw ?? "");
-  const raw   = parseFloat(examRaw) || 0;
-  const score = Math.round((raw / 100) * 40 * 10) / 10;
-
-  return (
-    <div className="tp-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="tp-modal" style={{maxWidth:"380px"}}>
-        <div className="tp-modal-header">
-          <div>
-            <p className="tp-modal-title">Examination Score</p>
-            <p className="tp-modal-subtitle">{studentName}</p>
-          </div>
-          <button className="tp-modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="tp-modal-body">
-          <div className="tp-modal-preview">
-            <div className="tp-preview-item">
-              <span className="tp-preview-val">{raw.toFixed(1)}</span>
-              <span className="tp-preview-lbl">Raw /100</span>
-            </div>
-            <span className="tp-preview-arrow">→</span>
-            <div className="tp-preview-item">
-              <span className="tp-preview-final">{score.toFixed(1)}</span>
-              <span className="tp-preview-max">/ 40</span>
-            </div>
-            <div className="tp-preview-item" style={{marginLeft:"auto",alignItems:"flex-end"}}>
-              <span style={{fontSize:"10px",color:"#475569"}}>Formula</span>
-              <span style={{fontSize:"11px",color:"#64748b",fontFamily:"'DM Mono',monospace"}}>(raw/100)×40</span>
-            </div>
-          </div>
-          <div className="tp-modal-section">
-            <div className="tp-section-label">Exam Score <span>enter raw mark out of 100</span></div>
-            <div className="tp-modal-inputs">
-              <div className="tp-modal-field" style={{flex:"none",width:"120px"}}>
-                <label>Raw Mark</label>
-                <input type="number" min="0" max="100" step="0.5" placeholder="0" value={examRaw}
-                  style={{fontSize:"24px",padding:"12px 10px"}} autoFocus
-                  onChange={e => setExamRaw(Math.min(100, Math.max(0, parseFloat(e.target.value)||0)))} />
-              </div>
-              <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700",fontSize:"20px"}}>/</div>
-              <div className="tp-modal-field" style={{flex:"none",width:"60px"}}>
-                <label>Max</label>
-                <input readOnly value="100"
-                  style={{background:"#f8fafc",color:"#94a3b8",cursor:"default",fontSize:"24px",padding:"12px 10px"}} />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="tp-modal-footer">
-          <button className="tp-modal-btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="tp-modal-btn-apply" onClick={() => onApply(score, { exam_raw: raw })}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Apply {score.toFixed(1)} / 40
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// Change Password Modal
-// ─────────────────────────────────────────────
-
-const ChangePasswordModal = ({ onClose }) => {
-  const [current, setCurrent] = useState("");
-  const [next,    setNext]    = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [showCur, setShowCur] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showCon, setShowCon] = useState(false);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState("");
-  const [success, setSuccess] = useState(false);
-
-  const strength = pwStrength(next);
-  const mismatch = confirm && next !== confirm;
-
-  const handleSubmit = async () => {
-    setError("");
-    if (!current)        return setError("Enter your current password.");
-    if (next.length < 8) return setError("New password must be at least 8 characters.");
-    if (next !== confirm) return setError("New passwords do not match.");
-    setSaving(true);
-    try {
-      await API.post("/auth/change-password/", { old_password: current, new_password: next });
-      setSuccess(true);
-      setTimeout(onClose, 2200);
-    } catch (e) {
-      const d = e.response?.data;
-      setError(d?.old_password?.[0] || d?.new_password?.[0] || d?.detail || "Failed to change password.");
-    } finally { setSaving(false); }
-  };
-
-  useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-7" style={{ animation: "tp-slide-up .2s ease" }}>
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-lg font-black text-slate-800">Change Password</h2>
-            <p className="text-sm text-slate-400 mt-0.5">Keep your account secure with a strong password.</p>
-          </div>
-          <button onClick={onClose} className="text-slate-300 hover:text-slate-500 transition-colors text-2xl leading-none mt-0.5">×</button>
-        </div>
-        {success ? (
-          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl p-4 text-sm font-medium">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            Password changed successfully!
-          </div>
-        ) : (
-          <>
-            {[
-              { label:"Current Password",    value:current, set:setCurrent, show:showCur, setShow:setShowCur },
-              { label:"New Password",         value:next,    set:setNext,    show:showNew, setShow:setShowNew },
-              { label:"Confirm New Password", value:confirm, set:setConfirm, show:showCon, setShow:setShowCon },
-            ].map(({ label, value, set, show, setShow }, i) => (
-              <div key={i} className="mb-4">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">{label}</label>
-                <div className="relative">
-                  <input type={show ? "text" : "password"} value={value}
-                    onChange={e => { set(e.target.value); setError(""); }}
-                    placeholder={i === 0 ? "Enter current password" : i === 1 ? "Min. 8 characters" : "Repeat new password"}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
-                    style={i === 2 ? { borderColor: mismatch ? "#f87171" : confirm && !mismatch ? "#34d399" : "#e2e8f0" } : {}}
-                  />
-                  <button type="button" onClick={() => setShow(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                    <EyeIcon open={show} />
-                  </button>
-                </div>
-                {i === 1 && next && (
-                  <>
-                    <div className="h-1 rounded-full mt-2 transition-all duration-300"
-                      style={{ background: strength.color, width: strength.w, maxWidth: "100%" }} />
-                    <p className="text-xs mt-1" style={{ color: strength.color }}>{strength.label}</p>
-                  </>
-                )}
-                {i === 2 && mismatch && <p className="text-xs mt-1 text-red-400">Passwords don't match</p>}
-              </div>
-            ))}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">{error}</div>
-            )}
-            <div className="flex gap-3 mt-6">
-              <button type="button" onClick={onClose}
-                className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                Cancel
-              </button>
-              <button type="button" onClick={handleSubmit} disabled={saving || !!mismatch}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-                {saving ? (
-                  <><div style={{width:"14px",height:"14px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"tp-spin .6s linear infinite"}}/>Saving…</>
-                ) : "Update Password"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────
-// Confirm modal
-// ─────────────────────────────────────────────
-
-const ConfirmModal = ({ title, body, confirmLabel, onConfirm, onCancel }) => {
-  useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onCancel(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onCancel]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
-      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" style={{ animation: "tp-slide-up .2s ease" }}>
-        <h2 className="text-base font-black text-slate-800 mb-2">{title}</h2>
-        <p className="text-sm text-slate-500 mb-6">{body}</p>
-        <div className="flex gap-3">
-          <button type="button" onClick={onCancel}
-            className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-            Cancel
-          </button>
-          <button type="button" onClick={onConfirm}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────
-// Micro-components
-// ─────────────────────────────────────────────
-
-const Badge = ({ grade }) => {
-  const info = GRADE_REMARK[grade];
-  if (!info) return <span className="text-slate-300 text-xs">—</span>;
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${info.bg}`}>{grade}</span>;
-};
-
-const RemarkBadge = ({ grade }) => {
-  const info = GRADE_REMARK[grade];
-  if (!info) return <span className="text-slate-300 text-xs">—</span>;
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs ${info.bg}`}>{info.label}</span>;
-};
-
-const KpiCard = ({ label, value, color = "text-slate-800", sub }) => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4">
-    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-    <p className={`text-2xl font-black ${color}`}>{value}</p>
-    {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
-  </div>
-);
-
-const Alert = ({ message, type, onDismiss }) => {
-  if (!message) return null;
-  const s = type === "error"
-    ? "bg-red-50 border-red-200 text-red-700"
-    : "bg-emerald-50 border-emerald-200 text-emerald-700";
-  return (
-    <div role="alert" className={`mb-5 flex items-center justify-between px-4 py-3 rounded-xl border text-sm ${s}`}>
-      <span>{type === "error" ? "⚠ " : "✓ "}{message}</span>
-      <button onClick={onDismiss} className="ml-4 text-lg leading-none opacity-50 hover:opacity-100">×</button>
-    </div>
-  );
-};
-
-const EmptyState = ({ icon, title, sub }) => (
-  <div className="text-center py-16 text-slate-400 bg-white rounded-2xl border border-slate-100 shadow-sm">
-    <div className="text-5xl mb-3">{icon}</div>
-    <p className="font-medium text-slate-500">{title}</p>
-    {sub && <p className="text-xs mt-1">{sub}</p>}
-  </div>
-);
-
-const SectionHeader = ({ title, badge }) => (
-  <div className="flex items-center justify-between mb-4">
-    <h3 className="font-bold text-slate-700">{title}</h3>
-    {badge && <span className="text-xs text-slate-500 bg-white border border-slate-100 px-2.5 py-1 rounded-full shadow-sm">{badge}</span>}
-  </div>
-);
-
-const Th = ({ children, center }) => (
-  <th className={`px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide ${center ? "text-center" : "text-left"}`}>
-    {children}
-  </th>
-);
-
-// ─────────────────────────────────────────────
-// Score dot indicator (character assessment)
-// ─────────────────────────────────────────────
-
-const ScoreDot = ({ score }) => {
-  if (score === "" || score === null || score === undefined) return null;
-  const n = parseFloat(score);
-  const color = n >= 70 ? "bg-emerald-500" : n >= 40 ? "bg-amber-400" : "bg-red-500";
-  return <span className={`inline-block w-2 h-2 rounded-full ml-1 ${color}`} />;
-};
-
-// ─────────────────────────────────────────────
-// Main component
+// TeacherPortal
 // ─────────────────────────────────────────────
 
 const TeacherPortal = () => {
   const user = getUser();
 
+  // Inject portal-specific CSS animations once
   useEffect(() => {
     if (document.getElementById("tp-modal-styles")) return;
     const el = document.createElement("style");
-    el.id = "tp-modal-styles";
+    el.id          = "tp-modal-styles";
     el.textContent = MODAL_STYLES;
     document.head.appendChild(el);
   }, []);
 
-  const [tab, setTab]                         = useState("Classes");
-  const [selectedTerm, setSelectedTerm]       = useState("term1");
-  const [selectedYear, setSelectedYear]       = useState(YEARS[0]);
-  const [showPwModal, setShowPwModal]         = useState(false);
-  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  // ── UI state ────────────────────────────────────────────────────────────
+  const [tab,               setTab]               = useState("Classes");
+  const [selectedTerm,      setSelectedTerm]       = useState("term1");
+  const [selectedYear,      setSelectedYear]       = useState(YEARS[0]);
+  const [selectedSubject,   setSelectedSubject]    = useState("");
+  const [attDate,           setAttDate]            = useState(todayStr);
+  const [scoreModal,        setScoreModal]         = useState(null);
+  const [showPwModal,       setShowPwModal]        = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm]  = useState(false);
 
-  const [classes, setClasses]                       = useState([]);
-  const [selectedClass, setSelectedClass]           = useState(user.class_id ? String(user.class_id) : "");
-  const [selectedClassName, setSelectedClassName]   = useState(user.class || "");
-  const [selectedClassLevel, setSelectedClassLevel] = useState("basic_7_9");
-  const [students, setStudents]                     = useState([]);
-  const [loadingStudents, setLoadingStudents]       = useState(false);
+  // ── Domain hooks ────────────────────────────────────────────────────────
+  const teacherData  = useTeacherData(
+    user.class_id ? String(user.class_id) : "",
+    user.class ?? ""
+  );
+  const attendance   = useAttendance();
+  const results      = useResults();
+  const charAssess   = useCharAssessment();
 
-  const [attendance, setAttendance] = useState({});
-  const [attDate, setAttDate]       = useState(todayStr);
-  const [savingAtt, setSavingAtt]   = useState(false);
+  // Unified error/success — each hook owns its own; we surface them here
+  const error   = teacherData.error   || attendance.error   || results.error   || charAssess.error;
+  const success = teacherData.success || attendance.success || results.success || charAssess.success;
 
-  const [subjects, setSubjects]               = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [scores, setScores]                   = useState({});
-  const [breakdowns, setBreakdowns]           = useState({});
-  const [existingIds, setExistingIds]         = useState({});
-  const [saving, setSaving]                   = useState(false);
-  const [deleting, setDeleting]               = useState(null);
-  const [scoreModal, setScoreModal]           = useState(null);
+  const clearError   = () => {
+    teacherData.setError(""); attendance.setError(""); results.setError(""); charAssess.setError("");
+  };
+  const clearSuccess = () => {
+    teacherData.setSuccess?.(""); attendance.setSuccess(""); results.setSuccess(""); charAssess.setSuccess("");
+  };
 
-  const [selectedStudent, setSelectedStudent]   = useState("");
-  const [report, setReport]                     = useState(null);
-  const [loadingReport, setLoadingReport]       = useState(false);
-  const [expandedStudent, setExpandedStudent]   = useState(null);
-  const [summary, setSummary]                   = useState([]);
-  const [loadingSummary, setLoadingSummary]     = useState(false);
+  // ── Boot ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    teacherData.loadClasses();
+    teacherData.loadSubjects();
+  }, [teacherData.loadClasses, teacherData.loadSubjects]);
 
-  const [remarks, setRemarks]             = useState({ conduct: "", interest: "", teacher_remark: "" });
-  const [savingRemarks, setSavingRemarks] = useState(false);
-  const [remarksSaved, setRemarksSaved]   = useState(false);
-  const [downloading, setDownloading]     = useState(false);
+  useEffect(() => {
+    if (teacherData.selectedClass) {
+      teacherData.loadStudents(teacherData.selectedClass);
+    } else {
+      // class was cleared — also reset all derived state
+      attendance.reset();
+      results.reset();
+      charAssess.resetForClass();
+    }
+  }, [teacherData.selectedClass]);
 
-  // ── Character Assessment state ──────────────────────────────────────────
+  // Tab-driven side effects
+  useEffect(() => {
+    if (
+      tab === "Attendance" &&
+      teacherData.selectedClass &&
+      teacherData.students.length > 0
+    ) {
+      attendance.load(teacherData.selectedClass, attDate, teacherData.students);
+    }
+  }, [tab, attDate, teacherData.selectedClass, teacherData.students]);
 
-  // charStudentId: which student's form is open
-  const [charStudentId, setCharStudentId]   = useState("");
-  // charForms: { [studentId]: charState } — cached per student
-  const [charForms, setCharForms]           = useState({});
-  const [charLoading, setCharLoading]       = useState(false);
-  const [charSaving, setCharSaving]         = useState(false);
-  const [charSaved, setCharSaved]           = useState(false);
-  // extra career skill rows added dynamically
-  const [charExtraSkills, setCharExtraSkills] = useState([]);
+  useEffect(() => {
+    if (
+      tab === "Results" &&
+      teacherData.selectedClass &&
+      selectedSubject &&
+      selectedTerm &&
+      teacherData.students.length > 0
+    ) {
+      results.load(
+        teacherData.selectedClass,
+        selectedTerm,
+        selectedSubject,
+        selectedYear,
+        teacherData.students
+      );
+    }
+  }, [tab, teacherData.selectedClass, selectedSubject, selectedTerm, selectedYear, teacherData.students]);
 
-  // Active form for the selected student (or a fresh default)
-  const charForm = charForms[charStudentId] ?? mkDefaultCharState();
+  useEffect(() => {
+    if (tab === "Character" && charAssess.charStudentId) {
+      charAssess.load(charAssess.charStudentId, selectedTerm, selectedYear);
+    }
+  }, [tab, charAssess.charStudentId, selectedTerm, selectedYear]);
 
-  const setCharForm = useCallback((studentId, updater) => {
-    setCharForms(prev => ({
-      ...prev,
-      [studentId]: typeof updater === "function"
-        ? updater(prev[studentId] ?? mkDefaultCharState())
-        : updater,
-    }));
-    setCharSaved(false);
-  }, []);
+  useEffect(() => {
+    if (tab === "Character" && teacherData.students.length > 0 && !charAssess.charStudentId) {
+      charAssess.selectStudent(String(teacherData.students[0].id));
+    }
+  }, [tab, teacherData.students]);
 
-  // ── Error / success ─────────────────────────────────────────────────────
+  useEffect(() => { clearError(); clearSuccess(); }, [tab]);
 
-  const [error, setError]     = useState("");
-  const [success, setSuccess] = useState("");
-
-  const latestStudentsRef = useRef([]);
-  latestStudentsRef.current = students;
-
-  // ── Derived ──────────────────────────────────────────────────────────────
-
+  // ── Derived ─────────────────────────────────────────────────────────────
   const filledCount = useMemo(
-    () => Object.values(scores).filter(v => v?.reopen !== "" || v?.ca !== "" || v?.exams !== "").length,
-    [scores]
+    () =>
+      Object.values(results.scores).filter(
+        (v) => v?.reopen !== "" || v?.ca !== "" || v?.exams !== ""
+      ).length,
+    [results.scores]
   );
 
-  const savedCount = useMemo(() => Object.keys(existingIds).length, [existingIds]);
-
-  const classAvg = useMemo(() => {
-    const filled = Object.values(scores).filter(v => v?.reopen !== "" || v?.ca !== "" || v?.exams !== "");
-    if (!filled.length) return null;
-    const sum = filled.reduce((acc, v) => acc + computeTotal(v.reopen, v.ca, v.exams), 0);
-    return (sum / filled.length).toFixed(1);
-  }, [scores]);
-
-  const below50Count = useMemo(
-    () => Object.values(scores).filter(v => {
-      if (!v || (v.reopen === "" && v.ca === "" && v.exams === "")) return false;
-      return computeTotal(v.reopen, v.ca, v.exams) < 50;
-    }).length,
-    [scores]
-  );
-
-  const attStats = useMemo(() => ({
-    present: Object.values(attendance).filter(v => v === "present").length,
-    absent:  Object.values(attendance).filter(v => v === "absent").length,
-    late:    Object.values(attendance).filter(v => v === "late").length,
-  }), [attendance]);
-
-  // Character: count of areas with a score entered for selected student
-  const charFilledCount = useMemo(() => {
-    const form = charForms[charStudentId];
-    if (!form) return 0;
-    return Object.values(form.areas).filter(a => a.score !== "").length;
-  }, [charForms, charStudentId]);
-
-  // ── Data fetching ────────────────────────────────────────────────────────
-
-  const fetchClasses  = useCallback(async () => {
-    try { const r = await API.get("/classes/");  setClasses(r.data.results ?? r.data); }
-    catch { setError("Failed to load classes."); }
-  }, []);
-
-  const fetchSubjects = useCallback(async () => {
-    try { const r = await API.get("/subjects/"); setSubjects(r.data.results ?? r.data); }
-    catch {}
-  }, []);
-
-  const fetchStudents = useCallback(async (classId) => {
-    if (!classId) return;
-    setLoadingStudents(true);
-    try {
-      const r = await API.get(`/students/?school_class=${classId}`);
-      setStudents(r.data.results ?? r.data);
-    }
-    catch { setError("Failed to load students."); }
-    finally { setLoadingStudents(false); }
-  }, []);
-
-  const loadAttendance = useCallback(async (classId, date, currentStudents) => {
-    if (!classId || !currentStudents.length) return;
-    try {
-      const r       = await API.get(`/attendance/?school_class=${classId}&date=${date}`);
-      const records = r.data.results ?? r.data;
-      const map     = Object.fromEntries(records.map(rec => [String(rec.student), rec.status]));
-      setAttendance(Object.fromEntries(currentStudents.map(s => [s.id, map[String(s.id)] ?? "present"])));
-    } catch {}
-  }, []);
-
-  const loadExistingScores = useCallback(async (classId, term, subjectId, year) => {
-    if (!classId || !term || !subjectId) return;
-    try {
-      const r       = await API.get(`/results/?school_class=${classId}&term=${term}&subject=${subjectId}&year=${year}`);
-      const records = r.data.results ?? r.data;
-      const serverMap = Object.fromEntries(
-        records.map(rec => [String(rec.student), { reopen: rec.reopen, ca: rec.ca, exams: rec.exams }])
-      );
-      const idMap = Object.fromEntries(records.map(rec => [rec.student, rec.id]));
-      setScores(Object.fromEntries(
-        latestStudentsRef.current.map(s => [
-          s.id, serverMap[String(s.id)] ?? { reopen: "", ca: "", exams: "" },
-        ])
-      ));
-      setExistingIds(idMap);
-    } catch {}
-  }, []);
-
-  const fetchSummary = useCallback(async (classId, term, year) => {
-    if (!classId || !term) return;
-    setLoadingSummary(true);
-    try {
-      const r = await API.get(`/results/summary/?school_class=${classId}&term=${term}&year=${year}`);
-      setSummary(r.data);
-    }
-    catch { setError("Failed to load summary."); }
-    finally { setLoadingSummary(false); }
-  }, []);
-
-  const fetchStudentReport = useCallback(async (studentId, term) => {
-    setLoadingReport(true); setReport(null); setRemarksSaved(false);
-    try {
-      const r = await API.get(`/report/student/${studentId}/?term=${term}`);
-      setReport(r.data);
-      setRemarks({ conduct: r.data.conduct ?? "", interest: r.data.interest ?? "", teacher_remark: r.data.teacher_remark ?? "" });
-    } catch { setError("No report found for this student and term."); }
-    finally { setLoadingReport(false); }
-  }, []);
-
-  // ── Character Assessment API calls ───────────────────────────────────────
-  // Endpoint: GET/POST/PATCH /character-assessment/?student=<id>&term=<term>&year=<year>
-  //
-  // Expected response shape (adapt to your actual API):
-  // { cohort, areas: { punctuality: {score,remarks}, … }, career: {…}, teacher_name, … }
-
-  const loadCharAssessment = useCallback(async (studentId, term, year) => {
-    if (!studentId) return;
-    // If already loaded for this student in this session, don't re-fetch
-    if (charForms[studentId]) return;
-    setCharLoading(true);
-    try {
-      const r = await API.get(`/character-assessment/?student=${studentId}&term=${term}&year=${year}`);
-      const data = r.data?.results?.[0] ?? r.data;
-      if (data && (data.areas || data.cohort)) {
-        setCharForms(prev => ({ ...prev, [studentId]: { ...mkDefaultCharState(), ...data } }));
-      }
-      // If 404 / empty, leave as default (blank form)
-    } catch {
-      // Silently keep defaults — first time filling this form
-    } finally {
-      setCharLoading(false);
-    }
-  }, [charForms]);
-
-  const saveCharAssessment = useCallback(async () => {
-    if (!charStudentId) return;
-    setCharSaving(true); setError(""); setCharSaved(false);
-    const form = charForms[charStudentId] ?? mkDefaultCharState();
-    const payload = {
-      student: charStudentId,
-      school_class: selectedClass,
-      term: selectedTerm,
-      year: selectedYear,
-      ...form,
-    };
-    try {
-      // Try PATCH first (update), fall back to POST (create)
-      try {
-        await API.patch(`/character-assessment/${charStudentId}/`, payload);
-      } catch (patchErr) {
-        if (patchErr.response?.status === 404 || patchErr.response?.status === 405) {
-          await API.post("/character-assessment/", payload);
-        } else throw patchErr;
-      }
-      setCharSaved(true);
-      setSuccess("Character assessment saved successfully.");
-      setTimeout(() => setCharSaved(false), 3000);
-    } catch {
-      setError("Failed to save character assessment. Please try again.");
-    } finally {
-      setCharSaving(false);
-    }
-  }, [charStudentId, charForms, selectedClass, selectedTerm, selectedYear]);
-
-  // ── Effects ──────────────────────────────────────────────────────────────
-
-  useEffect(() => { fetchClasses(); fetchSubjects(); }, [fetchClasses, fetchSubjects]);
-
-  useEffect(() => {
-    if (selectedClass) fetchStudents(selectedClass);
-    else setStudents([]);
-  }, [selectedClass, fetchStudents]);
-
-  useEffect(() => {
-    if (tab === "Attendance" && selectedClass && students.length > 0)
-      loadAttendance(selectedClass, attDate, students);
-  }, [tab, attDate, selectedClass, students, loadAttendance]);
-
-  useEffect(() => {
-    if (tab === "Results" && selectedClass && selectedSubject && selectedTerm && students.length > 0)
-      loadExistingScores(selectedClass, selectedTerm, selectedSubject, selectedYear);
-  }, [tab, selectedClass, selectedSubject, selectedTerm, selectedYear, students, loadExistingScores]);
-
-  useEffect(() => {
-    if (tab === "Reports" && selectedClass && selectedTerm)
-      fetchSummary(selectedClass, selectedTerm, selectedYear);
-  }, [tab, selectedClass, selectedTerm, selectedYear, fetchSummary]);
-
-  // When Character tab opens and a student is selected, load their assessment
-  useEffect(() => {
-    if (tab === "Character" && charStudentId) {
-      loadCharAssessment(charStudentId, selectedTerm, selectedYear);
-    }
-  }, [tab, charStudentId, selectedTerm, selectedYear, loadCharAssessment]);
-
-  // Auto-select first student when entering Character tab
-  useEffect(() => {
-    if (tab === "Character" && students.length > 0 && !charStudentId) {
-      setCharStudentId(String(students[0].id));
-    }
-  }, [tab, students, charStudentId]);
-
-  useEffect(() => { setError(""); setSuccess(""); }, [tab]);
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
-  const toggleStatus = useCallback((id) => {
-    setAttendance(p => ({ ...p, [id]: STATUS_CYCLE[p[id]] ?? "present" }));
-  }, []);
-
-  const saveAttendance = async () => {
-    if (attDate > todayStr) { setError("Cannot record attendance for a future date."); return; }
-    setSavingAtt(true); setError(""); setSuccess("");
-    try {
-      const existingRes = await API.get(`/attendance/?school_class=${selectedClass}&date=${attDate}`);
-      const existing    = existingRes.data.results ?? existingRes.data;
-      const existingMap = Object.fromEntries(existing.map(rec => [String(rec.student), rec.id]));
-      const results = await Promise.allSettled(
-        students.map(s => {
-          const existingId = existingMap[String(s.id)];
-          const status     = attendance[s.id] ?? "present";
-          return existingId
-            ? API.patch(`/attendance/${existingId}/`, { status })
-            : API.post("/attendance/", { student: s.id, school_class: selectedClass, date: attDate, status });
-        })
-      );
-      const failedCount = results.filter(r => r.status === "rejected").length;
-      if (failedCount > 0) setError(`${failedCount} record(s) could not be saved. Please try again.`);
-      else setSuccess("Attendance saved successfully.");
-    } catch { setError("Failed to save attendance."); }
-    finally { setSavingAtt(false); }
-  };
-
+  // ── Score modal handlers ─────────────────────────────────────────────────
   const applyReopen = (score, breakdown) => {
-    const { studentId } = scoreModal;
-    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), reopen: score } }));
-    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), reopen: breakdown } }));
+    results.applyScore(scoreModal.studentId, "reopen", score, breakdown);
     setScoreModal(null);
   };
-
   const applyCA = (score, breakdown) => {
-    const { studentId } = scoreModal;
-    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), ca: score } }));
-    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), ca: breakdown } }));
+    results.applyScore(scoreModal.studentId, "ca", score, breakdown);
     setScoreModal(null);
   };
-
   const applyExams = (score, breakdown) => {
-    const { studentId } = scoreModal;
-    setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), exams: score } }));
-    setBreakdowns(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), exams: breakdown } }));
+    results.applyScore(scoreModal.studentId, "exams", score, breakdown);
     setScoreModal(null);
   };
 
-  const handleDeleteResult = async (studentId) => {
-    const id = existingIds[studentId];
-    if (!id) return;
-    setDeleting(studentId);
-    try {
-      await API.delete(`/results/${id}/`);
-      setScores(prev => ({ ...prev, [studentId]: { reopen: "", ca: "", exams: "" } }));
-      setExistingIds(prev => { const n = { ...prev }; delete n[studentId]; return n; });
-      setBreakdowns(prev => { const n = { ...prev }; delete n[studentId]; return n; });
-      setSuccess("Result deleted.");
-    } catch { setError("Failed to delete result."); }
-    finally { setDeleting(null); }
-  };
-
-  const submitResults = async () => {
-    if (!selectedClass || !selectedTerm || !selectedSubject) {
-      setError("Please select a class, term, and subject."); return;
-    }
-    const records = Object.entries(scores)
-      .filter(([, v]) => v.reopen !== "" || v.ca !== "" || v.exams !== "")
-      .map(([sid, v]) => ({
-        student: sid, subject: selectedSubject, school_class: selectedClass,
-        term: selectedTerm, year: selectedYear,
-        reopen: parseFloat(v.reopen) || 0,
-        ca:     parseFloat(v.ca)     || 0,
-        exams:  parseFloat(v.exams)  || 0,
-      }));
-    if (!records.length) { setError("No scores entered."); return; }
-    setSaving(true); setError("");
-    try {
-      const r = await API.post("/results/bulk/", records);
-      if (r.data.errors?.length > 0) {
-        setError(`${r.data.saved} saved, ${r.data.errors.length} failed. Check scores and try again.`);
-      } else {
-        setSuccess(`Saved ${r.data.saved} result(s) successfully.`);
-        loadExistingScores(selectedClass, selectedTerm, selectedSubject, selectedYear);
-      }
-    }
-    catch (err) {
-      const detail = err.response?.data?.detail || err.response?.data?.error;
-      setError(detail || "Error saving results. Please try again.");
-    }
-    finally { setSaving(false); }
-  };
-
-  const saveRemarks = async () => {
-    setSavingRemarks(true); setRemarksSaved(false); setError("");
-    try {
-      await API.patch(`/report/student/${selectedStudent}/`, { term: selectedTerm, ...remarks });
-      setRemarksSaved(true);
-      const r = await API.get(`/report/student/${selectedStudent}/?term=${selectedTerm}`);
-      setReport(r.data);
-    } catch { setError("Failed to save remarks."); }
-    finally { setSavingRemarks(false); }
-  };
-
-  const downloadPDF = async () => {
-    setDownloading(true); setError("");
-    let url;
-    try {
-      const r = await API.get(`/report/student/${selectedStudent}/pdf/?term=${selectedTerm}`, { responseType: "blob" });
-      url = window.URL.createObjectURL(new Blob([r.data]));
-      const link = document.createElement("a");
-      link.href  = url;
-      link.setAttribute("download", `report_${selectedStudent}_${selectedTerm}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch { setError("Failed to download PDF."); }
-    finally { if (url) window.URL.revokeObjectURL(url); setDownloading(false); }
-  };
-
+  // ── Class change ─────────────────────────────────────────────────────────
   const handleClassChange = (classId) => {
-    setSelectedClass(classId);
-    const found = classes.find(c => String(c.id) === String(classId));
-    setSelectedClassName(found?.name ?? "");
-    setSelectedClassLevel(found?.level ?? "basic_7_9");
+    teacherData.changeClass(classId, teacherData.classes);
     setSelectedSubject("");
-    setStudents([]); setScores({}); setBreakdowns({}); setExistingIds({});
-    setAttendance({}); setSummary([]);
-    setReport(null); setSelectedStudent(""); setExpandedStudent(null);
-    setRemarks({ conduct: "", interest: "", teacher_remark: "" });
-    setRemarksSaved(false);
-    // Reset character state for the new class
-    setCharStudentId(""); setCharForms({}); setCharSaved(false);
-    setError(""); setSuccess("");
-  };
-
-  // ── Character helpers ────────────────────────────────────────────────────
-
-  const updateCharArea = (field, subField, value) => {
-    setCharForm(charStudentId, prev => ({
-      ...prev,
-      areas: {
-        ...prev.areas,
-        [field]: { ...(prev.areas?.[field] ?? { score: "", remarks: "" }), [subField]: value },
-      },
-    }));
-  };
-
-  const updateCareerSkill = (key, subField, value) => {
-    setCharForm(charStudentId, prev => ({
-      ...prev,
-      career: {
-        ...prev.career,
-        [key]: { ...(prev.career?.[key] ?? { score: "", remarks: "", exam: "" }), [subField]: value },
-      },
-    }));
-  };
-
-  const updateCharField = (field, value) => {
-    setCharForm(charStudentId, prev => ({ ...prev, [field]: value }));
-  };
-
-  const addExtraCareerSkill = () => {
-    const key = `extra_${Date.now()}`;
-    setCharExtraSkills(prev => [...prev, { key, label: "", exam: "" }]);
-    setCharForm(charStudentId, prev => ({
-      ...prev,
-      career: { ...prev.career, [key]: { score: "", remarks: "", exam: "" } },
-    }));
-  };
-
-  const updateExtraSkillLabel = (key, label) => {
-    setCharExtraSkills(prev => prev.map(s => s.key === key ? { ...s, label } : s));
-  };
-
-  const removeExtraSkill = (key) => {
-    setCharExtraSkills(prev => prev.filter(s => s.key !== key));
-    setCharForm(charStudentId, prev => {
-      const career = { ...prev.career };
-      delete career[key];
-      return { ...prev, career };
-    });
+    results.reset();
+    attendance.reset();
+    charAssess.resetForClass();
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
-
-  const isB16 = selectedClassLevel === "basic_1_6" || selectedClassLevel === "nursery_kg";
-
-  // All career skill rows (default + extra)
-  const allCareerSkills = [
-    ...CAREER_SKILL_DEFAULTS,
-    ...charExtraSkills.map(s => ({ key: s.key, label: s.label || "New Skill", exam: s.exam, isExtra: true })),
-  ];
-
-  // Selected student name
-  const charStudentName = students.find(s => String(s.id) === String(charStudentId))?.student_name ?? "";
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -1367,7 +182,7 @@ const TeacherPortal = () => {
       {scoreModal?.type === "reopen" && (
         <ReopenModal
           studentName={scoreModal.studentName}
-          initial={breakdowns[scoreModal.studentId]?.reopen}
+          initial={results.breakdowns[scoreModal.studentId]?.reopen}
           onApply={applyReopen}
           onClose={() => setScoreModal(null)}
         />
@@ -1375,7 +190,7 @@ const TeacherPortal = () => {
       {scoreModal?.type === "ca" && (
         <CAModal
           studentName={scoreModal.studentName}
-          initial={breakdowns[scoreModal.studentId]?.ca}
+          initial={results.breakdowns[scoreModal.studentId]?.ca}
           onApply={applyCA}
           onClose={() => setScoreModal(null)}
         />
@@ -1383,7 +198,7 @@ const TeacherPortal = () => {
       {scoreModal?.type === "exams" && (
         <ExamsModal
           studentName={scoreModal.studentName}
-          initial={breakdowns[scoreModal.studentId]?.exams}
+          initial={results.breakdowns[scoreModal.studentId]?.exams}
           onApply={applyExams}
           onClose={() => setScoreModal(null)}
         />
@@ -1394,9 +209,18 @@ const TeacherPortal = () => {
       {showSubmitConfirm && (
         <ConfirmModal
           title="Save Results?"
-          body={`You are about to save ${filledCount} result${filledCount !== 1 ? "s" : ""} for ${selectedClassName}. This will overwrite any existing scores for the selected subject and term.`}
+          body={`You are about to save ${filledCount} result${filledCount !== 1 ? "s" : ""} for ${teacherData.selectedClassName}. This will overwrite any existing scores for the selected subject and term.`}
           confirmLabel={`Save ${filledCount} Result${filledCount !== 1 ? "s" : ""}`}
-          onConfirm={() => { setShowSubmitConfirm(false); submitResults(); }}
+          onConfirm={() => {
+            setShowSubmitConfirm(false);
+            results.submitAll(
+              teacherData.selectedClass,
+              selectedTerm,
+              selectedSubject,
+              selectedYear,
+              teacherData.students
+            );
+          }}
           onCancel={() => setShowSubmitConfirm(false)}
         />
       )}
@@ -1410,7 +234,9 @@ const TeacherPortal = () => {
             </div>
             <div>
               <p className="font-bold text-slate-800 text-sm leading-tight">{user.username}</p>
-              <p className="text-slate-400 text-xs">{user.teacher_id}{user.subject ? ` · ${user.subject}` : ""}</p>
+              <p className="text-slate-400 text-xs">
+                {user.teacher_id}{user.subject ? ` · ${user.subject}` : ""}
+              </p>
             </div>
           </div>
 
@@ -1418,7 +244,9 @@ const TeacherPortal = () => {
             {TABS.map(({ key, icon, label }) => (
               <button key={key} onClick={() => setTab(key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  tab === key ? "bg-blue-50 text-blue-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  tab === key
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 }`}>
                 <span className="text-base">{icon}</span>
                 <span className="hidden md:inline">{label}</span>
@@ -1427,12 +255,16 @@ const TeacherPortal = () => {
           </nav>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowPwModal(true)}
-              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors border border-slate-200 hover:border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg">
+            <button
+              onClick={() => setShowPwModal(true)}
+              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors border border-slate-200 hover:border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg"
+            >
               🔑 <span className="hidden md:inline">Password</span>
             </button>
-            <button onClick={logout}
-              className="text-xs font-medium text-slate-400 hover:text-red-500 transition-colors border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg">
+            <button
+              onClick={logout}
+              className="text-xs font-medium text-slate-400 hover:text-red-500 transition-colors border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg"
+            >
               Sign out
             </button>
           </div>
@@ -1458,68 +290,74 @@ const TeacherPortal = () => {
           <div className="flex gap-3 flex-wrap items-end">
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Year</label>
-              <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
+              <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}
                 className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Term</label>
-              <select value={selectedTerm} onChange={e => setSelectedTerm(e.target.value)}
+              <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)}
                 className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                {TERMS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {TERMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Class</label>
-              <select value={selectedClass} onChange={e => handleClassChange(e.target.value)}
+              <select value={teacherData.selectedClass} onChange={(e) => handleClassChange(e.target.value)}
                 className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm min-w-[150px] focus:outline-none focus:ring-2 focus:ring-blue-400">
                 <option value="">Select Class</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {teacherData.classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+
             {tab === "Results" && (
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Subject</label>
-                <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}
+                <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)}
                   className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-400">
                   <option value="">Select Subject</option>
-                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {teacherData.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
             )}
+
             {tab === "Attendance" && (
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Date</label>
-                <input type="date" value={attDate} max={todayStr} onChange={e => setAttDate(e.target.value)}
+                <input type="date" value={attDate} max={todayStr} onChange={(e) => setAttDate(e.target.value)}
                   className="border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
             )}
-            {tab === "Character" && selectedClass && (
+
+            {tab === "Character" && teacherData.selectedClass && (
               <div className="flex-1 min-w-[200px]">
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Student</label>
-                <select value={charStudentId}
-                  onChange={e => {
+                <select
+                  value={charAssess.charStudentId}
+                  onChange={(e) => {
                     const id = e.target.value;
-                    setCharStudentId(id);
-                    setCharSaved(false);
-                    if (id) loadCharAssessment(id, selectedTerm, selectedYear);
+                    charAssess.selectStudent(id);
+                    if (id) charAssess.load(id, selectedTerm, selectedYear);
                   }}
-                  className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
                   <option value="">— Select a student —</option>
-                  {students.map(s => {
-                    const filled = charForms[s.id]
-                      ? Object.values(charForms[s.id].areas ?? {}).filter(a => a.score !== "").length
+                  {teacherData.students.map((s) => {
+                    const filled = charAssess.charForms[s.id]
+                      ? Object.values(charAssess.charForms[s.id].areas ?? {}).filter((a) => a.score !== "").length
                       : 0;
                     return (
                       <option key={s.id} value={s.id}>
-                        {s.student_name}{filled > 0 ? ` ✓ (${filled}/${CHAR_AREAS.length})` : ""}
+                        {s.student_name}{filled > 0 ? ` ✓ (${filled}/6)` : ""}
                       </option>
                     );
                   })}
                 </select>
               </div>
             )}
+
+            {/* Mobile password button */}
             <div className="sm:hidden ml-auto">
               <button onClick={() => setShowPwModal(true)}
                 className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 px-3 py-2 rounded-xl transition-colors">
@@ -1530,909 +368,85 @@ const TeacherPortal = () => {
         </div>
 
         {/* ── Alerts ── */}
-        <Alert message={error}   type="error"   onDismiss={() => setError("")}   />
-        <Alert message={success} type="success" onDismiss={() => setSuccess("")} />
+        <Alert message={error}   type="error"   onDismiss={clearError}   />
+        <Alert message={success} type="success" onDismiss={clearSuccess} />
 
-        {!selectedClass && (
+        {!teacherData.selectedClass && (
           <EmptyState icon="🏫" title="Select a class to get started" sub="Use the dropdown above to choose your class" />
         )}
 
-        {/* ══════════════════════════════════════
-            TAB: Classes
-        ══════════════════════════════════════ */}
-        {tab === "Classes" && selectedClass && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-3 gap-4">
-              <KpiCard label="Students" value={students.length}          color="text-blue-600" />
-              <KpiCard label="Class"    value={selectedClassName || "—"} color="text-slate-800" />
-              <KpiCard label="Term"     value={TERMS.find(t => t.value === selectedTerm)?.label} color="text-slate-800" />
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center">
-                <p className="font-bold text-slate-700 text-sm">{selectedClassName} — Student List</p>
-                <span className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-semibold">{students.length} enrolled</span>
-              </div>
-              {loadingStudents ? (
-                <div className="p-10 text-center text-slate-400 text-sm">Loading students…</div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead><tr className="bg-slate-50 border-b border-slate-100"><Th>#</Th><Th>Name</Th><Th>Admission No.</Th></tr></thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {students.map((s, i) => (
-                      <tr key={s.id} className="hover:bg-blue-50/30 transition-colors">
-                        <td className="px-4 py-3 text-slate-400 text-xs">{i + 1}</td>
-                        <td className="px-4 py-3 font-medium text-slate-800">{s.student_name}</td>
-                        <td className="px-4 py-3 text-slate-500 font-mono text-xs">{s.admission_number}</td>
-                      </tr>
-                    ))}
-                    {!students.length && (
-                      <tr><td colSpan={3} className="px-5 py-12 text-center text-slate-400">No students found for this class.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════
-            TAB: Attendance
-        ══════════════════════════════════════ */}
-        {tab === "Attendance" && selectedClass && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-3 gap-4">
-              <KpiCard label="Present" value={attStats.present} color="text-emerald-600" sub={`of ${students.length}`} />
-              <KpiCard label="Absent"  value={attStats.absent}  color="text-red-600"     sub={`of ${students.length}`} />
-              <KpiCard label="Late"    value={attStats.late}    color="text-amber-600"   sub={`of ${students.length}`} />
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center flex-wrap gap-2">
-                <p className="font-bold text-slate-700 text-sm">{selectedClassName} — {attDate}</p>
-                <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">Tap to cycle: Present → Absent → Late</span>
-              </div>
-              {loadingStudents ? (
-                <div className="p-10 text-center text-slate-400 text-sm">Loading students…</div>
-              ) : (
-                <>
-                  <table className="w-full text-sm">
-                    <thead><tr className="bg-slate-50 border-b border-slate-100"><Th>#</Th><Th>Name</Th><Th center>Status</Th></tr></thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {students.map((s, i) => {
-                        const status = attendance[s.id] ?? "present";
-                        const cfg    = STATUS_CONFIG[status];
-                        return (
-                          <tr key={s.id} className="hover:bg-slate-50/60 transition-colors">
-                            <td className="px-4 py-3 text-slate-400 text-xs">{i + 1}</td>
-                            <td className="px-4 py-3 font-medium text-slate-800">{s.student_name}</td>
-                            <td className="px-4 py-3 text-center">
-                              <button onClick={() => toggleStatus(s.id)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all active:scale-95 ${cfg.pill}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                                {cfg.label}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {!students.length && (
-                        <tr><td colSpan={3} className="px-5 py-12 text-center text-slate-400">No students found.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                  <div className="px-5 py-3.5 border-t border-slate-100 flex justify-end">
-                    <button onClick={saveAttendance} disabled={savingAtt || !students.length}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm">
-                      {savingAtt ? "Saving…" : "Save Attendance"}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════
-            TAB: Results
-        ══════════════════════════════════════ */}
-        {tab === "Results" && selectedClass && (
+        {/* ── Tab content ── */}
+        {teacherData.selectedClass && (
           <>
-            {!selectedSubject && (
-              <EmptyState icon="📊" title="Select a subject above to enter scores"
-                sub="Click any score button to open the breakdown entry modal" />
+            {tab === "Classes" && (
+              <ClassesTab
+                students={teacherData.students}
+                loading={teacherData.loadingStudents}
+                selectedClassName={teacherData.selectedClassName}
+                selectedTerm={selectedTerm}
+              />
             )}
-            {selectedSubject && students.length > 0 && (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-                  <KpiCard label="Filled"    value={`${filledCount} / ${students.length}`} color="text-blue-600" />
-                  <KpiCard label="Saved"     value={savedCount}     color="text-emerald-600" />
-                  <KpiCard label="Class Avg" value={classAvg ?? "—"} color="text-slate-700" />
-                  <KpiCard label="Below 50%" value={below50Count}   color="text-red-600" />
-                </div>
 
-                <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
-                  <p className="text-sm text-slate-500 flex items-center gap-2">
-                    <span className="font-bold text-blue-600">{filledCount}</span> of{" "}
-                    <span className="font-semibold">{students.length}</span> students filled
-                    <span className="text-xs text-slate-400">({isB16 ? "A–E5 scale" : "1–9 scale"})</span>
-                  </p>
-                  <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
-                    Click any score cell to enter breakdown details
-                  </p>
-                </div>
+            {tab === "Attendance" && (
+              <AttendanceTab
+                students={teacherData.students}
+                loading={teacherData.loadingStudents}
+                selectedClassName={teacherData.selectedClassName}
+                attDate={attDate}
+                attendance={attendance.attendance}
+                saving={attendance.saving}
+                onToggle={attendance.toggle}
+                onSave={() => attendance.save(
+                  teacherData.selectedClass,
+                  attDate,
+                  teacherData.students,
+                  todayStr
+                )}
+              />
+            )}
 
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-800">
-                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-left">#</th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-left">Student</th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wide text-center">
-                            Re-Open<br /><span className="text-slate-500 normal-case font-normal">/20 (click)</span>
-                          </th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wide text-center">
-                            CA / MGT<br /><span className="text-slate-500 normal-case font-normal">/40 (click)</span>
-                          </th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wide text-center">
-                            Exams<br /><span className="text-slate-500 normal-case font-normal">/40 (click)</span>
-                          </th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">
-                            Total<br /><span className="font-normal">/100</span>
-                          </th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">Grade</th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">Remark</th>
-                          <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {students.map((student, i) => {
-                          const s       = scores[student.id] ?? { reopen: "", ca: "", exams: "" };
-                          const dirty   = s.reopen !== "" || s.ca !== "" || s.exams !== "";
-                          const total   = dirty ? computeTotal(s.reopen, s.ca, s.exams) : null;
-                          const grade   = total !== null ? gradeFromTotal(total, selectedClassLevel) : null;
-                          const info    = grade ? GRADE_REMARK[grade] : null;
-                          const isSaved = !!existingIds[student.id];
+            {tab === "Results" && (
+              <ResultsTab
+                students={teacherData.students}
+                selectedSubject={selectedSubject}
+                selectedClassLevel={teacherData.selectedClassLevel}
+                scores={results.scores}
+                breakdowns={results.breakdowns}
+                existingIds={results.existingIds}
+                saving={results.saving}
+                deleting={results.deleting}
+                filledCount={filledCount}
+                onOpenModal={setScoreModal}
+                onDelete={results.deleteOne}
+                onSubmit={() => setShowSubmitConfirm(true)}
+              />
+            )}
 
-                          const rVal = s.reopen; const cVal = s.ca; const eVal = s.exams;
-                          const rFilled = rVal !== "" && rVal !== 0;
-                          const cFilled = cVal !== "" && cVal !== 0;
-                          const eFilled = eVal !== "" && eVal !== 0;
+            {tab === "Character" && (
+              <CharacterTab
+                students={teacherData.students}
+                selectedClassName={teacherData.selectedClassName}
+                selectedTerm={selectedTerm}
+                selectedYear={selectedYear}
+                charAssess={charAssess}
+              />
+            )}
 
-                          const reopenBreak = getReopenBreakdown(breakdowns, student.id);
-                          const caBreak     = getCABreakdown(breakdowns, student.id);
-                          const examsBreak  = getExamsBreakdown(breakdowns, student.id);
+            {tab === "Reports" && (
+              <ReportsTab
+                students={teacherData.students}
+                selectedClassName={teacherData.selectedClassName}
+                selectedClass={teacherData.selectedClass}
+                selectedTerm={selectedTerm}
+                selectedYear={selectedYear}
+              />
+            )}
 
-                          const editIcon = (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                          );
-                          const addIcon = (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
-                            </svg>
-                          );
-
-                          return (
-                            <tr key={student.id} className="hover:bg-blue-50/20 transition-colors">
-                              <td className="px-4 py-3 text-slate-400 text-xs">{i + 1}</td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  <div style={{
-                                    width:"28px", height:"28px", borderRadius:"50%", flexShrink:0,
-                                    background:`hsl(${(student.id * 47) % 360},55%,88%)`,
-                                    display:"flex", alignItems:"center", justifyContent:"center",
-                                    fontSize:"11px", fontWeight:"700",
-                                    color:`hsl(${(student.id * 47) % 360},55%,35%)`,
-                                  }}>
-                                    {student.student_name?.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-slate-800 leading-tight">{student.student_name}</div>
-                                    {isSaved && <span className="text-[10px] text-emerald-600 font-semibold">✓ saved</span>}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <div className="tp-score-cell">
-                                  <button className={`tp-score-btn ${rFilled?(parseFloat(rVal)===20?"tp-score-btn-max":"tp-score-btn-filled"):"tp-score-btn-empty"}`}
-                                    onClick={() => setScoreModal({ type:"reopen", studentId:student.id, studentName:student.student_name })}>
-                                    {rFilled ? <>{editIcon}{parseFloat(rVal).toFixed(1)}</> : <>{addIcon}Enter</>}
-                                  </button>
-                                  {reopenBreak && <span className="tp-score-breakdown">{reopenBreak}</span>}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <div className="tp-score-cell">
-                                  <button className={`tp-score-btn ${cFilled?(parseFloat(cVal)===40?"tp-score-btn-max":"tp-score-btn-filled"):"tp-score-btn-empty"}`}
-                                    onClick={() => setScoreModal({ type:"ca", studentId:student.id, studentName:student.student_name })}>
-                                    {cFilled ? <>{editIcon}{parseFloat(cVal).toFixed(1)}</> : <>{addIcon}Enter</>}
-                                  </button>
-                                  {caBreak && <span className="tp-score-breakdown">{caBreak}</span>}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <div className="tp-score-cell">
-                                  <button className={`tp-score-btn ${eFilled?(parseFloat(eVal)===40?"tp-score-btn-max":"tp-score-btn-filled"):"tp-score-btn-empty"}`}
-                                    onClick={() => setScoreModal({ type:"exams", studentId:student.id, studentName:student.student_name })}>
-                                    {eFilled ? <>{editIcon}{parseFloat(eVal).toFixed(1)}</> : <>{addIcon}Enter</>}
-                                  </button>
-                                  {examsBreak && <span className="tp-score-breakdown">{examsBreak}</span>}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                {total !== null ? (
-                                  <span className={`font-black tabular-nums font-mono ${total >= 50 ? "text-blue-700" : "text-red-600"}`}>
-                                    {total}
-                                  </span>
-                                ) : <span className="text-slate-300">—</span>}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                {grade ? (
-                                  <span className="inline-block px-2 py-0.5 rounded-md text-xs font-bold"
-                                    style={{background:`${info.color}18`, color:info.color}}>{grade}</span>
-                                ) : <span className="text-slate-300 text-xs">—</span>}
-                              </td>
-                              <td className="px-4 py-3 text-center" style={{fontSize:"12px", color: info ? info.color : "#cbd5e1"}}>
-                                {info ? info.label : "—"}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                {isSaved && (
-                                  <button onClick={() => handleDeleteResult(student.id)} disabled={deleting === student.id}
-                                    className="px-3 py-1 rounded-md text-xs font-medium border border-red-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all disabled:opacity-40">
-                                    {deleting === student.id ? "…" : "Delete"}
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Grade Scale</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1">
-                      {(isB16 ? GRADE_SCALE_B16 : GRADE_SCALE_B79).map(g => (
-                        <span key={g.grade} className="text-[11px] text-slate-500">
-                          {g.range}: <b>{g.grade}</b> {g.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
-                  <p className="text-sm text-slate-400">
-                    {filledCount === 0
-                      ? "Click any score cell to enter breakdown details"
-                      : `${filledCount} of ${students.length} students have scores entered`}
-                  </p>
-                  {filledCount > 0 && (
-                    <button onClick={() => setShowSubmitConfirm(true)} disabled={saving}
-                      className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all shadow-sm flex items-center gap-2 hover:-translate-y-px hover:shadow-md">
-                      {saving ? (
-                        <><div style={{width:"13px",height:"13px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"tp-spin .6s linear infinite"}}/>Saving…</>
-                      ) : (
-                        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                          <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-                          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-                        </svg>Save {filledCount} Result{filledCount !== 1 ? "s" : ""}</>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </>
+            {tab === "Announcements" && (
+              <AnnouncementsFeed audience="teachers" />
             )}
           </>
         )}
-
-        {/* ══════════════════════════════════════
-            TAB: Character Assessment
-        ══════════════════════════════════════ */}
-        {tab === "Character" && selectedClass && (
-          <div className="space-y-5">
-
-            {!charStudentId && (
-              <EmptyState icon="🌟" title="Select a student above to fill their character assessment"
-                sub="Assessments are saved per student, per term" />
-            )}
-
-            {charStudentId && (
-              <>
-                {/* KPI bar */}
-                <div className="grid grid-cols-3 gap-4">
-                  <KpiCard label="Areas Filled" value={`${charFilledCount} / ${CHAR_AREAS.length}`} color="text-blue-600" />
-                  <KpiCard label="Student"      value={charStudentName || "—"}                      color="text-slate-800" />
-                  <KpiCard label="Cohort"       value={charForm.cohort ? `${charForm.cohort} Cohort` : "—"} color="text-slate-700" />
-                </div>
-
-                {charLoading ? (
-                  <div className="text-center text-slate-400 text-sm py-12 bg-white rounded-2xl border border-slate-100">
-                    Loading assessment…
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-
-                    {/* ── Form header ── */}
-                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-                      <div>
-                        <p className="font-black text-base">Character Assessment Form</p>
-                        <p className="text-slate-400 text-xs mt-0.5">
-                          {charStudentName} · {selectedClassName} · {TERMS.find(t => t.value === selectedTerm)?.label} {selectedYear}
-                        </p>
-                      </div>
-                      {/* Cohort selector inline */}
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-slate-400">Cohort</label>
-                        <select
-                          value={charForm.cohort}
-                          onChange={e => updateCharField("cohort", e.target.value)}
-                          className="border border-slate-600 bg-slate-700 text-white px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                          {COHORT_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* ── Section 1: Character Areas ── */}
-                    <div className="px-5 pt-5 pb-3">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
-                          {charForm.cohort} Cohort — Character Assessment
-                        </p>
-                        <span className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
-                          Score out of 100
-                        </span>
-                      </div>
-
-                      <div className="rounded-xl border border-slate-100 overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100">
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left w-[180px]">Assessment Area</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left hidden sm:table-cell">Questionnaire / Observation</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-blue-500 uppercase tracking-wide text-center w-[110px]">Score /100</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-center w-[80px]">Grade</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left">Remarks</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {CHAR_AREAS.map(area => {
-                              const entry = charForm.areas?.[area.key] ?? { score: "", remarks: "" };
-                              const gradeInfo = charScoreGrade(entry.score);
-                              return (
-                                <tr key={area.key} className="hover:bg-blue-50/20 transition-colors">
-                                  <td className="px-4 py-3">
-                                    <p className="font-medium text-slate-800 text-sm leading-tight">{area.label}</p>
-                                  </td>
-                                  <td className="px-4 py-3 text-slate-400 text-xs hidden sm:table-cell leading-relaxed">
-                                    {area.guide}
-                                  </td>
-                                  <td className="px-3 py-3 text-center">
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      <input
-                                        type="number" min="0" max="100" step="1"
-                                        placeholder="—"
-                                        value={entry.score}
-                                        onChange={e => {
-                                          const v = e.target.value === "" ? "" : Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
-                                          updateCharArea(area.key, "score", v);
-                                        }}
-                                        className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-center text-sm font-semibold font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
-                                      />
-                                      <ScoreDot score={entry.score} />
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    {gradeInfo ? (
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${gradeInfo.bg}`}>
-                                        {gradeInfo.grade}
-                                      </span>
-                                    ) : <span className="text-slate-300 text-xs">—</span>}
-                                  </td>
-                                  <td className="px-3 py-2.5">
-                                    <input
-                                      type="text"
-                                      placeholder="Add remarks…"
-                                      value={entry.remarks}
-                                      onChange={e => updateCharArea(area.key, "remarks", e.target.value)}
-                                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 text-slate-700"
-                                    />
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Grade scale legend */}
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-                        {CHAR_SCORE_GRADES.map(g => (
-                          <span key={g.grade} className="text-[11px] text-slate-400">
-                            <b className="text-slate-600">{g.grade}</b> {g.label} ({g.min}+)
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-100 mx-5" />
-
-                    {/* ── Section 2: Career Development ── */}
-                    <div className="px-5 pt-4 pb-3">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
-                          Career Development Assessment
-                        </p>
-                        <p className="text-xs text-slate-400 hidden sm:block">Practical skills training programmes</p>
-                      </div>
-
-                      <div className="rounded-xl border border-slate-100 overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100">
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left w-[160px]">Skill Training Area</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left hidden sm:table-cell">Practical Examination</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-blue-500 uppercase tracking-wide text-center w-[110px]">Score /100</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-center w-[70px]">Grade</th>
-                              <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide text-left">Remarks</th>
-                              <th className="w-8" />
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {allCareerSkills.map(skill => {
-                              const entry = charForm.career?.[skill.key] ?? { score: "", remarks: "", exam: skill.exam };
-                              const gradeInfo = CAREER_SCORE_GRADE(entry.score);
-                              return (
-                                <tr key={skill.key} className="hover:bg-blue-50/20 transition-colors">
-                                  <td className="px-4 py-3">
-                                    {skill.isExtra ? (
-                                      <input
-                                        type="text"
-                                        placeholder="Skill name…"
-                                        value={skill.label === "New Skill" ? "" : skill.label}
-                                        onChange={e => updateExtraSkillLabel(skill.key, e.target.value)}
-                                        className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 font-medium text-slate-800"
-                                      />
-                                    ) : (
-                                      <p className="font-medium text-slate-800 text-sm">{skill.label}</p>
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-3 hidden sm:table-cell">
-                                    <input
-                                      type="text"
-                                      placeholder="Exam type…"
-                                      value={entry.exam ?? skill.exam}
-                                      onChange={e => updateCareerSkill(skill.key, "exam", e.target.value)}
-                                      className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 text-slate-600"
-                                    />
-                                  </td>
-                                  <td className="px-3 py-3 text-center">
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      <input
-                                        type="number" min="0" max="100" step="1"
-                                        placeholder="—"
-                                        value={entry.score}
-                                        onChange={e => {
-                                          const v = e.target.value === "" ? "" : Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
-                                          updateCareerSkill(skill.key, "score", v);
-                                        }}
-                                        className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-center text-sm font-semibold font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
-                                      />
-                                      <ScoreDot score={entry.score} />
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    {gradeInfo ? (
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${gradeInfo.bg}`}>
-                                        {gradeInfo.grade}
-                                      </span>
-                                    ) : <span className="text-slate-300 text-xs">—</span>}
-                                  </td>
-                                  <td className="px-3 py-2.5">
-                                    <input
-                                      type="text"
-                                      placeholder="Remarks…"
-                                      value={entry.remarks}
-                                      onChange={e => updateCareerSkill(skill.key, "remarks", e.target.value)}
-                                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 text-slate-700"
-                                    />
-                                  </td>
-                                  <td className="px-2 py-3 text-center">
-                                    {skill.isExtra && (
-                                      <button onClick={() => removeExtraSkill(skill.key)}
-                                        className="text-slate-300 hover:text-red-500 transition-colors text-lg leading-none" title="Remove">
-                                        ×
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <button onClick={addExtraCareerSkill}
-                        className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 border border-dashed border-slate-300 hover:border-blue-300 px-3 py-2 rounded-xl transition-colors">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
-                        </svg>
-                        Add skill area
-                      </button>
-                    </div>
-
-                    <div className="border-t border-slate-100 mx-5" />
-
-                    {/* ── Section 3: Sign-off ── */}
-                    <div className="px-5 pt-4 pb-5">
-                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Sign-off</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Class Teacher */}
-                        <div className="border border-slate-100 rounded-xl p-4">
-                          <p className="text-xs font-semibold text-slate-500 mb-3">Class Teacher</p>
-                          <div className="space-y-2.5">
-                            {[
-                              { label: "Name",      field: "teacher_name", placeholder: "Full name" },
-                              { label: "Signature", field: "teacher_sig",  placeholder: "Signature" },
-                              { label: "Date",      field: "teacher_date", type: "date"              },
-                            ].map(({ label, field, placeholder, type }) => (
-                              <div key={field} className="flex items-center gap-3">
-                                <label className="text-[11px] text-slate-400 w-16 flex-shrink-0">{label}</label>
-                                <input
-                                  type={type ?? "text"}
-                                  placeholder={placeholder}
-                                  value={charForm[field] ?? ""}
-                                  onChange={e => updateCharField(field, e.target.value)}
-                                  className="flex-1 border-b border-slate-200 bg-transparent px-1 py-1 text-sm text-slate-700 focus:outline-none focus:border-blue-400 transition-colors"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Skills Trainer */}
-                        <div className="border border-slate-100 rounded-xl p-4">
-                          <p className="text-xs font-semibold text-slate-500 mb-3">Skills Trainer</p>
-                          <div className="space-y-2.5">
-                            {[
-                              { label: "Name",      field: "trainer_name", placeholder: "Full name" },
-                              { label: "Signature", field: "trainer_sig",  placeholder: "Signature" },
-                              { label: "Date",      field: "trainer_date", type: "date"              },
-                            ].map(({ label, field, placeholder, type }) => (
-                              <div key={field} className="flex items-center gap-3">
-                                <label className="text-[11px] text-slate-400 w-16 flex-shrink-0">{label}</label>
-                                <input
-                                  type={type ?? "text"}
-                                  placeholder={placeholder}
-                                  value={charForm[field] ?? ""}
-                                  onChange={e => updateCharField(field, e.target.value)}
-                                  className="flex-1 border-b border-slate-200 bg-transparent px-1 py-1 text-sm text-slate-700 focus:outline-none focus:border-blue-400 transition-colors"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ── Save footer ── */}
-                    <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3 flex-wrap">
-                      <p className="text-xs text-slate-400">
-                        {charFilledCount === 0
-                          ? "Enter scores above to fill this student's assessment"
-                          : `${charFilledCount} of ${CHAR_AREAS.length} character areas filled`}
-                      </p>
-                      <div className="flex items-center gap-3">
-                        {charSaved && (
-                          <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            Saved
-                          </span>
-                        )}
-                        <button
-                          onClick={saveCharAssessment}
-                          disabled={charSaving}
-                          className="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all shadow-sm flex items-center gap-2 hover:-translate-y-px hover:shadow-md">
-                          {charSaving ? (
-                            <>
-                              <div style={{width:"13px",height:"13px",border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"tp-spin .6s linear infinite"}}/>
-                              Saving…
-                            </>
-                          ) : (
-                            <>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                                <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-                                <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-                              </svg>
-                              Save Assessment
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════
-            TAB: Reports
-        ══════════════════════════════════════ */}
-        {tab === "Reports" && selectedClass && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex gap-3 items-end flex-wrap">
-              <div className="flex-1 min-w-[200px]">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Student — Full Report</label>
-                <select value={selectedStudent}
-                  onChange={e => {
-                    const id = e.target.value;
-                    setSelectedStudent(id); setReport(null); setRemarksSaved(false);
-                    if (id) fetchStudentReport(id, selectedTerm);
-                  }}
-                  className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                  <option value="">— Select a student —</option>
-                  {students.map(s => <option key={s.id} value={s.id}>{s.student_name}</option>)}
-                </select>
-              </div>
-              {report && (
-                <button onClick={downloadPDF} disabled={downloading}
-                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm">
-                  {downloading ? "Generating…" : "⬇ Download PDF"}
-                </button>
-              )}
-            </div>
-
-            {loadingReport && <div className="text-center text-slate-400 text-sm py-8">Loading report…</div>}
-
-            {!loadingReport && selectedStudent && !report && !error && (
-              <EmptyState icon="📋" title="No report found for this student and term"
-                sub="Make sure results have been entered for this term." />
-            )}
-
-            {report && !loadingReport && (() => {
-              const level      = report.level || "basic_7_9";
-              const gradeScale = level === "basic_7_9" ? GRADE_SCALE_B79 : GRADE_SCALE_B16;
-              const subjectOptions = report.subjects?.map(s => s.subject) ?? [];
-              return (
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  <div className="bg-gradient-to-br from-blue-700 to-blue-900 text-white px-6 py-5 flex justify-between items-start gap-4">
-                    <div className="space-y-1">
-                      <p className="font-black text-lg leading-tight">{report.school_name || "LEADING STARS ACADEMY"}</p>
-                      <p className="text-blue-300 text-xs">{level === "nursery_kg" ? "GLOBAL LEADERS" : "WHERE LEADERS ARE BORN"}</p>
-                      <div className="mt-3 space-y-0.5">
-                        <p className="font-bold text-base">{report.student}</p>
-                        <p className="text-blue-200 text-xs">Admission: {report.admission_number ?? "—"}</p>
-                        <p className="text-blue-200 text-xs">Class: {report.class ?? "—"} · {TERMS.find(t => t.value === report.term)?.label ?? report.term}</p>
-                      </div>
-                    </div>
-                    {report.photo ? (
-                      <img src={report.photo} alt="Student photo"
-                        className="w-20 h-20 rounded-xl border-2 border-white/30 object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-20 h-20 rounded-xl border-2 border-white/20 bg-white/10 flex items-center justify-center text-3xl font-black flex-shrink-0">
-                        {report.student?.[0] ?? "?"}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-100">
-                    {[
-                      { label: "Total Marks",  value: report.total_score   ?? "—" },
-                      { label: "Average",       value: report.average_score ?? "—" },
-                      { label: "Position",      value: report.show_position ? (report.position_formatted ? `${report.position_formatted} / ${report.out_of}` : "—") : "N/A" },
-                      { label: "Overall Grade", value: report.overall_grade ?? "—" },
-                    ].map(stat => (
-                      <div key={stat.label} className="p-4 text-center border-r border-slate-100 last:border-r-0">
-                        <p className="text-2xl font-black text-blue-700">{stat.value}</p>
-                        <p className="text-xs text-slate-400 mt-1">{stat.label}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="p-5">
-                    <SectionHeader title="Subject Results" />
-                    <div className="overflow-x-auto rounded-xl border border-slate-100">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-blue-50">
-                            <Th>Subject</Th>
-                            <Th center>Re-Open</Th><Th center>CA/MGT</Th><Th center>Exams</Th>
-                            <Th center>Total</Th>
-                            {report.show_position && <Th center>Pos.</Th>}
-                            <Th center>Grade</Th><Th center>Remark</Th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {report.subjects?.map((sub, i) => (
-                            <tr key={i} className="hover:bg-blue-50/20 transition-colors">
-                              <td className="px-4 py-2.5 font-medium text-slate-800">{sub.subject}</td>
-                              <td className="px-4 py-2.5 text-center text-slate-500">{sub.reopen ?? "—"}</td>
-                              <td className="px-4 py-2.5 text-center text-slate-500">{sub.ca     ?? "—"}</td>
-                              <td className="px-4 py-2.5 text-center text-slate-500">{sub.exams  ?? "—"}</td>
-                              <td className="px-4 py-2.5 text-center font-black text-blue-700">{sub.score}</td>
-                              {report.show_position && (
-                                <td className="px-4 py-2.5 text-center text-slate-500 font-semibold">{sub.subject_position ?? "—"}</td>
-                              )}
-                              <td className="px-4 py-2.5 text-center"><Badge grade={sub.grade} /></td>
-                              <td className="px-4 py-2.5 text-center"><RemarkBadge grade={sub.grade} /></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500">
-                      <p className="font-bold text-slate-600 mb-2 text-[11px] uppercase tracking-wide">Result Interpretation</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                        {gradeScale.map(g => <span key={g.grade}>{g.range}: <b>{g.grade} – {g.label}</b></span>)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 px-5 pb-5">
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                      <h3 className="font-bold text-slate-700 mb-3 text-sm">Attendance</h3>
-                      {(report.attendance_total ?? 0) > 0 ? (
-                        <>
-                          <div className="flex justify-between text-sm mb-2">
-                            <span className="text-slate-500">Days Present</span>
-                            <span className="font-bold text-slate-700">{report.attendance} / {report.attendance_total}</span>
-                          </div>
-                          <div className="w-full bg-slate-200 rounded-full h-2">
-                            <div className={`h-2 rounded-full transition-all ${
-                              report.attendance_percent >= 80 ? "bg-emerald-500" : report.attendance_percent >= 60 ? "bg-amber-400" : "bg-red-500"
-                            }`} style={{ width: `${report.attendance_percent ?? 0}%` }} />
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1.5 text-right">{report.attendance_percent}% attendance</p>
-                        </>
-                      ) : (
-                        <p className="text-slate-400 text-sm">No attendance data recorded.</p>
-                      )}
-                    </div>
-
-                    <div className="border border-slate-100 rounded-2xl p-4">
-                      <h3 className="font-bold text-slate-700 mb-3 text-sm">Teacher's Remarks</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Conduct</label>
-                          <select value={remarks.conduct}
-                            onChange={e => { setRemarks(p => ({ ...p, conduct: e.target.value })); setRemarksSaved(false); }}
-                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                            <option value="">— Select —</option>
-                            {CONDUCT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Interest</label>
-                          <select value={remarks.interest}
-                            onChange={e => { setRemarks(p => ({ ...p, interest: e.target.value })); setRemarksSaved(false); }}
-                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                            <option value="">— Select Subject —</option>
-                            {subjectOptions.map(name => <option key={name} value={name}>{name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1.5">Remark</label>
-                          <textarea value={remarks.teacher_remark}
-                            onChange={e => { setRemarks(p => ({ ...p, teacher_remark: e.target.value })); setRemarksSaved(false); }}
-                            rows={3} placeholder="Write a remark for this student…"
-                            className="w-full border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button onClick={saveRemarks} disabled={savingRemarks}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm">
-                            {savingRemarks ? "Saving…" : "Save Remarks"}
-                          </button>
-                          {remarksSaved && <span className="text-emerald-600 text-xs font-semibold">✓ Saved</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Class summary */}
-            <div>
-              <SectionHeader
-                title={`Class Summary — ${selectedClassName}`}
-                badge={summary.length > 0 ? `${summary.length} students ranked` : null}
-              />
-              {loadingSummary && <div className="text-center text-slate-400 text-sm py-8">Loading summary…</div>}
-              {!loadingSummary && summary.length === 0 && (
-                <EmptyState icon="📭" title="No results found for this class and term" />
-              )}
-              {!loadingSummary && summary.length > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100">
-                        <Th center>Rank</Th><Th>Student</Th>
-                        <Th center>Total</Th><Th center>Average</Th>
-                        <Th center>Grade</Th><Th center>Details</Th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {summary.map(row => {
-                        const rankColor = row.rank===1?"text-amber-500":row.rank===2?"text-slate-400":row.rank===3?"text-orange-400":"text-slate-400";
-                        const isExp = expandedStudent === row.student_id;
-                        return (
-                          <React.Fragment key={row.student_id}>
-                            <tr className={`hover:bg-blue-50/20 cursor-pointer transition-colors ${row.rank===1?"bg-amber-50":""}`}
-                              onClick={() => setExpandedStudent(isExp ? null : row.student_id)}>
-                              <td className="px-4 py-3 text-center">
-                                <span className={`font-black text-base ${rankColor}`}>
-                                  {row.rank===1?"🥇":row.rank===2?"🥈":row.rank===3?"🥉":`#${row.rank}`}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="font-semibold text-slate-800">{row.student_name}</p>
-                                <p className="text-xs text-slate-400 font-mono">{row.admission_number}</p>
-                              </td>
-                              <td className="px-4 py-3 text-center font-bold text-slate-700">{row.total_score}</td>
-                              <td className="px-4 py-3 text-center text-slate-600">{row.average_score}</td>
-                              <td className="px-4 py-3 text-center"><Badge grade={row.overall_grade} /></td>
-                              <td className="px-4 py-3 text-center">
-                                <span className="text-blue-500 text-xs font-semibold">{isExp ? "▲ Hide" : "▼ Show"}</span>
-                              </td>
-                            </tr>
-                            {isExp && (
-                              <tr className="bg-slate-50/80">
-                                <td colSpan={6} className="px-6 py-4">
-                                  <div className="overflow-x-auto rounded-xl border border-slate-100">
-                                    <table className="w-full text-xs">
-                                      <thead>
-                                        <tr className="bg-blue-50">
-                                          <Th>Subject</Th>
-                                          <Th center>Re-Open</Th><Th center>CA/MGT</Th>
-                                          <Th center>Exams</Th><Th center>Total</Th>
-                                          <Th center>Pos.</Th><Th center>Grade</Th><Th center>Remark</Th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-slate-100 bg-white">
-                                        {row.subjects.map(sub => (
-                                          <tr key={sub.subject_id} className="hover:bg-blue-50/20">
-                                            <td className="px-3 py-2 font-medium text-slate-800">{sub.subject_name}</td>
-                                            <td className="px-3 py-2 text-center text-slate-500">{sub.reopen ?? "—"}</td>
-                                            <td className="px-3 py-2 text-center text-slate-500">{sub.ca     ?? "—"}</td>
-                                            <td className="px-3 py-2 text-center text-slate-500">{sub.exams  ?? "—"}</td>
-                                            <td className="px-3 py-2 text-center font-black text-blue-700">{sub.score ?? "—"}</td>
-                                            <td className="px-3 py-2 text-center text-slate-500">{fmtPos(sub.subject_position)}</td>
-                                            <td className="px-3 py-2 text-center"><Badge grade={sub.grade} /></td>
-                                            <td className="px-3 py-2 text-center"><RemarkBadge grade={sub.grade} /></td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════
-            TAB: Announcements
-        ══════════════════════════════════════ */}
-        {tab === "Announcements" && (
-          <AnnouncementsFeed audience="teachers" />
-        )}
-
       </div>
     </div>
   );
