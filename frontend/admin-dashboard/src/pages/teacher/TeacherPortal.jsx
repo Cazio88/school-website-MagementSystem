@@ -142,6 +142,20 @@ const TeacherPortal = () => {
   useEffect(() => { clearError(); clearSuccess(); }, [tab]);
 
   // ── Derived ─────────────────────────────────────────────────────────────
+  const selectedTabLabel = useMemo(
+    () => TABS.find((item) => item.key === tab)?.label || tab,
+    [tab]
+  );
+
+  const attendanceTotals = useMemo(() => {
+    const values = Object.values(attendance.attendance || {});
+    return {
+      present: values.filter((status) => status === "present").length,
+      absent:  values.filter((status) => status === "absent").length,
+      late:    values.filter((status) => status === "late").length,
+    };
+  }, [attendance.attendance]);
+
   const filledCount = useMemo(
     () =>
       Object.values(results.scores).filter(
@@ -149,6 +163,21 @@ const TeacherPortal = () => {
       ).length,
     [results.scores]
   );
+
+  const selectedSubjectLabel = useMemo(
+    () => {
+      const subject = teacherData.subjects.find((item) => String(item.id) === String(selectedSubject));
+      return subject?.name || selectedSubject;
+    },
+    [teacherData.subjects, selectedSubject]
+  );
+
+  const classSummary = useMemo(() => ({
+    total: teacherData.students.length,
+    hasClass: Boolean(teacherData.selectedClass),
+    term: TERMS.find((item) => item.value === selectedTerm)?.label,
+    year: selectedYear,
+  }), [teacherData.selectedClass, teacherData.students.length, selectedTerm, selectedYear]);
 
   // ── Score modal handlers ─────────────────────────────────────────────────
   const applyReopen = (score, breakdown) => {
@@ -366,6 +395,49 @@ const TeacherPortal = () => {
             </div>
           </div>
         </div>
+
+        {teacherData.selectedClass && (
+          <div className="grid gap-4 mb-6 md:grid-cols-3">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Class overview</p>
+              <p className="text-2xl font-bold text-slate-900">{teacherData.selectedClassName || "Class"}</p>
+              <p className="text-sm text-slate-500 mt-1">{classSummary.term} · {classSummary.year}</p>
+              <div className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold">{classSummary.total}</span>
+                <span>{classSummary.total === 1 ? "student" : "students"}</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Attendance snapshot</p>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="rounded-2xl bg-emerald-50 px-3 py-3 text-emerald-700">
+                  <p className="text-xs uppercase tracking-[0.2em]">Present</p>
+                  <p className="text-xl font-bold">{attendanceTotals.present}</p>
+                </div>
+                <div className="rounded-2xl bg-red-50 px-3 py-3 text-red-700">
+                  <p className="text-xs uppercase tracking-[0.2em]">Absent</p>
+                  <p className="text-xl font-bold">{attendanceTotals.absent}</p>
+                </div>
+                <div className="rounded-2xl bg-amber-50 px-3 py-3 text-amber-700">
+                  <p className="text-xs uppercase tracking-[0.2em]">Late</p>
+                  <p className="text-xl font-bold">{attendanceTotals.late}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">This tab</p>
+              <p className="text-xl font-bold text-slate-900">{selectedTabLabel}</p>
+              <p className="text-sm text-slate-500 mt-1">Quick actions and data for the current workflow.</p>
+              <div className="mt-4 text-sm text-slate-600">
+                <p><span className="font-semibold">Term:</span> {classSummary.term}</p>
+                <p><span className="font-semibold">Year:</span> {classSummary.year}</p>
+                <p><span className="font-semibold">Subject:</span> {tab === "Results" ? (selectedSubject ? selectedSubjectLabel : "Choose subject") : "—"}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Alerts ── */}
         <Alert message={error}   type="error"   onDismiss={clearError}   />

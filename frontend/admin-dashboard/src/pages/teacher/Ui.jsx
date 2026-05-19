@@ -26,6 +26,20 @@ export const RemarkBadge = ({ grade }) => {
   );
 };
 
+export const StatusPill = ({ status }) => {
+  const config = {
+    present: { label: "Present", styles: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200" },
+    absent:  { label: "Absent",  styles: "bg-red-100 text-red-700 ring-1 ring-red-200" },
+    late:    { label: "Late",    styles: "bg-amber-100 text-amber-700 ring-1 ring-amber-200" },
+  };
+  const info = config[status] ?? { label: "Unknown", styles: "bg-slate-100 text-slate-600 ring-1 ring-slate-200" };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${info.styles}`}>
+      {info.label}
+    </span>
+  );
+};
+
 export const KpiCard = ({ label, value, color = "text-slate-800", sub }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4">
     <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
