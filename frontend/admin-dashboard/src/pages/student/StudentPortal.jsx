@@ -1519,6 +1519,11 @@ const StudentPortal = () => {
                     <div className="sp-char-header-title">Character Assessment</div>
                     <div className="sp-char-header-sub">
                       {TERMS.find(t=>t.value===selectedTerm)?.label} · {charAssessment.cohort ?? ""} Cohort
+                      {charAssessment.teacher_name && charAssessment.teacher_date && (
+                        <div style={{ marginTop: "6px", fontSize: "12px", color: "#94a3b8" }}>
+                          Assessed by {charAssessment.teacher_name} on {fmtDate(charAssessment.teacher_date)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {CHAR_AREAS.map(area => {
@@ -1617,12 +1622,27 @@ const StudentPortal = () => {
                     <div className="sp-card-head"><span className="sp-card-title">Signed Off By</span></div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",padding:"16px 18px"}}>
                       {[
-                        { role:"Class Teacher",  name:charAssessment.teacher_name, date:charAssessment.teacher_date },
-                        { role:"Skills Trainer", name:charAssessment.trainer_name, date:charAssessment.trainer_date },
+                        {
+                          role: "Class Teacher",
+                          name: charAssessment.teacher_name,
+                          date: charAssessment.teacher_date,
+                          signature: charAssessment.teacher_sig,
+                        },
+                        {
+                          role: "Skills Trainer",
+                          name: charAssessment.trainer_name,
+                          date: charAssessment.trainer_date,
+                          signature: charAssessment.trainer_sig,
+                        },
                       ].filter(s => s.name).map(s => (
                         <div key={s.role} style={{background:"#f8fafc",borderRadius:"10px",padding:"12px 14px",border:"1px solid #f1f5f9"}}>
                           <div style={{fontSize:"10px",fontWeight:"700",color:"#94a3b8",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"4px"}}>{s.role}</div>
                           <div style={{fontWeight:"700",color:"#1e293b",fontSize:"14px"}}>{s.name}</div>
+                          {s.signature && (
+                            <div style={{fontSize:"11px",color:"#475569",marginTop:"4px"}}>
+                              Signature: {s.signature}
+                            </div>
+                          )}
                           {s.date && <div style={{fontSize:"11.5px",color:"#94a3b8",marginTop:"2px"}}>{fmtDate(s.date)}</div>}
                         </div>
                       ))}
