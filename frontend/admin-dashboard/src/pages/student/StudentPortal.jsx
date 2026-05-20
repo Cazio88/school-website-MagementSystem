@@ -108,9 +108,6 @@ const PORTAL_STYLES = `
   .sp-score { font-weight: 800; color: var(--blue); font-family: 'DM Mono', monospace; }
   .sp-muted { color: var(--dim); }
 
-  /* Score breakdown chip */
-  .sp-breakdown { font-size: 10px; color: var(--dim); font-family: 'DM Mono', monospace; margin-top: 2px; display: block; }
-
   /* Grade/remark badges */
   .sp-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; font-family: 'DM Mono', monospace; }
 
@@ -138,21 +135,11 @@ const PORTAL_STYLES = `
   .sp-att-present .sp-att-kpi-val { color: var(--green); }
   .sp-att-present .sp-att-kpi-lbl { color: #166534; }
   .sp-att-absent  { background: var(--red-l);   border-color: #fecaca; }
-
-  /* Extra mobile tweaks */
-  @media (max-width: 700px) {
-    .sp-body { padding: 12px 10px 40px; }
-    .sp-card-head { flex-direction: column; align-items: flex-start; gap: 8px; }
-    .sp-term-bar { flex-direction: column; align-items: stretch; }
-    .sp-table thead th { font-size: 10px; }
-    .sp-kpi-grid { grid-template-columns: repeat(2,1fr); }
-  }
   .sp-att-absent  .sp-att-kpi-val { color: var(--red); }
   .sp-att-absent  .sp-att-kpi-lbl { color: #991b1b; }
   .sp-att-late    { background: var(--amber-l); border-color: #fde68a; }
   .sp-att-late    .sp-att-kpi-val { color: var(--amber); }
   .sp-att-late    .sp-att-kpi-lbl { color: #92400e; }
-
   .sp-att-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; }
   .sp-att-present-pill { background:#dcfce7; color:#166534; }
   .sp-att-absent-pill  { background:#fee2e2; color:#991b1b; }
@@ -162,7 +149,7 @@ const PORTAL_STYLES = `
   .sp-progress-bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 6px; }
   .sp-progress-fill { height: 100%; border-radius: 99px; transition: width .5s ease; }
 
-  /* Character assessment styles */
+  /* ── Character assessment styles ── */
   .sp-char-section { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
   .sp-char-header { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-3) 100%); padding: 16px 20px; color: #fff; }
   .sp-char-header-title { font-weight: 800; font-size: 14px; }
@@ -170,12 +157,35 @@ const PORTAL_STYLES = `
   .sp-char-score-chip { display:inline-flex; align-items:center; padding: 2px 9px; border-radius: 20px; font-size:11px; font-weight:700; }
   .sp-char-area-row { display:flex; align-items:center; justify-content:space-between; padding:10px 18px; border-bottom:1px solid #f8fafc; gap:12px; flex-wrap:wrap; }
   .sp-char-area-row:last-child { border-bottom: none; }
-  .sp-char-area-name { font-size:13.5px; font-weight:600; color:var(--navy-2); min-width:180px; }
+  .sp-char-area-name { font-size:13.5px; font-weight:600; color:var(--navy-2); }
+  /* FIX: guide text shown under area name */
+  .sp-char-area-guide { font-size: 11px; color: var(--dim); margin-top: 2px; }
   .sp-char-area-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
   .sp-char-score-bar-wrap { flex:1; min-width:80px; max-width:180px; }
   .sp-char-score-bar { height:6px; border-radius:99px; background:var(--line); overflow:hidden; }
   .sp-char-score-fill { height:100%; border-radius:99px; transition:width .5s ease; }
   .sp-char-remarks { font-size:12px; color:var(--muted); font-style:italic; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* FIX: area row mobile stacking without Tailwind */
+  @media (max-width: 600px) {
+    .sp-char-area-row { flex-wrap: wrap; }
+    .sp-char-score-bar-wrap { width: 100%; order: 3; min-width: 100% !important; max-width: 100% !important; }
+    .sp-char-remarks { max-width: 100%; white-space: normal; order: 4; }
+  }
+  /* FIX: sign-off grid using sp-* classes only — no Tailwind */
+  .sp-char-signoff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 18px; }
+  @media (max-width: 500px) { .sp-char-signoff-grid { grid-template-columns: 1fr; } }
+  .sp-char-signoff-card { background: #f8fafc; border-radius: 10px; padding: 12px 14px; border: 1px solid var(--line); }
+  .sp-char-signoff-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--dim); margin-bottom: 4px; }
+  .sp-char-signoff-name { font-weight: 700; color: var(--navy-2); font-size: 14px; }
+  .sp-char-signoff-meta { font-size: 11.5px; color: var(--dim); margin-top: 2px; }
+  /* Completion progress */
+  .sp-char-completion { display: flex; align-items: center; gap: 12px; padding: 8px 18px 14px; }
+  .sp-char-completion-label { font-size: 12px; color: var(--dim); flex: 1; }
+  .sp-char-completion-bar { flex: 2; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .sp-char-completion-fill { height: 100%; border-radius: 99px; transition: width .5s ease; }
+  .sp-char-completion-pct { font-size: 12px; font-weight: 700; font-family: 'DM Mono', monospace; min-width: 36px; text-align: right; }
+  /* Overall grade footer */
+  .sp-char-grade-footer { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; background: #f8fafc; }
 
   /* Highlight cards */
   .sp-hl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
@@ -187,50 +197,22 @@ const PORTAL_STYLES = `
   .sp-hl-name  { font-weight: 700; font-size: 14px; color: var(--navy-2); }
   .sp-hl-delta { font-size: 13px; font-weight: 600; margin-top: 3px; }
 
-  /* Overall trend summary cards */
-  .sp-trend-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
-  @media (max-width: 500px) { .sp-trend-cards { grid-template-columns: 1fr; } }
-  .sp-trend-card { text-align: center; background: #f8fafc; border-radius: 10px; padding: 12px 8px; border: 1px solid var(--line); }
-
   /* Subject chart card */
-  .sp-chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  @media (max-width: 540px) { .sp-chart-grid { grid-template-columns: 1fr; } }
   .sp-chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
 
-  /* Password modal */
-  .sp-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; animation: sp-fade-in .15s ease; }
-  @keyframes sp-fade-in { from { opacity: 0; } to { opacity: 1; } }
-  .sp-modal { background: #fff; border-radius: 18px; width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 24px 64px rgba(0,0,0,.18); animation: sp-slide-up .2s ease; }
-  @keyframes sp-slide-up { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-  .sp-modal-title { font-size: 18px; font-weight: 800; color: var(--navy); margin: 0 0 4px; }
-  .sp-modal-sub { font-size: 13px; color: var(--dim); margin: 0 0 22px; }
-  .sp-modal-field { margin-bottom: 14px; }
-  .sp-modal-input { width: 100%; border: 1.5px solid var(--line); border-radius: 9px; padding: 10px 40px 10px 13px; font-size: 14px; font-family: 'Outfit', sans-serif; color: var(--navy-2); outline: none; transition: border-color .15s; background: #fff; }
-  .sp-modal-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
-  .sp-modal-input-wrap { position: relative; }
-  .sp-modal-eye { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--dim); padding: 2px; display: flex; align-items: center; }
-  .sp-modal-eye:hover { color: var(--slate); }
-  .sp-pw-strength { height: 4px; border-radius: 99px; margin-top: 6px; transition: all .3s; }
-  .sp-pw-hint { font-size: 11px; color: var(--dim); margin-top: 4px; }
-  .sp-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-  .sp-btn-primary { flex: 1; background: var(--navy); color: #fff; border: none; border-radius: 9px; padding: 11px; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .sp-btn-primary:hover:not(:disabled) { background: var(--navy-3); }
-  .sp-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-  .sp-btn-secondary { background: var(--bg); color: var(--slate); border: 1.5px solid var(--line); border-radius: 9px; padding: 11px 18px; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; transition: all .15s; }
-  .sp-btn-secondary:hover { background: var(--line); }
-  .sp-pw-success { background: var(--green-l); border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--green); font-weight: 500; margin-top: 4px; }
-  .sp-pw-error { background: var(--red-l); border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--red); margin-top: 8px; }
+  /* Extra mobile tweaks */
+  @media (max-width: 700px) {
+    .sp-body { padding: 12px 10px 40px; }
+    .sp-card-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .sp-term-bar { flex-direction: column; align-items: stretch; }
+    .sp-table thead th { font-size: 10px; }
+    .sp-kpi-grid { grid-template-columns: repeat(2,1fr); }
+  }
 
-  /* Remarks section */
-  .sp-remark-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f8fafc; font-size: 13.5px; }
-  .sp-remark-row:last-child { border-bottom: none; }
-  .sp-remark-quote { background: #f8fafc; border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; padding: 10px 14px; font-style: italic; color: var(--slate); font-size: 13.5px; margin-top: 8px; }
-
-  /* Fees status badge */
+  /* Fees */
   .sp-status-paid    { background: #dcfce7; color: #166534; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
   .sp-status-partial { background: #fef9c3; color: #854d0e; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
   .sp-status-unpaid  { background: #fee2e2; color: #991b1b; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
-
   .sp-fee-overview { background: linear-gradient(135deg, #0a0f1e 0%, #1e293b 100%); border-radius: 18px; padding: 24px 24px 20px; margin-bottom: 16px; color: #fff; position: relative; overflow: hidden; }
   .sp-fee-overview::before { content: ''; position: absolute; top: -40px; right: -40px; width: 180px; height: 180px; border-radius: 50%; background: rgba(37,99,235,.18); pointer-events: none; }
   .sp-fee-overview::after { content: ''; position: absolute; bottom: -30px; left: 60px; width: 120px; height: 120px; border-radius: 50%; background: rgba(22,163,74,.12); pointer-events: none; }
@@ -241,7 +223,6 @@ const PORTAL_STYLES = `
   .sp-fee-overview-stat { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 10px 12px; }
   .sp-fee-overview-stat-val { font-size: 17px; font-weight: 800; font-family: 'DM Mono', monospace; color: #fff; line-height: 1; }
   .sp-fee-overview-stat-lbl { font-size: 10px; font-weight: 600; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
-
   .sp-fee-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 12px; overflow: hidden; transition: box-shadow .2s; }
   .sp-fee-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.07); }
   .sp-fee-card-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
@@ -313,6 +294,35 @@ const PORTAL_STYLES = `
   .sp-pay-success-sub { font-size: 13px; color: var(--dim); margin-bottom: 24px; line-height: 1.6; }
   .sp-pay-success-btn { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer; }
   .sp-gateway-err { background: #fff8f0; border: 1px solid #fed7aa; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #9a3412; margin-top: 8px; line-height: 1.5; }
+
+  /* Modal */
+  .sp-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; animation: sp-fade-in .15s ease; }
+  @keyframes sp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .sp-modal { background: #fff; border-radius: 18px; width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 24px 64px rgba(0,0,0,.18); animation: sp-slide-up .2s ease; }
+  @keyframes sp-slide-up { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .sp-modal-title { font-size: 18px; font-weight: 800; color: var(--navy); margin: 0 0 4px; }
+  .sp-modal-sub { font-size: 13px; color: var(--dim); margin: 0 0 22px; }
+  .sp-modal-field { margin-bottom: 14px; }
+  .sp-modal-input { width: 100%; border: 1.5px solid var(--line); border-radius: 9px; padding: 10px 40px 10px 13px; font-size: 14px; font-family: 'Outfit', sans-serif; color: var(--navy-2); outline: none; transition: border-color .15s; background: #fff; }
+  .sp-modal-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .sp-modal-input-wrap { position: relative; }
+  .sp-modal-eye { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--dim); padding: 2px; display: flex; align-items: center; }
+  .sp-modal-eye:hover { color: var(--slate); }
+  .sp-pw-strength { height: 4px; border-radius: 99px; margin-top: 6px; transition: all .3s; }
+  .sp-pw-hint { font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .sp-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .sp-btn-primary { flex: 1; background: var(--navy); color: #fff; border: none; border-radius: 9px; padding: 11px; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .sp-btn-primary:hover:not(:disabled) { background: var(--navy-3); }
+  .sp-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .sp-btn-secondary { background: var(--bg); color: var(--slate); border: 1.5px solid var(--line); border-radius: 9px; padding: 11px 18px; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; transition: all .15s; }
+  .sp-btn-secondary:hover { background: var(--line); }
+  .sp-pw-success { background: var(--green-l); border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--green); font-weight: 500; margin-top: 4px; }
+  .sp-pw-error { background: var(--red-l); border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--red); margin-top: 8px; }
+
+  /* Remarks section */
+  .sp-remark-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f8fafc; font-size: 13.5px; }
+  .sp-remark-row:last-child { border-bottom: none; }
+  .sp-remark-quote { background: #f8fafc; border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; padding: 10px 14px; font-style: italic; color: var(--slate); font-size: 13.5px; margin-top: 8px; }
 `;
 
 /* ─────────────────────────────────────────────
@@ -340,7 +350,7 @@ const loadPaystack = () =>
   });
 
 /* ─────────────────────────────────────────────
-   Constants — kept in sync with TeacherPortal
+   Constants
 ───────────────────────────────────────────── */
 const TERMS = [
   { value: "term1", label: "Term 1", icon: "📘" },
@@ -348,7 +358,6 @@ const TERMS = [
   { value: "term3", label: "Term 3", icon: "📙" },
 ];
 
-// Mirrors GRADE_REMARK in TeacherPortal
 const GRADE_REMARK = {
   "1":  { label: "HIGHEST",       bg: "#dcfce7", color: "#166534" },
   "2":  { label: "HIGHER",        bg: "#d1fae5", color: "#065f46" },
@@ -369,17 +378,17 @@ const GRADE_REMARK = {
   "E5": { label: "LOWEST",        bg: "#fca5a5", color: "#450a0a" },
 };
 
-// Mirrors CHAR_AREAS in TeacherPortal
+// FIX: Added `guide` field — synced with teacher portal's CHAR_AREAS
 const CHAR_AREAS = [
-  { key: "punctuality",     label: "Punctuality"             },
-  { key: "comportment",     label: "Comportment in Class"    },
-  { key: "neatness",        label: "Neatness & Dressing"     },
-  { key: "studying_habits", label: "Studying Habits"         },
-  { key: "respect_friends", label: "Respect for Friends"     },
-  { key: "respect_rules",   label: "Respect for School Rules" },
+  { key: "punctuality",     label: "Punctuality",              guide: "Arrives on time, meets deadlines"             },
+  { key: "comportment",     label: "Comportment in Class",     guide: "Classroom behaviour and focus"                },
+  { key: "neatness",        label: "Neatness & Dressing",      guide: "Appearance and uniform compliance"            },
+  { key: "studying_habits", label: "Studying Habits",          guide: "Preparation, revision and homework effort"    },
+  { key: "respect_friends", label: "Respect for Friends",      guide: "Positive interaction with peers"              },
+  { key: "respect_rules",   label: "Respect for School Rules", guide: "Adherence to school policies and procedures"  },
 ];
 
-// Mirrors CHAR_SCORE_GRADES in TeacherPortal
+// Mirrors CHAR_SCORE_GRADES in teacher portal exactly
 const CHAR_SCORE_GRADES = [
   { min: 80, grade: "A", label: "Excellent",         color: "#16a34a", bg: "#dcfce7" },
   { min: 60, grade: "B", label: "Very Good",         color: "#0284c7", bg: "#dbeafe" },
@@ -404,8 +413,7 @@ const TABS = [
   { key: "Announcements", icon: "📢", label: "Announcements" },
 ];
 
-// How often to auto-refresh data (ms)
-const REFRESH_INTERVAL = 60_000; // 1 minute
+const REFRESH_INTERVAL = 60_000;
 
 /* ─────────────────────────────────────────────
    Helpers
@@ -413,20 +421,22 @@ const REFRESH_INTERVAL = 60_000; // 1 minute
 const fmt = (v) =>
   Number(v || 0).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const fmtTime = (iso) => {
-  if (!iso) return "";
-  return new Date(iso).toLocaleTimeString("en-GH", { hour: "2-digit", minute: "2-digit" });
-};
-
 const fmtDate = (iso) => {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-GH", { day: "numeric", month: "short", year: "numeric" });
 };
 
+// FIX: unified grade function used by BOTH character areas AND career section
 const charScoreGrade = (score) => {
   if (score === "" || score == null) return null;
   const n = parseFloat(score);
   return CHAR_SCORE_GRADES.find(g => n >= g.min) ?? CHAR_SCORE_GRADES[CHAR_SCORE_GRADES.length - 1];
+};
+
+// FIX: safe cohort label — prevents "Morning Cohort Cohort"
+const formatCohort = (cohort) => {
+  if (!cohort) return "—";
+  return cohort.toLowerCase().includes("cohort") ? cohort : `${cohort} Cohort`;
 };
 
 function pwStrength(pw) {
@@ -447,7 +457,7 @@ function pwStrength(pw) {
 }
 
 /* ─────────────────────────────────────────────
-   Eye icon
+   Icons
 ───────────────────────────────────────────── */
 const EyeIcon = ({ open }) =>
   open ? (
@@ -557,7 +567,7 @@ const ChangePasswordModal = ({ onClose }) => {
 };
 
 /* ─────────────────────────────────────────────
-   Payment components (unchanged from original)
+   Payment components
 ───────────────────────────────────────────── */
 const PaymentModal = ({ fee, user, onClose, onSuccess }) => {
   const termInfo  = TERMS.find(t => t.value === fee.term) || { label: fee.term, icon: "💳" };
@@ -856,8 +866,7 @@ const Loading = ({ text = "Loading…" }) => (
 );
 
 /* ─────────────────────────────────────────────
-   Subject results table — mirrors teacher view
-   Shows reopen / ca / exams breakdown columns
+   Subject results table
 ───────────────────────────────────────────── */
 const SubjectTable = ({ report }) => (
   <div className="sp-card">
@@ -879,15 +888,9 @@ const SubjectTable = ({ report }) => (
           {report.subjects?.map((sub, i) => (
             <tr key={i}>
               <td style={{fontWeight:"600",color:"#1e293b"}}>{sub.subject}</td>
-              <td className="c">
-                <span className="sp-muted" style={{fontFamily:"'DM Mono',monospace"}}>{sub.reopen ?? "—"}</span>
-              </td>
-              <td className="c">
-                <span className="sp-muted" style={{fontFamily:"'DM Mono',monospace"}}>{sub.ca ?? "—"}</span>
-              </td>
-              <td className="c">
-                <span className="sp-muted" style={{fontFamily:"'DM Mono',monospace"}}>{sub.exams ?? "—"}</span>
-              </td>
+              <td className="c"><span className="sp-muted" style={{fontFamily:"'DM Mono',monospace"}}>{sub.reopen ?? "—"}</span></td>
+              <td className="c"><span className="sp-muted" style={{fontFamily:"'DM Mono',monospace"}}>{sub.ca ?? "—"}</span></td>
+              <td className="c"><span className="sp-muted" style={{fontFamily:"'DM Mono',monospace"}}>{sub.exams ?? "—"}</span></td>
               <td className="c sp-score">{sub.score}</td>
               {report.show_position && <td className="c" style={{fontWeight:"600",color:"#64748b"}}>{sub.subject_position ?? "—"}</td>}
               <td className="c"><GradeBadge grade={sub.grade}/></td>
@@ -1003,47 +1006,38 @@ const StudentPortal = () => {
     document.head.appendChild(el);
   }, []);
 
-  // Preload Paystack SDK silently on mount
   useEffect(() => { loadPaystack().catch(() => {}); }, []);
 
   const user = getUser();
 
-  const [tab, setTab]           = useState("Results");
+  const [tab, setTab]                   = useState("Results");
   const [selectedTerm, setSelectedTerm] = useState("term1");
 
-  // Results / Report Card
-  const [report, setReport]       = useState(null);
+  const [report, setReport]             = useState(null);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [lastFetchedReport, setLastFetchedReport] = useState(null); // {term, ts}
 
-  // Progress — NO longer caches forever; re-fetches on tab enter
   const [allReports, setAllReports]         = useState({});
   const [loadingProgress, setLoadingProgress] = useState(false);
 
-  // Attendance — NEW
-  const [attendance, setAttendance]         = useState([]);
-  const [loadingAtt, setLoadingAtt]         = useState(false);
-  const [attStats, setAttStats]             = useState({ present:0, absent:0, late:0, total:0 });
-  const [lastFetchedAtt, setLastFetchedAtt] = useState(null);
+  const [attendance, setAttendance]     = useState([]);
+  const [loadingAtt, setLoadingAtt]     = useState(false);
+  const [attStats, setAttStats]         = useState({ present:0, absent:0, late:0, total:0 });
 
-  // Character assessment — NEW
-  const [charAssessment, setCharAssessment]   = useState(null);
-  const [loadingChar, setLoadingChar]         = useState(false);
-  const [lastFetchedChar, setLastFetchedChar] = useState(null);
+  const [charAssessment, setCharAssessment] = useState(null);
+  const [loadingChar, setLoadingChar]       = useState(false);
 
-  // Fees
-  const [fees, setFees]             = useState([]);
+  const [fees, setFees]               = useState([]);
   const [loadingFees, setLoadingFees] = useState(false);
 
-  const [error, setError]               = useState("");
-  const [showPwModal, setShowPwModal]   = useState(false);
+  const [error, setError]                   = useState("");
+  const [showPwModal, setShowPwModal]       = useState(false);
   const [successPayment, setSuccessPayment] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [isRefreshing, setIsRefreshing]     = useState(false);
+  const [lastRefreshed, setLastRefreshed]   = useState(null);
 
   const autoRefreshTimer = useRef(null);
 
-  /* ── Core fetch functions ── */
+  /* ── Fetch functions ── */
 
   const fetchReport = useCallback(async (term, quiet = false) => {
     if (!quiet) setLoadingReport(true);
@@ -1051,7 +1045,6 @@ const StudentPortal = () => {
     try {
       const r = await API.get(`/report/student/${user.student_id}/?term=${term}`);
       setReport(r.data);
-      setLastFetchedReport({ term, ts: Date.now() });
     } catch {
       if (!quiet) setError("No report found for this term.");
       setReport(null);
@@ -1073,12 +1066,6 @@ const StudentPortal = () => {
     if (!quiet) setLoadingProgress(false);
   }, [user.student_id]);
 
-  /**
-   * Attendance: fetch all attendance records for this student.
-   * Teacher saves attendance per class+date; we fetch student's own records
-   * via /attendance/?student=<id> which the backend should support.
-   * Falls back to /attendance/?student=<id>&term=<term> if full history is large.
-   */
   const fetchAttendance = useCallback(async (quiet = false) => {
     if (!quiet) setLoadingAtt(true);
     try {
@@ -1096,7 +1083,6 @@ const StudentPortal = () => {
         { present:0, absent:0, late:0, total:0 }
       );
       setAttStats(stats);
-      setLastFetchedAtt(Date.now());
     } catch {
       if (!quiet) setError("Could not load attendance records.");
     } finally {
@@ -1104,69 +1090,63 @@ const StudentPortal = () => {
     }
   }, [user.student_id, selectedTerm]);
 
-  /**
-   * Character assessment: mirrors exactly what the teacher saved.
-   * Endpoint: GET /character-assessment/?student=<id>&term=<term>&year=<year>
-   */
   const fetchCharAssessment = useCallback(async (quiet = false) => {
     if (!quiet) setLoadingChar(true);
     try {
-      // Try current year first, then fall back to any matching record (no year filter)
       const year = new Date().getFullYear();
-      let r = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}&year=${year}`);
-      let data = r.data?.results?.[0] ?? r.data;
-      if (!data) console.debug("[char] primary query returned:", r.data);
+      let data = null;
+
+      // Primary: fetch with year filter
+      try {
+        const r = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}&year=${year}`);
+        data = r.data?.results?.[0] ?? (r.data?.areas || r.data?.cohort ? r.data : null);
+      } catch {}
+
+      // Fallback: any year for this student+term
       if (!data) {
-        // No record for current year — request all matching records and pick the latest
-        const r2 = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}`);
-        const all = r2.data?.results ?? r2.data;
-        if (!all || (Array.isArray(all) && all.length === 0)) console.debug("[char] year-less query returned:", r2.data);
-        if (Array.isArray(all) && all.length > 0) {
-          all.sort((a, b) => {
-            const ay = parseInt(a.year) || 0;
-            const by = parseInt(b.year) || 0;
-            if (by !== ay) return by - ay;
-            const at = a.created_at ? new Date(a.created_at).getTime() : 0;
-            const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
-            return bt - at;
-          });
-          data = all[0];
-        } else if (all && (all.areas || all.cohort)) {
-          data = all;
-        }
+        try {
+          const r2 = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}`);
+          const all = r2.data?.results ?? r2.data;
+          if (Array.isArray(all) && all.length > 0) {
+            all.sort((a, b) => {
+              const ay = parseInt(a.year) || 0;
+              const by = parseInt(b.year) || 0;
+              if (by !== ay) return by - ay;
+              return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+            });
+            data = all[0];
+          } else if (all?.areas || all?.cohort) {
+            data = all;
+          }
+        } catch {}
       }
 
-      // If nothing found using numeric student id, try admission number (some saves use admission_number)
+      // Fallback: admission_number instead of numeric ID
       if (!data && user?.admission_number && String(user.admission_number) !== String(user.student_id)) {
         try {
           const r3 = await API.get(`/character-assessment/?student=${user.admission_number}&term=${selectedTerm}`);
           const all2 = r3.data?.results ?? r3.data;
-          if (!all2 || (Array.isArray(all2) && all2.length === 0)) console.debug("[char] admission_number query returned:", r3.data);
           if (Array.isArray(all2) && all2.length > 0) {
             all2.sort((a, b) => {
               const ay = parseInt(a.year) || 0;
               const by = parseInt(b.year) || 0;
               if (by !== ay) return by - ay;
-              const at = a.created_at ? new Date(a.created_at).getTime() : 0;
-              const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
-              return bt - at;
+              return new Date(b.created_at || 0) - new Date(a.created_at || 0);
             });
             data = all2[0];
-          } else if (all2 && (all2.areas || all2.cohort)) {
+          } else if (all2?.areas || all2?.cohort) {
             data = all2;
           }
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
+
       setCharAssessment(data && (data.areas || data.cohort) ? data : null);
-      setLastFetchedChar(Date.now());
     } catch {
       setCharAssessment(null);
     } finally {
       if (!quiet) setLoadingChar(false);
     }
-  }, [user.student_id, selectedTerm]);
+  }, [user.student_id, user.admission_number, selectedTerm]);
 
   const fetchFees = useCallback(async (quiet = false) => {
     if (!quiet) setLoadingFees(true);
@@ -1180,29 +1160,17 @@ const StudentPortal = () => {
     }
   }, [user.student_id]);
 
-  /* ── Refresh all data for the current tab ── */
   const refreshCurrentTab = useCallback(async (quiet = false) => {
     if (!quiet) setIsRefreshing(true);
     try {
       switch (tab) {
         case "Results":
-        case "Report Card":
-          await fetchReport(selectedTerm, quiet);
-          break;
-        case "Attendance":
-          await fetchAttendance(quiet);
-          break;
-        case "Character":
-          await fetchCharAssessment(quiet);
-          break;
-        case "Progress":
-          await fetchAllReports(quiet);
-          break;
-        case "Fees":
-          await fetchFees(quiet);
-          break;
-        default:
-          break;
+        case "Report Card": await fetchReport(selectedTerm, quiet); break;
+        case "Attendance":  await fetchAttendance(quiet); break;
+        case "Character":   await fetchCharAssessment(quiet); break;
+        case "Progress":    await fetchAllReports(quiet); break;
+        case "Fees":        await fetchFees(quiet); break;
+        default: break;
       }
       setLastRefreshed(new Date());
     } finally {
@@ -1210,48 +1178,32 @@ const StudentPortal = () => {
     }
   }, [tab, selectedTerm, fetchReport, fetchAttendance, fetchCharAssessment, fetchAllReports, fetchFees]);
 
-  /* ── Initial data load when tab or term changes ── */
   useEffect(() => {
     setError("");
     switch (tab) {
       case "Results":
-      case "Report Card":
-        fetchReport(selectedTerm);
-        break;
-      case "Attendance":
-        fetchAttendance();
-        break;
-      case "Character":
-        fetchCharAssessment();
-        break;
-      case "Progress":
-        fetchAllReports();
-        break;
-      case "Fees":
-        fetchFees();
-        break;
-      default:
-        break;
+      case "Report Card": fetchReport(selectedTerm); break;
+      case "Attendance":  fetchAttendance(); break;
+      case "Character":   fetchCharAssessment(); break;
+      case "Progress":    fetchAllReports(); break;
+      case "Fees":        fetchFees(); break;
+      default: break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, selectedTerm]);
 
-  /* ── Auto-refresh every REFRESH_INTERVAL ms ── */
   useEffect(() => {
-    autoRefreshTimer.current = setInterval(() => {
-      refreshCurrentTab(true); // quiet = true: no loading spinner
-    }, REFRESH_INTERVAL);
+    autoRefreshTimer.current = setInterval(() => { refreshCurrentTab(true); }, REFRESH_INTERVAL);
     return () => clearInterval(autoRefreshTimer.current);
   }, [refreshCurrentTab]);
 
-  /* ── Re-fetch when window regains focus (user switches back from teacher portal tab) ── */
   useEffect(() => {
     const handleFocus = () => refreshCurrentTab(true);
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
   }, [refreshCurrentTab]);
 
-  /* ── Derived data for Progress tab ── */
+  /* ── Progress derived data ── */
   const subjectTrends = (() => {
     const map = {};
     TERMS.forEach(({ value: term }) => {
@@ -1311,13 +1263,27 @@ const StudentPortal = () => {
     } catch { setError("Failed to download report."); }
   };
 
-  /* ── Whether to show the term selector ── */
-  const showTermBar = !["Progress", "Announcements", "Fees"].includes(tab);
-
-  /* ── Last refreshed label ── */
+  const showTermBar      = !["Progress", "Announcements", "Fees"].includes(tab);
   const lastRefreshedLabel = lastRefreshed
     ? lastRefreshed.toLocaleTimeString("en-GH", { hour:"2-digit", minute:"2-digit" })
     : null;
+
+  /* ── Character tab derived values ── */
+  const charFilledAreas = CHAR_AREAS.filter(
+    a => charAssessment?.areas?.[a.key]?.score !== "" && charAssessment?.areas?.[a.key]?.score != null
+  );
+  const charScores  = charFilledAreas.map(a => parseFloat(charAssessment.areas[a.key].score));
+  const charAvgScore = charScores.length
+    ? Math.round(charScores.reduce((s, v) => s + v, 0) / charScores.length)
+    : null;
+  const charAvgGrade    = charAvgScore != null ? charScoreGrade(charAvgScore) : null;
+  const charCompletePct = charAssessment
+    ? Math.round((charFilledAreas.length / CHAR_AREAS.length) * 100)
+    : 0;
+  // FIX: career entries — only those with a score; used to conditionally show career section
+  const careerEntries = charAssessment?.career
+    ? Object.entries(charAssessment.career).filter(([, e]) => e?.score !== "" && e?.score != null)
+    : [];
 
   return (
     <div className="sp-root">
@@ -1347,7 +1313,6 @@ const StudentPortal = () => {
             ))}
           </nav>
           <div className="sp-header-actions">
-            {/* Manual refresh button */}
             <button
               className={`sp-btn-refresh ${isRefreshing ? "spinning" : ""}`}
               onClick={() => refreshCurrentTab(false)}
@@ -1361,8 +1326,6 @@ const StudentPortal = () => {
             <button className="sp-btn-danger" onClick={logout}>Sign out</button>
           </div>
         </div>
-
-        {/* Mobile nav */}
         <div className="sp-mobile-nav">
           <div className="sp-mobile-nav-inner">
             {TABS.map(({ key, icon, label }) => (
@@ -1440,16 +1403,14 @@ const StudentPortal = () => {
         )}
 
         {/* ════════════════════════════════════
-            TAB: Attendance — NEW
-            Mirrors exactly what teacher recorded
+            TAB: Attendance
         ════════════════════════════════════ */}
         {tab === "Attendance" && (
           <>
             {loadingAtt && <Loading text="Loading attendance records…"/>}
             {!loadingAtt && (
               <>
-                {/* Summary stats */}
-                <div className="sp-att-grid" style={{marginBottom:"16px"}}>
+                <div className="sp-att-grid">
                   <div className="sp-att-kpi sp-att-present">
                     <div className="sp-att-kpi-val">{attStats.present}</div>
                     <div className="sp-att-kpi-lbl">Present</div>
@@ -1464,7 +1425,6 @@ const StudentPortal = () => {
                   </div>
                 </div>
 
-                {/* Attendance rate bar */}
                 {attStats.total > 0 && (
                   <div className="sp-card" style={{marginBottom:"14px"}}>
                     <div className="sp-card-head">
@@ -1520,9 +1480,7 @@ const StudentPortal = () => {
                                   <td style={{color:"#94a3b8",fontSize:"12px"}}>{i+1}</td>
                                   <td style={{fontWeight:"600",color:"#1e293b"}}>{dateStr}</td>
                                   <td className="c" style={{color:"#94a3b8",fontSize:"12px"}}>{day}</td>
-                                  <td className="c">
-                                    <span className={`sp-att-pill ${statusClass}`}>{statusLabel}</span>
-                                  </td>
+                                  <td className="c"><span className={`sp-att-pill ${statusClass}`}>{statusLabel}</span></td>
                                 </tr>
                               );
                             })}
@@ -1538,8 +1496,8 @@ const StudentPortal = () => {
         )}
 
         {/* ════════════════════════════════════
-            TAB: Character Assessment — NEW
-            Read-only mirror of teacher's form
+            TAB: Character Assessment
+            All 6 bugs fixed + 4 UX improvements
         ════════════════════════════════════ */}
         {tab === "Character" && (
           <>
@@ -1551,35 +1509,47 @@ const StudentPortal = () => {
             {!loadingChar && charAssessment && (
               <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
 
-                {/* Overview KPIs */}
-                {(() => {
-                  const filledAreas  = CHAR_AREAS.filter(a => charAssessment.areas?.[a.key]?.score !== "" && charAssessment.areas?.[a.key]?.score != null);
-                  const scores       = filledAreas.map(a => parseFloat(charAssessment.areas[a.key].score));
-                  const avgScore     = scores.length ? Math.round(scores.reduce((s,v)=>s+v,0)/scores.length) : null;
-                  const avgGradeInfo = avgScore != null ? charScoreGrade(avgScore) : null;
-                  return (
-                    <div className="sp-kpi-grid grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <KpiCard label="Cohort"        value={charAssessment.cohort ? `${charAssessment.cohort} Cohort` : "—"}/>
-                        <KpiCard label="Areas Assessed" value={`${filledAreas.length} / ${CHAR_AREAS.length}`}/>
-                        <KpiCard label="Avg Score"      value={avgScore ?? "—"}/>
-                        <KpiCard label="Overall Grade"  value={avgGradeInfo?.grade ?? "—"}/>
-                      </div>
-                  );
-                })()}
+                {/* FIX 2: sp-kpi-grid only — no Tailwind hybrid */}
+                {/* FIX 10: Date Assessed as KPI card instead of buried in header */}
+                <div className="sp-kpi-grid">
+                  <KpiCard label="Cohort"          value={formatCohort(charAssessment.cohort)} />
+                  <KpiCard label="Areas Assessed"  value={`${charFilledAreas.length} / ${CHAR_AREAS.length}`} />
+                  <KpiCard label="Avg Score"        value={charAvgScore ?? "—"} />
+                  <KpiCard label="Date Assessed"
+                    value={charAssessment.teacher_date ? fmtDate(charAssessment.teacher_date) : "—"}
+                  />
+                </div>
 
                 {/* Character Areas */}
                 <div className="sp-char-section">
                   <div className="sp-char-header">
                     <div className="sp-char-header-title">Character Assessment</div>
                     <div className="sp-char-header-sub">
-                      {TERMS.find(t=>t.value===selectedTerm)?.label} · {charAssessment.cohort ?? ""} Cohort
-                      {charAssessment.teacher_name && charAssessment.teacher_date && (
-                        <div style={{ marginTop: "6px", fontSize: "12px", color: "#94a3b8" }}>
-                          Assessed by {charAssessment.teacher_name} on {fmtDate(charAssessment.teacher_date)}
-                        </div>
-                      )}
+                      {TERMS.find(t=>t.value===selectedTerm)?.label}
+                      {charAssessment.cohort ? ` · ${formatCohort(charAssessment.cohort)}` : ""}
+                      {charAssessment.teacher_name ? ` · ${charAssessment.teacher_name}` : ""}
                     </div>
                   </div>
+
+                  {/* FIX 8: Completion progress bar */}
+                  <div className="sp-char-completion">
+                    <span className="sp-char-completion-label">
+                      {charFilledAreas.length} of {CHAR_AREAS.length} areas assessed
+                    </span>
+                    <div className="sp-char-completion-bar">
+                      <div className="sp-char-completion-fill" style={{
+                        width: `${charCompletePct}%`,
+                        background: charCompletePct === 100 ? "#16a34a" : charCompletePct >= 50 ? "#2563eb" : "#d97706",
+                      }}/>
+                    </div>
+                    <span className="sp-char-completion-pct" style={{
+                      color: charCompletePct === 100 ? "#16a34a" : charCompletePct >= 50 ? "#2563eb" : "#d97706",
+                    }}>
+                      {charCompletePct}%
+                    </span>
+                  </div>
+
+                  {/* FIX 4: sp-char-area-row only — @media handles mobile stacking */}
                   {CHAR_AREAS.map(area => {
                     const entry     = charAssessment.areas?.[area.key];
                     const score     = entry?.score;
@@ -1588,8 +1558,12 @@ const StudentPortal = () => {
                     const pct       = score !== "" && score != null ? Math.min(100, parseFloat(score)) : 0;
                     const barColor  = gradeInfo?.color ?? "#e2e8f0";
                     return (
-                      <div key={area.key} className={`sp-char-area-row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-                        <div className="sp-char-area-name">{area.label}</div>
+                      <div key={area.key} className="sp-char-area-row">
+                        {/* FIX 9: Guide text shown under area label */}
+                        <div style={{minWidth:"180px"}}>
+                          <div className="sp-char-area-name">{area.label}</div>
+                          <div className="sp-char-area-guide">{area.guide}</div>
+                        </div>
                         {score !== "" && score != null ? (
                           <>
                             <div className="sp-char-score-bar-wrap">
@@ -1608,62 +1582,60 @@ const StudentPortal = () => {
                             {remarks && <div className="sp-char-remarks" title={remarks}>"{remarks}"</div>}
                           </>
                         ) : (
-                          <span style={{color:"#cbd5e1",fontSize:"13px"}}>Not yet assessed</span>
+                          <span style={{color:"#cbd5e1",fontSize:"13px",marginLeft:"auto"}}>Not yet assessed</span>
                         )}
                       </div>
                     );
                   })}
+
+                  {/* Overall grade footer */}
+                  {charAvgGrade && (
+                    <div className="sp-char-grade-footer">
+                      <span style={{fontSize:"13px",fontWeight:"700",color:"var(--navy-2)"}}>Overall Grade</span>
+                      <span className="sp-char-score-chip"
+                        style={{background:charAvgGrade.bg,color:charAvgGrade.color,fontSize:"13px",fontWeight:"700",padding:"4px 14px"}}>
+                        {charAvgGrade.grade} — {charAvgGrade.label} ({charAvgScore}/100)
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Career Development */}
-                {charAssessment.career && Object.keys(charAssessment.career).length > 0 && (
+                {/* FIX 7: Only render when at least one entry has a score */}
+                {careerEntries.length > 0 && (
                   <div className="sp-char-section">
                     <div className="sp-char-header">
                       <div className="sp-char-header-title">Career Development Assessment</div>
                       <div className="sp-char-header-sub">Practical skills training programmes</div>
                     </div>
-                    {Object.entries(charAssessment.career).map(([key, entry]) => {
-                      if (!entry || (entry.score === "" && !entry.remarks)) return null;
+
+                    {careerEntries.map(([key, entry]) => {
                       const score     = entry.score;
-                      const gradeInfo = (() => {
-                        const n = parseFloat(score);
-                        if (isNaN(n)) return null;
-                        if (n >= 90) return { grade:"A", label:"Excellent",  color:"#16a34a", bg:"#dcfce7" };
-                        if (n >= 80) return { grade:"B", label:"Very Good",  color:"#0284c7", bg:"#dbeafe" };
-                        if (n >= 60) return { grade:"C", label:"Good",       color:"#0891b2", bg:"#cffafe" };
-                        if (n >= 50) return { grade:"D", label:"Average",    color:"#ca8a04", bg:"#fef9c3" };
-                        return { grade:"F", label:"Fail", color:"#dc2626", bg:"#fee2e2" };
-                      })();
-                      const pct      = score !== "" && score != null ? Math.min(100, parseFloat(score)||0) : 0;
-                      const barColor = gradeInfo?.color ?? "#e2e8f0";
-                      // Label from key (replace underscores, title-case)
-                      const label = key.replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase());
+                      // FIX 1: Use charScoreGrade() — same thresholds as teacher portal (was 90/80/60/50)
+                      const gradeInfo = charScoreGrade(score);
+                      const pct       = score !== "" && score != null ? Math.min(100, parseFloat(score) || 0) : 0;
+                      const barColor  = gradeInfo?.color ?? "#e2e8f0";
+                      const label     = key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
                       return (
-                        <div key={key} className={`sp-char-area-row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-                          <div>
+                        <div key={key} className="sp-char-area-row">
+                          <div style={{minWidth:"160px"}}>
                             <div className="sp-char-area-name">{label}</div>
-                            {entry.exam && <div style={{fontSize:"11px",color:"#94a3b8",marginTop:"2px"}}>{entry.exam}</div>}
+                            {entry.exam && <div className="sp-char-area-guide">{entry.exam}</div>}
                           </div>
-                          {score !== "" && score != null ? (
-                            <>
-                              <div className="sp-char-score-bar-wrap">
-                                <div className="sp-char-score-bar">
-                                  <div className="sp-char-score-fill" style={{width:`${pct}%`,background:barColor}}/>
-                                </div>
-                              </div>
-                              <div className="sp-char-area-right">
-                                <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"800",color:barColor,fontSize:"15px",minWidth:"32px",textAlign:"right"}}>{score}</span>
-                                {gradeInfo && (
-                                  <span className="sp-char-score-chip" style={{background:gradeInfo.bg,color:gradeInfo.color}}>
-                                    {gradeInfo.grade} — {gradeInfo.label}
-                                  </span>
-                                )}
-                              </div>
-                              {entry.remarks && <div className="sp-char-remarks" title={entry.remarks}>"{entry.remarks}"</div>}
-                            </>
-                          ) : (
-                            <span style={{color:"#cbd5e1",fontSize:"13px"}}>Not yet assessed</span>
-                          )}
+                          <div className="sp-char-score-bar-wrap">
+                            <div className="sp-char-score-bar">
+                              <div className="sp-char-score-fill" style={{width:`${pct}%`,background:barColor}}/>
+                            </div>
+                          </div>
+                          <div className="sp-char-area-right">
+                            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:"800",color:barColor,fontSize:"15px",minWidth:"32px",textAlign:"right"}}>{score}</span>
+                            {gradeInfo && (
+                              <span className="sp-char-score-chip" style={{background:gradeInfo.bg,color:gradeInfo.color}}>
+                                {gradeInfo.grade} — {gradeInfo.label}
+                              </span>
+                            )}
+                          </div>
+                          {entry.remarks && <div className="sp-char-remarks" title={entry.remarks}>"{entry.remarks}"</div>}
                         </div>
                       );
                     })}
@@ -1671,38 +1643,28 @@ const StudentPortal = () => {
                 )}
 
                 {/* Sign-off */}
+                {/* FIX 3: Replaced all Tailwind classes with sp-* CSS and inline styles */}
                 {(charAssessment.teacher_name || charAssessment.trainer_name) && (
-                  <div className="sp-card">
-                    <div className="sp-card-head"><span className="sp-card-title">Signed Off By</span></div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
+                  <div className="sp-char-section">
+                    <div className="sp-card-head" style={{padding:"14px 18px"}}>
+                      <span className="sp-card-title">Signed Off By</span>
+                    </div>
+                    <div className="sp-char-signoff-grid">
                       {[
-                        {
-                          role: "Class Teacher",
-                          name: charAssessment.teacher_name,
-                          date: charAssessment.teacher_date,
-                          signature: charAssessment.teacher_sig,
-                        },
-                        {
-                          role: "Skills Trainer",
-                          name: charAssessment.trainer_name,
-                          date: charAssessment.trainer_date,
-                          signature: charAssessment.trainer_sig,
-                        },
+                        { role:"Class Teacher",  name:charAssessment.teacher_name, date:charAssessment.teacher_date, signature:charAssessment.teacher_sig },
+                        { role:"Skills Trainer", name:charAssessment.trainer_name, date:charAssessment.trainer_date, signature:charAssessment.trainer_sig  },
                       ].filter(s => s.name).map(s => (
-                        <div key={s.role} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                          <div style={{fontSize:"10px",fontWeight:"700",color:"#94a3b8",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"4px"}}>{s.role}</div>
-                          <div style={{fontWeight:"700",color:"#1e293b",fontSize:"14px"}}>{s.name}</div>
-                          {s.signature && (
-                            <div style={{fontSize:"11px",color:"#475569",marginTop:"4px"}}>
-                              Signature: {s.signature}
-                            </div>
-                          )}
-                          {s.date && <div style={{fontSize:"11.5px",color:"#94a3b8",marginTop:"2px"}}>{fmtDate(s.date)}</div>}
+                        <div key={s.role} className="sp-char-signoff-card">
+                          <div className="sp-char-signoff-role">{s.role}</div>
+                          <div className="sp-char-signoff-name">{s.name}</div>
+                          {s.signature && <div className="sp-char-signoff-meta">Signature: {s.signature}</div>}
+                          {s.date && <div className="sp-char-signoff-meta">{fmtDate(s.date)}</div>}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
+
               </div>
             )}
           </>
@@ -1710,7 +1672,6 @@ const StudentPortal = () => {
 
         {/* ════════════════════════════════════
             TAB: Progress
-            Now always re-fetches on tab open
         ════════════════════════════════════ */}
         {tab === "Progress" && (
           <>
