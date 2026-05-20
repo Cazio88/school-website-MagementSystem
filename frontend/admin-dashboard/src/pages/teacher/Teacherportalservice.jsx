@@ -125,11 +125,11 @@ export const fetchCharAssessment = async (studentId, term, year) => {
   const r = await API.get(
     `/character-assessment/?student=${studentId}&term=${term}&year=${year}`
   );
-  const data = r.data?.results?.[0] ?? r.data;
-  // Return null when there's no saved record yet
+  // Handle both {results: [...]} and plain list []
+  const list = r.data?.results ?? (Array.isArray(r.data) ? r.data : []);
+  const data = list[0] ?? null;
   return data && (data.areas || data.cohort) ? data : null;
 };
-
 /**
  * Creates or updates a character assessment.
  * Tries PATCH first; falls back to POST on 404/405.
@@ -143,12 +143,13 @@ export const saveCharAssessment = async (studentId, classId, term, year, form) =
     ...form,
   };
   try {
-    await API.patch(`/character-assessment/${studentId}/`, payload);
+    // Pass term+year as query params so get_object() can find the record
+    await API.patch(
+      `/character-assessment/${studentId}/?term=${term}&year=${year}`,
+      payload
+    );
   } catch (patchErr) {
-    if (
-      patchErr.response?.status === 404 ||
-      patchErr.response?.status === 405
-    ) {
+    if (patchErr.response?.status === 404 || patchErr.response?.status === 405) {
       await API.post("/character-assessment/", payload);
     } else {
       throw patchErr;

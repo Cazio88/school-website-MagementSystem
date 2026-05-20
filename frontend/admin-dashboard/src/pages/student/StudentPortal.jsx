@@ -1091,62 +1091,49 @@ const StudentPortal = () => {
   }, [user.student_id, selectedTerm]);
 
   const fetchCharAssessment = useCallback(async (quiet = false) => {
-    if (!quiet) setLoadingChar(true);
+  if (!quiet) setLoadingChar(true);
+  try {
+    let data = null;
+
+    // Fetch without year filter — get all records for student+term, pick latest
     try {
-      const year = new Date().getFullYear();
-      let data = null;
+      const r = await API.get(
+        `/character-assessment/?student=${user.student_id}&term=${selectedTerm}`
+      );
+      const all = r.data?.results ?? (Array.isArray(r.data) ? r.data : []);
+      if (all.length > 0) {
+        all.sort((a, b) => {
+          if (b.year !== a.year) return b.year - a.year;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+        data = all[0];
+      }
+    } catch {}
 
-      // Primary: fetch with year filter
+    // Fallback: try admission_number if numeric student_id returned nothing
+    if (!data && user?.admission_number && String(user.admission_number) !== String(user.student_id)) {
       try {
-        const r = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}&year=${year}`);
-        data = r.data?.results?.[0] ?? (r.data?.areas || r.data?.cohort ? r.data : null);
+        const r2 = await API.get(
+          `/character-assessment/?student=${user.admission_number}&term=${selectedTerm}`
+        );
+        const all2 = r2.data?.results ?? (Array.isArray(r2.data) ? r2.data : []);
+        if (all2.length > 0) {
+          all2.sort((a, b) => {
+            if (b.year !== a.year) return b.year - a.year;
+            return new Date(b.created_at) - new Date(a.created_at);
+          });
+          data = all2[0];
+        }
       } catch {}
-
-      // Fallback: any year for this student+term
-      if (!data) {
-        try {
-          const r2 = await API.get(`/character-assessment/?student=${user.student_id}&term=${selectedTerm}`);
-          const all = r2.data?.results ?? r2.data;
-          if (Array.isArray(all) && all.length > 0) {
-            all.sort((a, b) => {
-              const ay = parseInt(a.year) || 0;
-              const by = parseInt(b.year) || 0;
-              if (by !== ay) return by - ay;
-              return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-            });
-            data = all[0];
-          } else if (all?.areas || all?.cohort) {
-            data = all;
-          }
-        } catch {}
-      }
-
-      // Fallback: admission_number instead of numeric ID
-      if (!data && user?.admission_number && String(user.admission_number) !== String(user.student_id)) {
-        try {
-          const r3 = await API.get(`/character-assessment/?student=${user.admission_number}&term=${selectedTerm}`);
-          const all2 = r3.data?.results ?? r3.data;
-          if (Array.isArray(all2) && all2.length > 0) {
-            all2.sort((a, b) => {
-              const ay = parseInt(a.year) || 0;
-              const by = parseInt(b.year) || 0;
-              if (by !== ay) return by - ay;
-              return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-            });
-            data = all2[0];
-          } else if (all2?.areas || all2?.cohort) {
-            data = all2;
-          }
-        } catch {}
-      }
-
-      setCharAssessment(data && (data.areas || data.cohort) ? data : null);
-    } catch {
-      setCharAssessment(null);
-    } finally {
-      if (!quiet) setLoadingChar(false);
     }
-  }, [user.student_id, user.admission_number, selectedTerm]);
+
+    setCharAssessment(data && (data.areas || data.career || data.cohort) ? data : null);
+  } catch {
+    setCharAssessment(null);
+  } finally {
+    if (!quiet) setLoadingChar(false);
+  }
+}, [user.student_id, user.admission_number, selectedTerm]);
 
   const fetchFees = useCallback(async (quiet = false) => {
     if (!quiet) setLoadingFees(true);
