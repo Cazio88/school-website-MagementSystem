@@ -1,9 +1,9 @@
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from rest_framework.response import Response
 from apps.results.models import CharacterAssessment
 from api.serializers.character_assessment_serializer import CharacterAssessmentSerializer
 
@@ -24,7 +24,6 @@ class CharacterAssessmentViewSet(ModelViewSet):
         year = params.get("year")
 
         if student:
-            # Accept either numeric PK or admission number string
             if str(student).isdigit():
                 qs = qs.filter(student_id=student)
             else:
@@ -50,7 +49,6 @@ class CharacterAssessmentViewSet(ModelViewSet):
         if not term or not year:
             raise ValidationError({"detail": "term and year are required to identify a character assessment"})
 
-        # Allow lookup by numeric PK or admission number
         if str(lookup_value).isdigit():
             obj = get_object_or_404(queryset, student_id=lookup_value, term=term, year=year)
         else:
@@ -59,25 +57,24 @@ class CharacterAssessmentViewSet(ModelViewSet):
         return obj
 
     def list(self, request, *args, **kwargs):
-    queryset = self.filter_queryset(self.get_queryset())
-    results = list(queryset)
+        queryset = self.filter_queryset(self.get_queryset())
+        results = list(queryset)
 
-    if not results:
-        # Fallback: any year for same student+term
-        params = request.query_params
-        student, term = params.get("student"), params.get("term")
-        if student and term:
-            qs_fallback = CharacterAssessment.objects.order_by("-year", "-created_at")
-            if str(student).isdigit():
-                qs_fallback = qs_fallback.filter(student_id=student, term=term)
-            else:
-                qs_fallback = qs_fallback.filter(
-                    student__admission_number__iexact=student, term=term
-                )
-            first = qs_fallback.first()
-            if first:
-                return Response({"results": [self.get_serializer(first).data]})
-        return Response({"results": []})
+        if not results:
+            params = request.query_params
+            student, term = params.get("student"), params.get("term")
+            if student and term:
+                qs_fallback = CharacterAssessment.objects.order_by("-year", "-created_at")
+                if str(student).isdigit():
+                    qs_fallback = qs_fallback.filter(student_id=student, term=term)
+                else:
+                    qs_fallback = qs_fallback.filter(
+                        student__admission_number__iexact=student, term=term
+                    )
+                first = qs_fallback.first()
+                if first:
+                    return Response({"results": [self.get_serializer(first).data]})
+            return Response({"results": []})
 
-    serializer = self.get_serializer(queryset, many=True)
-    return Response({"results": serializer.data})
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"results": serializer.data})
