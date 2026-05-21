@@ -3,7 +3,6 @@ from apps.results.models import Result
 
 
 class ResultSerializer(serializers.ModelSerializer):
-
     student_name = serializers.SerializerMethodField()
     subject_name = serializers.SerializerMethodField()
     class_name   = serializers.SerializerMethodField()
@@ -19,6 +18,7 @@ class ResultSerializer(serializers.ModelSerializer):
             "school_class",
             "class_name",
             "term",
+            "year",          # ← added; required for year-aware upserts
             "reopen",
             "ca",
             "exams",
