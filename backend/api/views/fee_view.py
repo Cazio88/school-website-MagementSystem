@@ -1,13 +1,17 @@
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
+import hmac
+import hashlib
+import logging
+from decimal import Decimal
 
+from django.conf import settings
 from django.db.models import Sum, Count, Q
 
-from decimal import Decimal
-import logging
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
 
 from apps.fees.models import Fee, PaymentTransaction
 from apps.students.models import Student
@@ -24,6 +28,118 @@ def to_decimal(value, default=Decimal("0")):
     except Exception:
         return default
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Paystack Webhook
+# ──────────────────────────────────────────────────────────────────────────────
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def paystack_webhook(request):
+    """
+    Paystack POSTs here after every successful charge.
+    - Verifies HMAC-SHA512 signature
+    - Idempotent: skips if the Paystack reference was already recorded
+    - Records payment and sends SMS to parent
+    """
+    secret    = getattr(settings, "PAYSTACK_SECRET_KEY", "")
+    signature = request.headers.get("x-paystack-signature", "")
+    body      = request.body
+
+    # ── Signature verification ────────────────────────────────────────────────
+    expected = hmac.new(secret.encode(), body, hashlib.sha512).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        logger.warning("Paystack webhook: invalid signature received")
+        return Response({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
+
+    payload = request.data
+    event   = payload.get("event")
+
+    if event != "charge.success":
+        return Response({"status": "ignored"})
+
+    data        = payload.get("data", {})
+    reference   = data.get("reference", "")
+    amount_kobo = data.get("amount", 0)
+    amount      = Decimal(str(amount_kobo)) / 100
+
+    # ── Extract fee_id from Paystack metadata ─────────────────────────────────
+    meta      = data.get("metadata", {})
+    fields    = {f["variable_name"]: f["value"] for f in meta.get("custom_fields", [])}
+    fee_id    = fields.get("fee_id")
+
+    if not fee_id:
+        logger.error("Paystack webhook: no fee_id in metadata. ref=%s", reference)
+        return Response({"status": "no fee_id"})
+
+    # ── Idempotency check ─────────────────────────────────────────────────────
+    if PaymentTransaction.objects.filter(note__icontains=reference).exists():
+        logger.info("Paystack webhook: duplicate ref=%s — skipping", reference)
+        return Response({"status": "duplicate"})
+
+    # ── Load fee ──────────────────────────────────────────────────────────────
+    try:
+        fee = Fee.objects.select_related(
+            "student", "student__school_class"
+        ).get(id=fee_id)
+    except Fee.DoesNotExist:
+        logger.error("Paystack webhook: Fee %s not found", fee_id)
+        return Response({"status": "fee not found"})
+
+    # Cap amount at current balance to prevent negative balance
+    if amount > fee.balance:
+        logger.warning(
+            "Paystack webhook: amount %s exceeds balance %s for fee %s — capping",
+            amount, fee.balance, fee_id,
+        )
+        amount = fee.balance
+
+    # ── Record payment ────────────────────────────────────────────────────────
+    fee.paid += amount
+    fee.save()
+
+    txn = PaymentTransaction.objects.create(
+        fee         = fee,
+        amount      = amount,
+        note        = f"Paystack webhook ref: {reference}",
+        recorded_by = None,
+    )
+
+    # ── Send SMS ──────────────────────────────────────────────────────────────
+    parent_phone = fee.student.parent_phone
+    if parent_phone:
+        message = fee_payment_received(
+            parent_name    = fee.student.parent_name or "Parent/Guardian",
+            student_name   = fee.student.full_name,
+            student_class  = str(fee.student.school_class) if fee.student.school_class else "N/A",
+            amount_paid    = amount,
+            balance        = fee.balance,
+            term           = fee.get_term_display(),
+            transaction_id = txn.id,
+        )
+        try:
+            TermiiSMSService().send(phone=parent_phone, message=message)
+            logger.info(
+                "Webhook SMS sent for student %s | txn=%s",
+                fee.student.full_name, txn.id,
+            )
+        except TermiiSMSError as e:
+            logger.error(
+                "Webhook SMS failed for student %s: %s",
+                fee.student.full_name, e,
+            )
+    else:
+        logger.warning(
+            "Webhook: no parent phone for student %s — SMS skipped",
+            fee.student.full_name,
+        )
+
+    return Response({"status": "ok"})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FeeViewSet
+# ──────────────────────────────────────────────────────────────────────────────
 
 class FeeViewSet(ModelViewSet):
 
@@ -53,9 +169,7 @@ class FeeViewSet(ModelViewSet):
 
         return qs
 
-    # ------------------------------------------------------------------
-    # Record a payment
-    # ------------------------------------------------------------------
+    # ── Record a payment ──────────────────────────────────────────────────────
 
     @action(detail=True, methods=["post"], url_path="pay")
     def pay(self, request, pk=None):
@@ -64,15 +178,24 @@ class FeeViewSet(ModelViewSet):
         note   = request.data.get("note", "")
 
         if amount is None:
-            return Response({"error": "amount is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "amount is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             amount = Decimal(str(amount))
         except (TypeError, ValueError):
-            return Response({"error": "amount must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "amount must be a number"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if amount <= 0:
-            return Response({"error": "amount must be greater than 0"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "amount must be greater than 0"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if amount > fee.balance:
             return Response(
@@ -80,7 +203,17 @@ class FeeViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        previous_balance = fee.balance  # capture BEFORE saving
+        # ── Idempotency: skip if this Paystack reference already recorded ─────
+        paystack_ref = None
+        if note and "paystack ref:" in note.lower():
+            paystack_ref = note.split(":")[-1].strip()
+            if PaymentTransaction.objects.filter(note__icontains=paystack_ref).exists():
+                logger.info(
+                    "pay() action: duplicate Paystack ref=%s — skipping double-record",
+                    paystack_ref,
+                )
+                return Response(FeeSerializer(fee).data)
+
         fee.paid += amount
         fee.save()
 
@@ -91,7 +224,7 @@ class FeeViewSet(ModelViewSet):
             recorded_by = request.user if request.user.is_authenticated else None,
         )
 
-        # ── Send SMS ───────────────────────────────────────────────────
+        # ── Send SMS ──────────────────────────────────────────────────────────
         parent_phone = fee.student.parent_phone
         if parent_phone:
             message = fee_payment_received(
@@ -105,23 +238,27 @@ class FeeViewSet(ModelViewSet):
             )
             try:
                 TermiiSMSService().send(phone=parent_phone, message=message)
+                logger.info(
+                    "SMS sent for student %s | txn=%s",
+                    fee.student.full_name, txn.id,
+                )
             except TermiiSMSError as e:
-                logger.error("SMS failed for student %s: %s", fee.student.full_name, e)
+                logger.error(
+                    "SMS failed for student %s: %s",
+                    fee.student.full_name, e,
+                )
         else:
             logger.warning(
-                "No parent phone for student %s — SMS skipped.",
+                "No parent phone for student %s — SMS skipped",
                 fee.student.full_name,
             )
-        # ──────────────────────────────────────────────────────────────
 
         return Response({
             **FeeSerializer(fee).data,
             "transaction_id": txn.id,
         })
 
-    # ------------------------------------------------------------------
-    # List payment transactions for a fee record
-    # ------------------------------------------------------------------
+    # ── List payment transactions for a fee record ────────────────────────────
 
     @action(detail=True, methods=["get"], url_path="transactions")
     def transactions(self, request, pk=None):
@@ -146,9 +283,7 @@ class FeeViewSet(ModelViewSet):
 
         return Response(data)
 
-    # ------------------------------------------------------------------
-    # Assign fee to a single student
-    # ------------------------------------------------------------------
+    # ── Assign fee to a single student ────────────────────────────────────────
 
     @action(detail=False, methods=["post"], url_path="assign-student")
     def assign_student(self, request):
@@ -165,7 +300,10 @@ class FeeViewSet(ModelViewSet):
         try:
             student = Student.objects.get(id=student_id)
         except Student.DoesNotExist:
-            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Student not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         fee, is_new = Fee.objects.get_or_create(
             student=student,
@@ -191,9 +329,7 @@ class FeeViewSet(ModelViewSet):
             status=status.HTTP_201_CREATED if is_new else status.HTTP_200_OK,
         )
 
-    # ------------------------------------------------------------------
-    # Bulk assign fees to a whole class
-    # ------------------------------------------------------------------
+    # ── Bulk assign fees to a whole class ─────────────────────────────────────
 
     @action(detail=False, methods=["post"], url_path="bulk-assign")
     def bulk_assign(self, request):
@@ -212,14 +348,23 @@ class FeeViewSet(ModelViewSet):
             book_user_fee = to_decimal(request.data.get("book_user_fee"))
             workbook_fee  = to_decimal(request.data.get("workbook_fee"))
         except (TypeError, ValueError):
-            return Response({"error": "Fee values must be numbers"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Fee values must be numbers"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if amount <= 0:
-            return Response({"error": "amount must be greater than 0"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "amount must be greater than 0"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         students = Student.objects.filter(school_class_id=school_class)
         if not students.exists():
-            return Response({"error": "No students found for this class"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "No students found for this class"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         created = updated = 0
 
@@ -245,9 +390,7 @@ class FeeViewSet(ModelViewSet):
 
         return Response({"created": created, "updated": updated, "total": created + updated})
 
-    # ------------------------------------------------------------------
-    # Add arrears to a specific student fee record
-    # ------------------------------------------------------------------
+    # ── Add arrears to a specific student fee record ──────────────────────────
 
     @action(detail=True, methods=["post"], url_path="add-arrears")
     def add_arrears(self, request, pk=None):
@@ -255,23 +398,30 @@ class FeeViewSet(ModelViewSet):
         arrears = request.data.get("arrears")
 
         if arrears is None:
-            return Response({"error": "arrears is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "arrears is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             arrears = Decimal(str(arrears))
         except (TypeError, ValueError):
-            return Response({"error": "arrears must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "arrears must be a number"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if arrears < 0:
-            return Response({"error": "arrears cannot be negative"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "arrears cannot be negative"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         fee.arrears = arrears
         fee.save()
         return Response(FeeSerializer(fee).data)
 
-    # ------------------------------------------------------------------
-    # Summary stats for a class + term
-    # ------------------------------------------------------------------
+    # ── Summary stats for a class + term ──────────────────────────────────────
 
     @action(detail=False, methods=["get"], url_path="summary")
     def summary(self, request):
@@ -346,9 +496,7 @@ class FeeViewSet(ModelViewSet):
             "records":         FeeSerializer(fees, many=True).data,
         })
 
-    # ------------------------------------------------------------------
-    # Preview fees to delete for a class + term + year
-    # ------------------------------------------------------------------
+    # ── Preview fees to delete for a class + term + year ─────────────────────
 
     @action(detail=False, methods=["get"], url_path="delete-preview")
     def delete_preview(self, request):
@@ -384,14 +532,9 @@ class FeeViewSet(ModelViewSet):
             for fee in fees
         ]
 
-        return Response({
-            "count": len(data),
-            "fees":  data,
-        }, status=status.HTTP_200_OK)
+        return Response({"count": len(data), "fees": data}, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # Delete fees for a class + term + year
-    # ------------------------------------------------------------------
+    # ── Delete fees for a class + term + year ─────────────────────────────────
 
     @action(detail=False, methods=["delete"], url_path="delete-class-fees")
     def delete_class_fees(self, request):
@@ -416,9 +559,7 @@ class FeeViewSet(ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    # ------------------------------------------------------------------
-    # Fetch fees for unassigned students (school_class is NULL)
-    # ------------------------------------------------------------------
+    # ── Fetch fees for unassigned students ────────────────────────────────────
 
     @action(detail=False, methods=["get"], url_path="unassigned-fees")
     def unassigned_fees(self, request):
@@ -445,9 +586,7 @@ class FeeViewSet(ModelViewSet):
 
         return Response(data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # Delete wrongly billed fees for unassigned students
-    # ------------------------------------------------------------------
+    # ── Delete wrongly billed fees for unassigned students ────────────────────
 
     @action(detail=False, methods=["delete"], url_path="unassigned-fees/delete")
     def delete_unassigned_fees(self, request):
