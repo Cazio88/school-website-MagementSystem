@@ -3,9 +3,10 @@ from apps.fees.models import Fee, PaymentTransaction
 
 
 class PaymentTransactionSerializer(serializers.ModelSerializer):
-    recorded_by_name = serializers.SerializerMethodField()
-    student_name     = serializers.SerializerMethodField()
-    admission_number = serializers.SerializerMethodField()
+    recorded_by_name   = serializers.SerializerMethodField()
+    student_name       = serializers.SerializerMethodField()
+    admission_number   = serializers.SerializerMethodField()
+    created_at_display = serializers.SerializerMethodField()
 
     class Meta:
         model  = PaymentTransaction
@@ -19,6 +20,7 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
             "recorded_by_name",
             "note",
             "created_at",
+            "created_at_display",
         ]
         read_only_fields = ["created_at"]
 
@@ -32,6 +34,9 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
 
     def get_admission_number(self, obj):
         return obj.fee.student.admission_number
+
+    def get_created_at_display(self, obj):
+        return obj.created_at.strftime("%d %b %Y, %I:%M %p")
 
 
 class FeeSerializer(serializers.ModelSerializer):
