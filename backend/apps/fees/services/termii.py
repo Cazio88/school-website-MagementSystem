@@ -1,12 +1,13 @@
 import logging
 import requests
-from django.conf import settings  # ← this line is missing
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
-class TermiiSMSService:
 
-    BASE_URL = "https://v3.api.termii.com/api"  # ← fixed
-    ENDPOINT = "/sms/send"                        # ← fixed
+
+class TermiiSMSService:
+    BASE_URL = "https://v3.api.termii.com/api"
+    ENDPOINT = "/sms/send"
 
     def __init__(self):
         self.api_key   = settings.TERMII_API_KEY
@@ -14,7 +15,6 @@ class TermiiSMSService:
 
     def send(self, phone: str, message: str) -> dict:
         phone = self._normalize_phone(phone)
-
         payload = {
             "api_key": self.api_key,
             "to":      phone,
@@ -23,7 +23,6 @@ class TermiiSMSService:
             "type":    "plain",
             "channel": "generic",
         }
-
         try:
             response = requests.post(
                 f"{self.BASE_URL}{self.ENDPOINT}",
