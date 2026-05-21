@@ -9,7 +9,7 @@ from api.views.class_view import ClassViewSet
 from api.views.subject_view import SubjectViewSet
 from api.views.attendance_view import AttendanceViewSet
 from api.views.result_view import ResultViewSet
-from api.views.fee_views import FeeViewSet, paystack_webhook
+from api.views.fee_view import FeeViewSet, paystack_webhook
 from api.views.character_assessment_view import CharacterAssessmentViewSet
 from api.views.announcement_view import AnnouncementViewSet
 from api.views.admission_view import AdmissionViewSet
