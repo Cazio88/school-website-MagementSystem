@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 def fee_payment_received(
@@ -10,6 +10,13 @@ def fee_payment_received(
     term:           str,
     transaction_id: int,
 ) -> str:
+    try:
+        amount_paid = Decimal(str(amount_paid))
+        balance     = Decimal(str(balance))
+    except (InvalidOperation, TypeError):
+        amount_paid = Decimal("0")
+        balance     = Decimal("0")
+
     balance_line = (
         f"Balance: GHS {balance:.2f}."
         if balance > 0
