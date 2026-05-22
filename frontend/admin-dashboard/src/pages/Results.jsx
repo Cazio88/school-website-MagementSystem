@@ -9,6 +9,11 @@ const TERMS = [
   { value: "term2", label: "Term 2" },
   { value: "term3", label: "Term 3" },
 ];
+
+// FIX: Single source of truth — update here when term changes
+const CURRENT_TERM = "term3";
+const CURRENT_YEAR = 2026;
+
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 
 const GRADE_REMARK = {
@@ -33,8 +38,8 @@ const GRADE_REMARK = {
 
 const computeScore = (reopen, ca, exams) => {
   const r = parseFloat(reopen) || 0;
-  const c = parseFloat(ca) || 0;
-  const e = parseFloat(exams) || 0;
+  const c = parseFloat(ca)     || 0;
+  const e = parseFloat(exams)  || 0;
   return Math.round((r + c + e) * 10) / 10;
 };
 
@@ -91,7 +96,7 @@ const GRADE_SCALE_B16 = [
 ───────────────────────────────────────────── */
 const calcReopenScore = (b) => {
   const reopen = Math.min(10, parseFloat(b.reopen_raw) || 0);
-  const rda    = Math.min(10, parseFloat(b.rda) || 0);
+  const rda    = Math.min(10, parseFloat(b.rda)        || 0);
   return Math.round((reopen + rda) * 10) / 10;
 };
 
@@ -103,14 +108,12 @@ const calcCAonly = (b) => {
 };
 
 const calcMGTScore = (b) => Math.round(Math.min(15, parseFloat(b.mgt_raw) || 0) * 10) / 10;
-
-const calcCAScore = (b) => Math.round((calcCAonly(b) + calcMGTScore(b)) * 10) / 10;
-
+const calcCAScore  = (b) => Math.round((calcCAonly(b) + calcMGTScore(b)) * 10) / 10;
 const calcExamsScore = (b) =>
   Math.round(((parseFloat(b.exam_raw) || 0) / 100) * 40 * 10) / 10;
 
 /* ─────────────────────────────────────────────
-   Styles — refined dark-accent design
+   Styles
 ───────────────────────────────────────────── */
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -139,9 +142,9 @@ const STYLES = `
     --violet:   #7c3aed;
     --violet-l: #f5f3ff;
     --radius:   12px;
-    --shadow-sm: 0 1px 3px rgba(12,17,23,.07), 0 1px 2px rgba(12,17,23,.04);
-    --shadow-md: 0 4px 16px rgba(12,17,23,.10), 0 1px 4px rgba(12,17,23,.06);
-    --shadow-lg: 0 12px 40px rgba(12,17,23,.16), 0 4px 12px rgba(12,17,23,.08);
+    --shadow-sm: 0 1px 3px rgba(12,17,23,.07),0 1px 2px rgba(12,17,23,.04);
+    --shadow-md: 0 4px 16px rgba(12,17,23,.10),0 1px 4px rgba(12,17,23,.06);
+    --shadow-lg: 0 12px 40px rgba(12,17,23,.16),0 4px 12px rgba(12,17,23,.08);
   }
 
   .res-root * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -157,446 +160,437 @@ const STYLES = `
     background: var(--ink);
     padding: 0 28px;
     height: 60px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    position: sticky;
-    top: 0;
-    z-index: 30;
+    display: flex; align-items: center; gap: 14px;
+    position: sticky; top: 0; z-index: 30;
     border-bottom: 1px solid rgba(255,255,255,.06);
   }
   .res-header-logo {
     width: 34px; height: 34px;
-    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    background: linear-gradient(135deg,#3b82f6,#6366f1);
     border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
-  .res-header h1 { color: #fff; font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
+  .res-header h1 { color:#fff; font-size:16px; font-weight:700; letter-spacing:-.2px; }
   .res-header-context {
-    margin-left: auto;
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: rgba(255,255,255,.35);
-    font-family: 'JetBrains Mono', monospace;
+    margin-left:auto; display:flex; align-items:center; gap:8px;
+    font-size:12px; color:rgba(255,255,255,.35);
+    font-family:'JetBrains Mono',monospace;
   }
   .res-header-ctx-pill {
-    background: rgba(255,255,255,.07);
-    border: 1px solid rgba(255,255,255,.1);
-    border-radius: 6px;
-    padding: 3px 10px;
-    color: rgba(255,255,255,.55);
-    font-size: 11.5px;
+    background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1);
+    border-radius:6px; padding:3px 10px;
+    color:rgba(255,255,255,.55); font-size:11.5px;
+  }
+  /* Current term badge in header */
+  .res-header-term-badge {
+    background: linear-gradient(135deg,rgba(43,92,230,.5),rgba(99,102,241,.5));
+    border:1px solid rgba(99,102,241,.4);
+    border-radius:6px; padding:3px 10px;
+    color:#a5b4fc; font-size:11px; font-weight:700;
+    letter-spacing:.3px;
   }
 
   /* ── Body ── */
-  .res-body { padding: 24px 28px 60px; max-width: 1320px; }
+  .res-body { padding:24px 28px 60px; max-width:1320px; }
 
   /* ── Filters ── */
   .res-filters {
-    background: var(--white);
-    border-radius: var(--radius);
-    padding: 16px 20px;
-    display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--line);
-    margin-bottom: 18px;
+    background:var(--white); border-radius:var(--radius);
+    padding:16px 20px;
+    display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;
+    box-shadow:var(--shadow-sm); border:1px solid var(--line);
+    margin-bottom:18px;
   }
-  .res-filter-group { display: flex; flex-direction: column; gap: 5px; }
+  .res-filter-group { display:flex; flex-direction:column; gap:5px; }
   .res-filter-group label {
-    font-size: 10.5px; font-weight: 700; color: var(--dim);
-    text-transform: uppercase; letter-spacing: .7px;
+    font-size:10.5px; font-weight:700; color:var(--dim);
+    text-transform:uppercase; letter-spacing:.7px;
   }
   .res-select {
-    border: 1.5px solid var(--line);
-    border-radius: 9px;
-    padding: 8px 32px 8px 12px;
-    font-size: 13.5px;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    color: var(--ink-2);
-    background: var(--white)
+    border:1.5px solid var(--line); border-radius:9px;
+    padding:8px 32px 8px 12px; font-size:13.5px;
+    font-family:'Plus Jakarta Sans',sans-serif;
+    color:var(--ink-2);
+    background:var(--white)
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238fa3bb' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
       no-repeat right 10px center;
-    appearance: none;
-    outline: none;
-    min-width: 140px;
-    cursor: pointer;
-    transition: border-color .15s, box-shadow .15s;
+    appearance:none; outline:none; min-width:140px;
+    cursor:pointer; transition:border-color .15s,box-shadow .15s;
   }
-  .res-select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,92,230,.1); }
-  .res-select-active { border-color: var(--blue); background-color: var(--blue-l); color: var(--blue-d); }
+  .res-select:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(43,92,230,.1); }
+  .res-select-active { border-color:var(--blue); background-color:var(--blue-l); color:var(--blue-d); }
+  /* Current term/year highlight */
+  .res-select-current { border-color:#6366f1; background-color:#f5f3ff; color:#4338ca; }
 
   /* ── Tabs ── */
   .res-tabs {
-    display: flex; gap: 3px;
-    background: var(--white);
-    border-radius: 10px; padding: 4px;
-    width: fit-content;
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--line);
-    margin-bottom: 18px;
+    display:flex; gap:3px;
+    background:var(--white); border-radius:10px; padding:4px;
+    width:fit-content;
+    box-shadow:var(--shadow-sm); border:1px solid var(--line);
+    margin-bottom:18px;
   }
   .res-tab {
-    padding: 7px 20px; border-radius: 7px;
-    font-size: 13px; font-weight: 500;
-    cursor: pointer; border: none;
-    background: transparent; color: var(--muted);
-    transition: all .15s; white-space: nowrap;
+    padding:7px 20px; border-radius:7px;
+    font-size:13px; font-weight:500;
+    cursor:pointer; border:none;
+    background:transparent; color:var(--muted);
+    transition:all .15s; white-space:nowrap;
   }
-  .res-tab:hover { color: var(--ink-2); background: var(--frost); }
-  .res-tab-active { background: var(--ink); color: #fff; font-weight: 700; }
+  .res-tab:hover { color:var(--ink-2); background:var(--frost); }
+  .res-tab-active { background:var(--ink); color:#fff; font-weight:700; }
 
   /* ── Toast ── */
   .res-toast {
-    position: fixed; top: 72px; right: 20px;
-    z-index: 9999;
-    display: flex; flex-direction: column; gap: 8px;
+    position:fixed; top:72px; right:20px;
+    z-index:9999; display:flex; flex-direction:column; gap:8px;
   }
   .res-toast-item {
-    padding: 11px 16px; border-radius: 10px;
-    font-size: 13.5px; font-weight: 500;
-    display: flex; align-items: center; gap: 10px;
-    box-shadow: var(--shadow-md);
-    animation: resSlideIn .2s ease;
-    min-width: 260px; max-width: 380px;
+    padding:11px 16px; border-radius:10px;
+    font-size:13.5px; font-weight:500;
+    display:flex; align-items:center; gap:10px;
+    box-shadow:var(--shadow-md);
+    animation:resSlideIn .2s ease;
+    min-width:260px; max-width:380px;
   }
-  .res-toast-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; }
-  .res-toast-success { background: var(--green-l); color: #166534; border: 1px solid #bbf7d0; }
-  .res-toast-success .res-toast-icon { background: #16a34a; color: #fff; }
-  .res-toast-error   { background: var(--red-l);   color: #991b1b; border: 1px solid #fecaca; }
-  .res-toast-error   .res-toast-icon { background: #dc2626; color: #fff; }
-  .res-toast-info    { background: var(--blue-l);  color: var(--blue-d); border: 1px solid #bfdbfe; }
-  .res-toast-info    .res-toast-icon { background: var(--blue); color: #fff; }
-  @keyframes resSlideIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
+  .res-toast-icon {
+    width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; flex-shrink:0;
+  }
+  .res-toast-success { background:var(--green-l); color:#166534; border:1px solid #bbf7d0; }
+  .res-toast-success .res-toast-icon { background:#16a34a; color:#fff; }
+  .res-toast-error   { background:var(--red-l);   color:#991b1b; border:1px solid #fecaca; }
+  .res-toast-error   .res-toast-icon { background:#dc2626; color:#fff; }
+  .res-toast-info    { background:var(--blue-l);  color:var(--blue-d); border:1px solid #bfdbfe; }
+  .res-toast-info    .res-toast-icon { background:var(--blue); color:#fff; }
+  @keyframes resSlideIn { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
 
   /* ── Info bar ── */
   .res-info-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:14px; flex-wrap:wrap; gap:10px;
   }
-  .res-info-bar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .res-info-bar-left { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .res-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 10px; border-radius: 20px;
-    font-size: 12px; font-weight: 600;
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 10px; border-radius:20px;
+    font-size:12px; font-weight:600;
   }
-  .res-badge-blue   { background: var(--blue-l);   color: var(--blue-d); }
-  .res-badge-green  { background: var(--green-l);  color: #166534; }
-  .res-badge-amber  { background: var(--amber-l);  color: #92400e; }
-  .res-badge-teal   { background: var(--teal-l);   color: #164e63; }
-  .res-badge-violet { background: var(--violet-l); color: #5b21b6; }
-
-  /* ── Progress bar (for partial fills) ── */
-  .res-progress-wrap { margin-bottom: 14px; }
-  .res-progress-track {
-    height: 5px; border-radius: 99px;
-    background: var(--line); overflow: hidden;
-    margin-top: 6px;
-  }
-  .res-progress-fill {
-    height: 100%; border-radius: 99px;
-    transition: width .4s ease;
-  }
+  .res-badge-blue   { background:var(--blue-l);   color:var(--blue-d); }
+  .res-badge-green  { background:var(--green-l);  color:#166534; }
+  .res-badge-amber  { background:var(--amber-l);  color:#92400e; }
+  .res-badge-teal   { background:var(--teal-l);   color:#164e63; }
+  .res-badge-violet { background:var(--violet-l); color:#5b21b6; }
 
   /* ── Table card ── */
   .res-table-card {
-    background: var(--white);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--line);
-    overflow: hidden;
+    background:var(--white); border-radius:var(--radius);
+    box-shadow:var(--shadow-sm); border:1px solid var(--line);
+    overflow:hidden;
   }
-  .res-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .res-table thead tr { background: var(--ink-2); }
+  .res-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .res-table thead tr { background:var(--ink-2); }
   .res-table thead th {
-    padding: 11px 14px;
-    color: rgba(255,255,255,.45); font-size: 10px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .8px;
-    text-align: center; white-space: nowrap;
+    padding:11px 14px;
+    color:rgba(255,255,255,.45); font-size:10px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.8px;
+    text-align:center; white-space:nowrap;
   }
-  .res-table thead th:nth-child(2) { text-align: left; }
+  .res-table thead th:nth-child(2) { text-align:left; }
   .res-table tbody tr {
-    border-bottom: 1px solid #f1f5f9;
-    transition: background .1s;
+    border-bottom:1px solid #f1f5f9;
+    transition:background .1s;
   }
-  .res-table tbody tr:hover { background: #fafbfd; }
-  .res-table tbody tr:last-child { border-bottom: none; }
-  /* Dirty (locally changed, not yet saved) highlight */
-  .res-table tbody tr.res-row-dirty { background: #fffbeb; }
-  .res-table tbody tr.res-row-dirty:hover { background: #fef3c7; }
-  .res-table td { padding: 9px 14px; text-align: center; color: var(--steel); vertical-align: middle; }
-  .res-table td:nth-child(2) { text-align: left; }
+  .res-table tbody tr:hover { background:#fafbfd; }
+  .res-table tbody tr:last-child { border-bottom:none; }
+  .res-table tbody tr.res-row-dirty { background:#fffbeb; }
+  .res-table tbody tr.res-row-dirty:hover { background:#fef3c7; }
+  .res-table td { padding:9px 14px; text-align:center; color:var(--steel); vertical-align:middle; }
+  .res-table td:nth-child(2) { text-align:left; }
 
   /* ── Score cell ── */
-  .res-score-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .res-score-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
   .res-score-btn {
-    min-width: 68px; padding: 6px 10px;
-    border-radius: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12.5px; font-weight: 600;
-    cursor: pointer; border: 1.5px solid var(--line);
-    background: var(--white); color: var(--ink-2);
-    transition: all .15s; text-align: center;
-    display: flex; align-items: center; justify-content: center; gap: 4px;
-    position: relative;
+    min-width:68px; padding:6px 10px; border-radius:8px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px; font-weight:600;
+    cursor:pointer; border:1.5px solid var(--line);
+    background:var(--white); color:var(--ink-2);
+    transition:all .15s; text-align:center;
+    display:flex; align-items:center; justify-content:center; gap:4px;
+    position:relative;
   }
-  .res-score-btn:hover { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); }
-  .res-score-btn-filled   { border-color: #93c5fd; background: var(--blue-l); color: var(--blue-d); }
-  .res-score-btn-max      { border-color: #86efac; background: var(--green-l); color: var(--green); }
-  .res-score-btn-empty    { border-color: var(--line); color: var(--dim); font-weight: 400; }
-  .res-score-btn-dirty    { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
-  .res-score-breakdown    { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+  .res-score-btn:hover { border-color:var(--blue); background:var(--blue-l); color:var(--blue-d); }
+  .res-score-btn-filled   { border-color:#93c5fd; background:var(--blue-l); color:var(--blue-d); }
+  .res-score-btn-max      { border-color:#86efac; background:var(--green-l); color:var(--green); }
+  .res-score-btn-empty    { border-color:var(--line); color:var(--dim); font-weight:400; }
+  .res-score-btn-dirty    { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+  .res-score-breakdown    { font-size:10px; color:var(--dim); font-family:'JetBrains Mono',monospace; white-space:nowrap; }
 
-  /* Dirty indicator dot */
   .res-dirty-dot {
-    position: absolute; top: -3px; right: -3px;
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--amber); border: 2px solid var(--white);
+    position:absolute; top:-3px; right:-3px;
+    width:8px; height:8px; border-radius:50%;
+    background:var(--amber); border:2px solid var(--white);
   }
 
-  .res-grade { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .3px; font-family: 'JetBrains Mono', monospace; }
-  .res-total { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; color: var(--blue); }
-  .res-total-dash { color: #cbd5e1; }
+  .res-grade {
+    display:inline-block; padding:3px 9px; border-radius:20px;
+    font-size:11px; font-weight:700; letter-spacing:.3px;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .res-total { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; color:var(--blue); }
+  .res-total-dash { color:#cbd5e1; }
 
   /* ── Student name cell ── */
   .res-student-avatar {
-    width: 30px; height: 30px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 800; flex-shrink: 0;
+    width:30px; height:30px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; flex-shrink:0;
   }
-  .res-student-name { font-weight: 600; color: var(--ink-2); font-size: 13.5px; }
-  .res-saved-label { font-size: 11px; color: var(--blue); display: flex; align-items: center; gap: 3px; margin-top: 1px; }
-  .res-dirty-label { font-size: 11px; color: var(--amber); display: flex; align-items: center; gap: 3px; margin-top: 1px; }
-  .res-saved-dot   { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
-  .res-dirty-dot-sm{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+  .res-student-name { font-weight:600; color:var(--ink-2); font-size:13.5px; }
+  .res-saved-label  { font-size:11px; color:var(--blue); display:flex; align-items:center; gap:3px; margin-top:1px; }
+  .res-dirty-label  { font-size:11px; color:var(--amber); display:flex; align-items:center; gap:3px; margin-top:1px; }
+  .res-saved-dot    { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--blue); }
+  .res-dirty-dot-sm { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--amber); }
 
   /* ── Action buttons ── */
   .res-btn-delete {
-    padding: 4px 10px; border-radius: 6px;
-    font-size: 11.5px; font-weight: 600;
-    border: 1.5px solid #fca5a5; color: var(--red);
-    background: transparent; cursor: pointer; transition: all .15s;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding:4px 10px; border-radius:6px;
+    font-size:11.5px; font-weight:600;
+    border:1.5px solid #fca5a5; color:var(--red);
+    background:transparent; cursor:pointer; transition:all .15s;
+    font-family:'Plus Jakarta Sans',sans-serif;
   }
-  .res-btn-delete:hover { background: var(--red); color: #fff; border-color: var(--red); }
-  .res-btn-delete:disabled { opacity: .4; cursor: not-allowed; }
+  .res-btn-delete:hover { background:var(--red); color:#fff; border-color:var(--red); }
+  .res-btn-delete:disabled { opacity:.4; cursor:not-allowed; }
 
   .res-btn-save {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--ink); color: #fff;
-    border: none; border-radius: 10px;
-    padding: 11px 26px;
-    font-size: 14px; font-weight: 700;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    cursor: pointer; transition: all .18s;
-    position: relative; overflow: hidden;
+    display:flex; align-items:center; gap:8px;
+    background:var(--ink); color:#fff;
+    border:none; border-radius:10px; padding:11px 26px;
+    font-size:14px; font-weight:700;
+    font-family:'Plus Jakarta Sans',sans-serif;
+    cursor:pointer; transition:all .18s;
+    position:relative; overflow:hidden;
   }
   .res-btn-save::before {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(135deg, rgba(59,130,246,.15), rgba(99,102,241,.15));
-    opacity: 0; transition: opacity .2s;
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(135deg,rgba(59,130,246,.15),rgba(99,102,241,.15));
+    opacity:0; transition:opacity .2s;
   }
-  .res-btn-save:hover:not(:disabled)::before { opacity: 1; }
-  .res-btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
-  .res-btn-save:disabled { opacity: .5; cursor: not-allowed; }
+  .res-btn-save:hover:not(:disabled)::before { opacity:1; }
+  .res-btn-save:hover:not(:disabled) { transform:translateY(-1px); box-shadow:var(--shadow-md); }
+  .res-btn-save:disabled { opacity:.5; cursor:not-allowed; }
 
   .res-btn-save-wrap {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-top: 16px; flex-wrap: wrap; gap: 12px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:16px; flex-wrap:wrap; gap:12px;
   }
 
-  /* ── Save all dirty button (prominent) ── */
+  /* ── Save dirty button ── */
   .res-btn-save-dirty {
-    display: flex; align-items: center; gap: 8px;
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-    color: #fff; border: none; border-radius: 10px;
-    padding: 10px 22px;
-    font-size: 13.5px; font-weight: 700;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    cursor: pointer; transition: all .18s;
-    box-shadow: 0 3px 12px rgba(217,119,6,.3);
+    display:flex; align-items:center; gap:8px;
+    background:linear-gradient(135deg,#f59e0b,#d97706);
+    color:#fff; border:none; border-radius:10px; padding:10px 22px;
+    font-size:13.5px; font-weight:700;
+    font-family:'Plus Jakarta Sans',sans-serif;
+    cursor:pointer; transition:all .18s;
+    box-shadow:0 3px 12px rgba(217,119,6,.3);
   }
-  .res-btn-save-dirty:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(217,119,6,.4); }
-  .res-btn-save-dirty:disabled { opacity: .5; cursor: not-allowed; }
+  .res-btn-save-dirty:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 6px 20px rgba(217,119,6,.4); }
+  .res-btn-save-dirty:disabled { opacity:.5; cursor:not-allowed; }
 
   /* ── Legend ── */
   .res-legend {
-    display: flex; flex-wrap: wrap; gap: 6px;
-    margin-top: 14px; padding: 14px 16px;
-    background: var(--white); border-radius: 11px;
-    box-shadow: var(--shadow-sm); border: 1px solid var(--line);
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:14px; padding:14px 16px;
+    background:var(--white); border-radius:11px;
+    box-shadow:var(--shadow-sm); border:1px solid var(--line);
   }
   .res-legend-item {
-    display: flex; align-items: center; gap: 5px;
-    padding: 3px 8px; background: var(--frost);
-    border-radius: 6px; font-size: 11.5px;
-    border: 1px solid var(--line);
+    display:flex; align-items:center; gap:5px;
+    padding:3px 8px; background:var(--frost);
+    border-radius:6px; font-size:11.5px; border:1px solid var(--line);
   }
-  .res-legend-range { font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: 11px; }
+  .res-legend-range { font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:11px; }
 
-  /* ── Empty / Loading states ── */
+  /* ── Empty / Loading ── */
   .res-empty {
-    background: var(--white); border-radius: var(--radius);
-    padding: 64px 20px; text-align: center;
-    box-shadow: var(--shadow-sm); border: 1px solid var(--line);
+    background:var(--white); border-radius:var(--radius);
+    padding:64px 20px; text-align:center;
+    box-shadow:var(--shadow-sm); border:1px solid var(--line);
   }
-  .res-empty-icon { font-size: 40px; margin-bottom: 14px; }
-  .res-empty h3 { color: var(--ink-2); font-weight: 700; font-size: 15px; margin-bottom: 6px; }
-  .res-empty p  { color: var(--dim); font-size: 13.5px; }
+  .res-empty-icon { font-size:40px; margin-bottom:14px; }
+  .res-empty h3 { color:var(--ink-2); font-weight:700; font-size:15px; margin-bottom:6px; }
+  .res-empty p  { color:var(--dim); font-size:13.5px; }
 
-  .res-loading-overlay { display: flex; align-items: center; gap: 10px; padding: 16px 0; color: var(--muted); font-size: 13.5px; }
-  .res-spinner { width: 18px; height: 18px; border: 2.5px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: resSpin .65s linear infinite; }
-  @keyframes resSpin { to { transform: rotate(360deg); } }
+  .res-loading-overlay { display:flex; align-items:center; gap:10px; padding:16px 0; color:var(--muted); font-size:13.5px; }
+  .res-spinner { width:18px; height:18px; border:2.5px solid var(--line); border-top-color:var(--blue); border-radius:50%; animation:resSpin .65s linear infinite; }
+  @keyframes resSpin { to{transform:rotate(360deg)} }
 
-  .res-skeleton-row td { padding: 12px 14px; }
-  .res-skeleton { height: 14px; border-radius: 6px; background: linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size: 200% 100%; animation: resShimmer 1.4s infinite; }
+  .res-skeleton-row td { padding:12px 14px; }
+  .res-skeleton { height:14px; border-radius:6px; background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation:resShimmer 1.4s infinite; }
   @keyframes resShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
-  /* ── Scoring guide strip ── */
+  /* ── Score guide ── */
   .res-score-guide {
-    display: flex; gap: 8px; flex-wrap: wrap;
-    margin-bottom: 14px; align-items: center;
+    display:flex; gap:8px; flex-wrap:wrap;
+    margin-bottom:14px; align-items:center;
   }
   .res-score-guide-item {
-    display: flex; align-items: center; gap: 5px;
-    padding: 4px 11px;
-    background: var(--white); border-radius: 20px;
-    border: 1px solid var(--line);
-    font-size: 11.5px;
-    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    display:flex; align-items:center; gap:5px;
+    padding:4px 11px; background:var(--white); border-radius:20px;
+    border:1px solid var(--line); font-size:11.5px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
   }
-  .res-score-guide-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .res-score-guide-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
 
   /* ── Summary ── */
-  .res-summary-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-  .res-summary-table thead tr { background: var(--ink-2); }
-  .res-summary-table thead th { padding: 11px 14px; color: rgba(255,255,255,.45); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
-  .res-summary-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .1s; cursor: pointer; }
-  .res-summary-table tbody tr:hover { background: #fafbfd; }
-  .res-summary-row-expanded { background: #f8fafc !important; }
-  .res-rank-1 { color: #d97706; font-weight: 800; }
-  .res-rank-2 { color: #94a3b8; font-weight: 700; }
-  .res-rank-3 { color: #c2692c; font-weight: 700; }
-  .res-expand-inner { padding: 16px; background: #f8fafc; }
-  .res-sub-table { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--white); border-radius: 10px; overflow: hidden; }
-  .res-sub-table thead { background: var(--ink-3); }
-  .res-sub-table thead th { padding: 8px 12px; color: rgba(255,255,255,.5); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; text-align: center; }
-  .res-sub-table thead th:first-child { text-align: left; }
-  .res-sub-table tbody tr { border-bottom: 1px solid #f1f5f9; }
-  .res-sub-table tbody td { padding: 8px 12px; text-align: center; color: #475569; }
-  .res-sub-table tbody td:first-child { text-align: left; font-weight: 500; color: var(--ink-2); }
+  .res-summary-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .res-summary-table thead tr { background:var(--ink-2); }
+  .res-summary-table thead th { padding:11px 14px; color:rgba(255,255,255,.45); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; }
+  .res-summary-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background .1s; cursor:pointer; }
+  .res-summary-table tbody tr:hover { background:#fafbfd; }
+  .res-summary-row-expanded { background:#f8fafc !important; }
+  .res-rank-1 { color:#d97706; font-weight:800; }
+  .res-rank-2 { color:#94a3b8; font-weight:700; }
+  .res-rank-3 { color:#c2692c; font-weight:700; }
+  .res-expand-inner { padding:16px; background:#f8fafc; }
+  .res-sub-table { width:100%; border-collapse:collapse; font-size:12.5px; background:var(--white); border-radius:10px; overflow:hidden; }
+  .res-sub-table thead { background:var(--ink-3); }
+  .res-sub-table thead th { padding:8px 12px; color:rgba(255,255,255,.5); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; text-align:center; }
+  .res-sub-table thead th:first-child { text-align:left; }
+  .res-sub-table tbody tr { border-bottom:1px solid #f1f5f9; }
+  .res-sub-table tbody td { padding:8px 12px; text-align:center; color:#475569; }
+  .res-sub-table tbody td:first-child { text-align:left; font-weight:500; color:var(--ink-2); }
 
   /* ── Modal ── */
   .res-modal-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(12,17,23,.6); backdrop-filter: blur(5px);
-    z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px;
-    animation: resFadeIn .18s ease;
+    position:fixed; inset:0;
+    background:rgba(12,17,23,.6); backdrop-filter:blur(5px);
+    z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;
+    animation:resFadeIn .18s ease;
   }
   @keyframes resFadeIn { from{opacity:0} to{opacity:1} }
   .res-modal {
-    background: var(--white); border-radius: 18px;
-    width: 100%; max-width: 500px;
-    box-shadow: var(--shadow-lg);
-    animation: resSlideUp .2s ease; overflow: hidden;
-    border: 1px solid var(--line);
+    background:var(--white); border-radius:18px;
+    width:100%; max-width:500px;
+    box-shadow:var(--shadow-lg);
+    animation:resSlideUp .2s ease; overflow:hidden;
+    border:1px solid var(--line);
   }
   @keyframes resSlideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
   .res-modal-header {
-    padding: 18px 22px 14px; border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; justify-content: space-between;
-    background: var(--ink-2);
+    padding:18px 22px 14px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--ink-2);
   }
-  .res-modal-header-left { display: flex; flex-direction: column; gap: 2px; }
-  .res-modal-title { font-size: 15px; font-weight: 700; color: #fff; }
-  .res-modal-subtitle { font-size: 12px; color: rgba(255,255,255,.4); }
+  .res-modal-header-left { display:flex; flex-direction:column; gap:2px; }
+  .res-modal-title { font-size:15px; font-weight:700; color:#fff; }
+  .res-modal-subtitle { font-size:12px; color:rgba(255,255,255,.4); }
   .res-modal-close {
-    width: 30px; height: 30px; border-radius: 8px;
-    border: 1px solid rgba(255,255,255,.12);
-    background: rgba(255,255,255,.08); color: rgba(255,255,255,.5);
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 16px; transition: all .15s; line-height: 1;
+    width:30px; height:30px; border-radius:8px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.08); color:rgba(255,255,255,.5);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:16px; transition:all .15s; line-height:1;
   }
-  .res-modal-close:hover { background: rgba(255,255,255,.15); color: #fff; }
+  .res-modal-close:hover { background:rgba(255,255,255,.15); color:#fff; }
   .res-modal-body {
-    padding: 20px 22px;
-    display: flex; flex-direction: column; gap: 18px;
-    max-height: 72vh; overflow-y: auto;
+    padding:20px 22px; display:flex; flex-direction:column; gap:18px;
+    max-height:72vh; overflow-y:auto;
   }
-  .res-modal-section { display: flex; flex-direction: column; gap: 8px; }
+  .res-modal-section { display:flex; flex-direction:column; gap:8px; }
   .res-modal-section-label {
-    font-size: 10.5px; font-weight: 700; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .7px;
-    display: flex; align-items: center; justify-content: space-between;
+    font-size:10.5px; font-weight:700; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.7px;
+    display:flex; align-items:center; justify-content:space-between;
   }
-  .res-modal-inputs { display: flex; gap: 8px; flex-wrap: wrap; }
-  .res-modal-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 70px; }
-  .res-modal-field label { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .res-modal-inputs { display:flex; gap:8px; flex-wrap:wrap; }
+  .res-modal-field { display:flex; flex-direction:column; gap:4px; flex:1; min-width:70px; }
+  .res-modal-field label { font-size:11px; color:var(--muted); font-weight:600; }
   .res-modal-field input {
-    border: 1.5px solid var(--line); border-radius: 8px;
-    padding: 8px 10px; font-family: 'JetBrains Mono', monospace;
-    font-size: 14px; font-weight: 600; color: var(--ink-2);
-    text-align: center; outline: none; transition: all .15s;
-    width: 100%; background: var(--frost);
+    border:1.5px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-family:'JetBrains Mono',monospace;
+    font-size:14px; font-weight:600; color:var(--ink-2);
+    text-align:center; outline:none; transition:all .15s;
+    width:100%; background:var(--frost);
   }
-  .res-modal-field input:focus { border-color: var(--blue); background: var(--white); box-shadow: 0 0 0 3px rgba(43,92,230,.1); }
+  .res-modal-field input:focus { border-color:var(--blue); background:var(--white); box-shadow:0 0 0 3px rgba(43,92,230,.1); }
   .res-modal-preview {
-    background: linear-gradient(135deg, var(--ink) 0%, var(--ink-3) 100%);
-    border-radius: 12px; padding: 14px 18px;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    background:linear-gradient(135deg,var(--ink) 0%,var(--ink-3) 100%);
+    border-radius:12px; padding:14px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
   }
-  .res-modal-preview-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .res-modal-preview-value { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: #fff; line-height: 1; }
-  .res-modal-preview-label { font-size: 10px; color: rgba(255,255,255,.4); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
-  .res-modal-preview-arrow { color: rgba(255,255,255,.3); font-size: 16px; }
-  .res-modal-preview-final { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 800; color: #60a5fa; line-height: 1; }
-  .res-modal-preview-max { font-size: 11px; color: rgba(255,255,255,.4); font-weight: 500; }
-  .res-modal-footer { padding: 14px 22px 20px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--line); }
+  .res-modal-preview-item { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .res-modal-preview-value { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:#fff; line-height:1; }
+  .res-modal-preview-label { font-size:10px; color:rgba(255,255,255,.4); font-weight:500; text-transform:uppercase; letter-spacing:.5px; }
+  .res-modal-preview-arrow { color:rgba(255,255,255,.3); font-size:16px; }
+  .res-modal-preview-final { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:800; color:#60a5fa; line-height:1; }
+  .res-modal-preview-max { font-size:11px; color:rgba(255,255,255,.4); font-weight:500; }
+  .res-modal-footer { padding:14px 22px 20px; display:flex; gap:10px; justify-content:flex-end; border-top:1px solid var(--line); }
   .res-modal-btn-cancel {
-    padding: 9px 20px; border-radius: 9px;
-    border: 1.5px solid var(--line); background: var(--white);
-    color: var(--muted); font-size: 13.5px; font-weight: 600;
-    cursor: pointer; transition: all .15s;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding:9px 20px; border-radius:9px;
+    border:1.5px solid var(--line); background:var(--white);
+    color:var(--muted); font-size:13.5px; font-weight:600;
+    cursor:pointer; transition:all .15s;
+    font-family:'Plus Jakarta Sans',sans-serif;
   }
-  .res-modal-btn-cancel:hover { border-color: var(--steel); color: var(--ink-2); }
+  .res-modal-btn-cancel:hover { border-color:var(--steel); color:var(--ink-2); }
   .res-modal-btn-apply {
-    padding: 9px 22px; border-radius: 9px; border: none;
-    background: var(--blue); color: #fff;
-    font-size: 13.5px; font-weight: 700;
-    cursor: pointer; transition: all .15s;
-    display: flex; align-items: center; gap: 8px;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding:9px 22px; border-radius:9px; border:none;
+    background:var(--blue); color:#fff;
+    font-size:13.5px; font-weight:700;
+    cursor:pointer; transition:all .15s;
+    display:flex; align-items:center; gap:8px;
+    font-family:'Plus Jakarta Sans',sans-serif;
   }
-  .res-modal-btn-apply:hover { background: var(--blue-d); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(43,92,230,.3); }
-  .res-divider { height: 1px; background: var(--line); margin: 0 -22px; }
-  .res-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-  .res-pill-blue   { background: var(--blue-l);   color: var(--blue-d); }
-  .res-pill-green  { background: var(--green-l);  color: #166534; }
-  .res-pill-purple { background: var(--violet-l); color: var(--violet); }
-  .res-pill-teal   { background: var(--teal-l);   color: #164e63; }
+  .res-modal-btn-apply:hover { background:var(--blue-d); transform:translateY(-1px); box-shadow:0 4px 14px rgba(43,92,230,.3); }
+  .res-divider { height:1px; background:var(--line); margin:0 -22px; }
+  .res-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+  .res-pill-blue   { background:var(--blue-l);   color:var(--blue-d); }
+  .res-pill-green  { background:var(--green-l);  color:#166534; }
+  .res-pill-purple { background:var(--violet-l); color:var(--violet); }
+  .res-pill-teal   { background:var(--teal-l);   color:#164e63; }
 
-  /* ── Dirty-change notification banner ── */
+  /* ── Dirty banner ── */
   .res-dirty-banner {
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    border: 1px solid #fcd34d;
-    border-radius: 11px;
-    padding: 12px 16px;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    margin-bottom: 14px;
-    box-shadow: 0 2px 8px rgba(217,119,6,.12);
+    background:linear-gradient(135deg,#fffbeb,#fef3c7);
+    border:1px solid #fcd34d; border-radius:11px;
+    padding:12px 16px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom:14px; box-shadow:0 2px 8px rgba(217,119,6,.12);
   }
-  .res-dirty-banner-left { display: flex; align-items: center; gap: 10px; }
-  .res-dirty-banner-icon { font-size: 18px; flex-shrink: 0; }
-  .res-dirty-banner-text { font-size: 13.5px; font-weight: 600; color: #92400e; }
-  .res-dirty-banner-sub  { font-size: 12px; color: #b45309; margin-top: 1px; }
+  .res-dirty-banner-left { display:flex; align-items:center; gap:10px; }
+  .res-dirty-banner-icon { font-size:18px; flex-shrink:0; }
+  .res-dirty-banner-text { font-size:13.5px; font-weight:600; color:#92400e; }
+  .res-dirty-banner-sub  { font-size:12px; color:#b45309; margin-top:1px; }
 
-  @media (max-width: 700px) {
-    .res-body { padding: 14px 12px 48px; }
-    .res-filters { gap: 8px; }
-    .res-select { min-width: 110px; }
-    .res-header { padding: 0 14px; }
-    .res-modal { max-width: 100%; }
-    .res-score-btn { min-width: 56px; font-size: 11px; }
+  /* ── Quick-fill toolbar ── */
+  .res-quick-fill {
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    padding:10px 14px;
+    background:var(--frost); border:1px solid var(--line);
+    border-radius:10px; margin-bottom:14px;
+  }
+  .res-quick-fill-label { font-size:11.5px; font-weight:700; color:var(--muted); margin-right:4px; }
+  .res-quick-btn {
+    padding:5px 12px; border-radius:7px; border:1.5px solid var(--line);
+    background:var(--white); color:var(--steel);
+    font-size:12px; font-weight:600; cursor:pointer; transition:all .12s;
+    font-family:'Plus Jakarta Sans',sans-serif;
+  }
+  .res-quick-btn:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-l); }
+
+  @media (max-width:700px) {
+    .res-body { padding:14px 12px 48px; }
+    .res-filters { gap:8px; }
+    .res-select { min-width:110px; }
+    .res-header { padding:0 14px; }
+    .res-modal { max-width:100%; }
+    .res-score-btn { min-width:56px; font-size:11px; }
   }
 `;
 
@@ -666,7 +660,8 @@ function ReopenModal({ studentName, initial, savedScore, onApply, onClose }) {
               <div style={{display:"flex",alignItems:"center",paddingTop:"18px",color:"#cbd5e1",fontWeight:"700"}}>=</div>
               <div className="res-modal-field">
                 <label style={{color:"var(--blue)"}}>Total /20</label>
-                <input readOnly value={score.toFixed(1)} style={{background:"var(--blue-l)",borderColor:"#93c5fd",color:"var(--blue-d)",cursor:"default"}} />
+                <input readOnly value={score.toFixed(1)}
+                  style={{background:"var(--blue-l)",borderColor:"#93c5fd",color:"var(--blue-d)",cursor:"default"}} />
               </div>
             </div>
           </div>
@@ -750,7 +745,6 @@ function CAModal({ studentName, initial, savedScore, onApply, onClose }) {
               <span style={{display:"flex",alignItems:"center",gap:"6px"}}>Continuous Assessment <span className="res-pill res-pill-blue">scaled /25</span></span>
               <span style={{fontWeight:400,color:"#94a3b8"}}>raw total /110</span>
             </div>
-            {/* Homework */}
             <div style={{marginBottom:"6px"}}>
               <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>Homework — 4×5 = /20</div>
               <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
@@ -765,7 +759,6 @@ function CAModal({ studentName, initial, savedScore, onApply, onClose }) {
                 {totalField(hwTotal,20)}
               </div>
             </div>
-            {/* Classwork */}
             <div style={{marginBottom:"6px"}}>
               <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>Classwork — 4×10 = /40</div>
               <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
@@ -780,7 +773,6 @@ function CAModal({ studentName, initial, savedScore, onApply, onClose }) {
                 {totalField(cwTotal,40)}
               </div>
             </div>
-            {/* Class Test */}
             <div>
               <div style={{fontSize:"10px",color:"#94a3b8",fontWeight:"600",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".5px"}}>Class Test — 10+10+10+20 = /50</div>
               <div className="res-modal-inputs" style={{alignItems:"flex-start"}}>
@@ -900,28 +892,18 @@ function ExamsModal({ studentName, initial, savedScore, onApply, onClose }) {
 /* ─────────────────────────────────────────────
    Breakdown label helpers
 ───────────────────────────────────────────── */
-const getReopenBreakdown = (b) => {
-  if (!b) return null;
-  return `${parseFloat(b.reopen_raw)||0}+${parseFloat(b.rda)||0}`;
-};
-const getCABreakdown = (b) => {
-  if (!b) return null;
-  const mgt = parseFloat(b.mgt_raw)||0;
-  return `CA:${calcCAonly(b).toFixed(1)} MGT:${mgt}`;
-};
-const getExamsBreakdown = (b) => {
-  if (!b) return null;
-  return `raw:${parseFloat(b.exam_raw)||0}`;
-};
+const getReopenBreakdown = (b) => b ? `${parseFloat(b.reopen_raw)||0}+${parseFloat(b.rda)||0}` : null;
+const getCABreakdown     = (b) => b ? `CA:${calcCAonly(b).toFixed(1)} MGT:${parseFloat(b.mgt_raw)||0}` : null;
+const getExamsBreakdown  = (b) => b ? `raw:${parseFloat(b.exam_raw)||0}` : null;
 
 /* ─────────────────────────────────────────────
    Main component
 ───────────────────────────────────────────── */
 const Results = () => {
   useEffect(() => {
-    if (document.getElementById("res-styles-v2")) return;
+    if (document.getElementById("res-styles-v3")) return;
     const el = document.createElement("style");
-    el.id = "res-styles-v2";
+    el.id = "res-styles-v3";
     el.textContent = STYLES;
     document.head.appendChild(el);
   }, []);
@@ -933,18 +915,15 @@ const Results = () => {
   const [subjects, setSubjects]               = useState([]);
   const [students, setStudents]               = useState([]);
   const [selectedClass, setSelectedClass]     = useState("");
-  const [selectedTerm, setSelectedTerm]       = useState("term1");
-  const [selectedYear, setSelectedYear]       = useState(String(YEARS[0]));
+  // FIX: default to current term and year
+  const [selectedTerm, setSelectedTerm]       = useState(CURRENT_TERM);
+  const [selectedYear, setSelectedYear]       = useState(String(CURRENT_YEAR));
   const [selectedSubject, setSelectedSubject] = useState("");
   const [classLevel, setClassLevel]           = useState("basic_7_9");
 
-  // scores[studentId] = { reopen, ca, exams }  — current working values (may be unsaved)
-  const [scores, setScores]       = useState({});
-  // savedScores[studentId] = { reopen, ca, exams } — last-confirmed server values
+  const [scores, setScores]           = useState({});
   const [savedScores, setSavedScores] = useState({});
-  // breakdowns[studentId] = { reopen: {…}, ca: {…}, exams: {…} }
   const [breakdowns, setBreakdowns]   = useState({});
-  // existingIds[studentId] = result.id — for delete
   const [existingIds, setExistingIds] = useState({});
 
   const [saving, setSaving]                   = useState(false);
@@ -956,7 +935,11 @@ const Results = () => {
   const [expandedStudent, setExpandedStudent] = useState(null);
   const [modal, setModal]                     = useState(null);
 
-  /* ── Load classes & subjects once ── */
+  // Ref to track the "snapshot" savedScores at the time of the last load
+  // so the dirty-check is stable even before the first server response.
+  const savedScoresRef = useRef({});
+
+  /* ── Load classes & subjects ── */
   useEffect(() => {
     API.get("/classes/").then(r  => setClasses(r.data.results  || r.data)).catch(() => toast("Failed to load classes.", "error"));
     API.get("/subjects/").then(r => setSubjects(r.data.results || r.data)).catch(() => toast("Failed to load subjects.", "error"));
@@ -972,10 +955,7 @@ const Results = () => {
       .finally(() => setLoadingStudents(false));
   }, [selectedClass]);
 
-  /* ── Load existing scores — MERGE strategy ──
-       KEY IMPROVEMENT: we never wipe locally-changed fields.
-       Server data fills in fields the user hasn't touched yet.
-  ───────────────────────────────────────────── */
+  /* ── Load existing scores — MERGE strategy ── */
   const loadExistingScores = useCallback(async (studentsOverride) => {
     if (!selectedClass || !selectedTerm || !selectedSubject) return;
     const studentList = studentsOverride || students;
@@ -983,12 +963,12 @@ const Results = () => {
 
     setLoadingScores(true);
     try {
+      // FIX: always pass year param
       const res = await API.get(
         `/results/?school_class=${selectedClass}&term=${selectedTerm}&subject=${selectedSubject}&year=${selectedYear}`
       );
       const records = res.data.results || res.data;
 
-      // Build maps from server data
       const serverMap = {};
       const idMap     = {};
       records.forEach(r => {
@@ -1000,26 +980,27 @@ const Results = () => {
         idMap[r.student] = r.id;
       });
 
-      // For each student: use server value as the base,
-      // but don't discard any locally-entered values the user hasn't saved yet.
+      // Capture server values as the new "saved" baseline
+      const newSaved = {};
+      studentList.forEach(s => {
+        newSaved[s.id] = serverMap[s.id] || { reopen: "", ca: "", exams: "" };
+      });
+      setSavedScores(newSaved);
+      savedScoresRef.current = newSaved;
+
+      // Merge: keep locally-entered values that differ from the *previous* saved baseline
       setScores(prev => {
         const next = {};
         studentList.forEach(s => {
-          const server = serverMap[s.id] || { reopen: "", ca: "", exams: "" };
-          const local  = prev[s.id]     || { reopen: "", ca: "", exams: "" };
-          // A field is "locally dirty" if it differs from what was last saved
+          const server   = serverMap[s.id]         || { reopen: "", ca: "", exams: "" };
+          const local    = prev[s.id]              || {};
+          const prevSaved = savedScoresRef.current[s.id] || {};
           next[s.id] = {
-            reopen: local.reopen !== "" && local.reopen !== (savedScores[s.id]?.reopen ?? "") ? local.reopen : server.reopen,
-            ca:     local.ca     !== "" && local.ca     !== (savedScores[s.id]?.ca     ?? "") ? local.ca     : server.ca,
-            exams:  local.exams  !== "" && local.exams  !== (savedScores[s.id]?.exams  ?? "") ? local.exams  : server.exams,
+            reopen: local.reopen !== undefined && String(local.reopen) !== String(prevSaved.reopen) ? local.reopen : server.reopen,
+            ca:     local.ca     !== undefined && String(local.ca)     !== String(prevSaved.ca)     ? local.ca     : server.ca,
+            exams:  local.exams  !== undefined && String(local.exams)  !== String(prevSaved.exams)  ? local.exams  : server.exams,
           };
         });
-        return next;
-      });
-
-      setSavedScores(() => {
-        const next = {};
-        studentList.forEach(s => { next[s.id] = serverMap[s.id] || { reopen: "", ca: "", exams: "" }; });
         return next;
       });
 
@@ -1031,7 +1012,7 @@ const Results = () => {
     } finally {
       setLoadingScores(false);
     }
-  }, [selectedClass, selectedTerm, selectedSubject, selectedYear, students, savedScores]);
+  }, [selectedClass, selectedTerm, selectedSubject, selectedYear, students]);
 
   useEffect(() => {
     if (!selectedSubject) { setScores({}); setSavedScores({}); setExistingIds({}); return; }
@@ -1050,6 +1031,7 @@ const Results = () => {
   useEffect(() => {
     if (tab !== "Class Summary" || !selectedClass || !selectedTerm) return;
     setLoadingSummary(true);
+    // FIX: pass year to summary endpoint
     API.get(`/results/summary/?school_class=${selectedClass}&term=${selectedTerm}&year=${selectedYear}`)
       .then(r => setSummary(r.data))
       .catch(() => toast("Failed to load summary.", "error"))
@@ -1068,7 +1050,6 @@ const Results = () => {
     setClassLevel(found?.level || "basic_7_9");
   };
 
-  /* ── Modal apply — only update the one component that changed ── */
   const applyReopen = (score, breakdown) => {
     const { studentId } = modal;
     setScores(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), reopen: score } }));
@@ -1111,11 +1092,10 @@ const Results = () => {
     }
   };
 
-  /* ── Submit — PARTIAL SAVE SAFE ──
-       Only send students with at least one score.
-       For each student we send their CURRENT working values merged with
-       saved values so we never send empty for a previously-saved field.
-  ───────────────────────────────────────────── */
+  /* ── Submit ──
+     FIX: endpoint is /results/bulk-save/ (matches DRF @action url_path="bulk-save")
+     FIX: always send year in payload
+  ── */
   const submitResults = async () => {
     if (!selectedClass || !selectedTerm || !selectedSubject) {
       toast("Please select class, term, and subject.", "error"); return;
@@ -1124,20 +1104,17 @@ const Results = () => {
     const records = Object.entries(scores)
       .filter(([, v]) => v.reopen !== "" || v.ca !== "" || v.exams !== "")
       .map(([studentId, v]) => {
-        // Merge: prefer current working value; fall back to last saved (so we don't zero-out a field we didn't touch)
         const sv = savedScores[studentId] || {};
-        const mergedReopen = v.reopen !== "" ? v.reopen : (sv.reopen !== "" ? sv.reopen : 0);
-        const mergedCA     = v.ca     !== "" ? v.ca     : (sv.ca     !== "" ? sv.ca     : 0);
-        const mergedExams  = v.exams  !== "" ? v.exams  : (sv.exams  !== "" ? sv.exams  : 0);
         return {
-          student:      studentId,
-          subject:      selectedSubject,
-          school_class: selectedClass,
+          student:      parseInt(studentId, 10),
+          subject:      parseInt(selectedSubject, 10),
+          school_class: parseInt(selectedClass, 10),
           term:         selectedTerm,
-          year:         parseInt(selectedYear, 10),
-          reopen:       parseFloat(mergedReopen) || 0,
-          ca:           parseFloat(mergedCA)     || 0,
-          exams:        parseFloat(mergedExams)  || 0,
+          year:         parseInt(selectedYear, 10),  // FIX: always send year
+          // Partial-save safe: only send a field if it has a value; backend preserves the rest
+          ...(v.reopen !== "" ? { reopen: parseFloat(v.reopen) } : sv.reopen !== "" ? { reopen: parseFloat(sv.reopen) } : { reopen: 0 }),
+          ...(v.ca     !== "" ? { ca:     parseFloat(v.ca)     } : sv.ca     !== "" ? { ca:     parseFloat(sv.ca)     } : { ca:     0 }),
+          ...(v.exams  !== "" ? { exams:  parseFloat(v.exams)  } : sv.exams  !== "" ? { exams:  parseFloat(sv.exams)  } : { exams:  0 }),
         };
       });
 
@@ -1145,17 +1122,19 @@ const Results = () => {
 
     setSaving(true);
     try {
-      const res = await API.post("/results/bulk/", records);
+      // FIX: correct endpoint URL — matches @action url_path="bulk-save"
+      const res = await API.post("/results/bulk-save/", records);
       const errCount = res.data.errors?.length || 0;
       if (errCount === 0) {
         toast(`Saved ${res.data.saved} result${res.data.saved !== 1 ? "s" : ""} successfully.`, "success");
       } else {
         toast(`Saved ${res.data.saved} with ${errCount} error(s).`, "info");
+        if (errCount > 0) console.error("Bulk save errors:", res.data.errors);
       }
-      // Reload to sync; this will update savedScores
       await loadExistingScores();
     } catch (err) {
       toast(err.response?.data?.detail || "Error saving results.", "error");
+      console.error("Submit error:", err.response?.data);
     } finally {
       setSaving(false);
     }
@@ -1163,12 +1142,12 @@ const Results = () => {
 
   /* ── Derived values ── */
   const isDirty = (studentId) => {
-    const current = scores[studentId]  || {};
+    const current = scores[studentId]      || {};
     const saved   = savedScores[studentId] || {};
     return (
-      String(current.reopen) !== String(saved.reopen) ||
-      String(current.ca)     !== String(saved.ca)     ||
-      String(current.exams)  !== String(saved.exams)
+      String(current.reopen ?? "") !== String(saved.reopen ?? "") ||
+      String(current.ca     ?? "") !== String(saved.ca     ?? "") ||
+      String(current.exams  ?? "") !== String(saved.exams  ?? "")
     );
   };
 
@@ -1194,6 +1173,7 @@ const Results = () => {
   );
 
   const filtersSet = selectedClass && selectedSubject;
+  const isCurrentTermYear = selectedTerm === CURRENT_TERM && selectedYear === String(CURRENT_YEAR);
 
   return (
     <div className="res-root">
@@ -1245,6 +1225,9 @@ const Results = () => {
           </svg>
         </div>
         <h1>Results Entry</h1>
+        {isCurrentTermYear && (
+          <span className="res-header-term-badge">● TERM 3 · 2026</span>
+        )}
         <div className="res-header-context">
           {selectedClassName   && <span className="res-header-ctx-pill">{selectedClassName}</span>}
           {selectedSubjectName && <span className="res-header-ctx-pill">{selectedSubjectName}</span>}
@@ -1258,16 +1241,18 @@ const Results = () => {
         <div className="res-filters">
           <div className="res-filter-group">
             <label>Year</label>
-            <select className={`res-select ${selectedYear ? "res-select-active" : ""}`}
+            <select
+              className={`res-select ${selectedYear === String(CURRENT_YEAR) ? "res-select-current" : selectedYear ? "res-select-active" : ""}`}
               value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
-              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              {YEARS.map(y => <option key={y} value={y}>{y}{y === CURRENT_YEAR ? " (current)" : ""}</option>)}
             </select>
           </div>
           <div className="res-filter-group">
             <label>Term</label>
-            <select className={`res-select ${selectedTerm ? "res-select-active" : ""}`}
+            <select
+              className={`res-select ${selectedTerm === CURRENT_TERM ? "res-select-current" : selectedTerm ? "res-select-active" : ""}`}
               value={selectedTerm} onChange={e => setSelectedTerm(e.target.value)}>
-              {TERMS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {TERMS.map(t => <option key={t.value} value={t.value}>{t.label}{t.value === CURRENT_TERM ? " (current)" : ""}</option>)}
             </select>
           </div>
           <div className="res-filter-group">
@@ -1422,16 +1407,16 @@ const Results = () => {
                       </thead>
                       <tbody>
                         {students.map((student, i) => {
-                          const s       = scores[student.id]     || { reopen: "", ca: "", exams: "" };
-                          const sv      = savedScores[student.id] || { reopen: "", ca: "", exams: "" };
-                          const rowDirty  = isDirty(student.id);
-                          const dirty     = (field) => String(s[field]) !== String(sv[field]) && s[field] !== "";
-                          const hasFill   = s.reopen !== "" || s.ca !== "" || s.exams !== "";
-                          const total     = hasFill ? computeScore(s.reopen, s.ca, s.exams) : null;
-                          const grade     = total != null ? computeGrade(total, classLevel) : null;
-                          const info      = grade ? GRADE_REMARK[grade] : null;
-                          const isSaved   = !!existingIds[student.id];
-                          const name      = getStudentName(student);
+                          const s        = scores[student.id]      || { reopen: "", ca: "", exams: "" };
+                          const sv       = savedScores[student.id] || { reopen: "", ca: "", exams: "" };
+                          const rowDirty = isDirty(student.id);
+                          const dirty    = (field) => String(s[field] ?? "") !== String(sv[field] ?? "") && s[field] !== "";
+                          const hasFill  = s.reopen !== "" || s.ca !== "" || s.exams !== "";
+                          const total    = hasFill ? computeScore(s.reopen, s.ca, s.exams) : null;
+                          const grade    = total != null ? computeGrade(total, classLevel) : null;
+                          const info     = grade ? GRADE_REMARK[grade] : null;
+                          const isSaved  = !!existingIds[student.id];
+                          const name     = getStudentName(student);
 
                           const btnClass = (field, val) => {
                             if (val === "" || val === 0) return "res-score-btn-empty";
