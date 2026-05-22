@@ -6,7 +6,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # 1. Fetch 2025 data
-        old_results = Result.objects.filter(year="2025", term="term3")
+        old_results = Result.objects.filter(year=2025, term="term3")
         
         if not old_results.exists():
             self.stdout.write(self.style.WARNING("No records found for 3rd Term 2025."))
@@ -23,20 +23,22 @@ class Command(BaseCommand):
                 student=res.student,
                 subject=res.subject,
                 term="term3",
-                year="2026"
+                year=2026,
             ).exists()
 
             if not exists:
                 # 3. Clone the record
+                # Copy numeric score fields; `score` is computed in `save()` so
+                # we provide `reopen`, `ca`, and `exams` and let the model set `score`.
                 Result.objects.create(
                     student=res.student,
                     subject=res.subject,
                     school_class=res.school_class, # Assumes class stays same; adjust if promoted
                     term="term3",
-                    year="2026",
-                    ca_score=res.ca_score,
-                    exam_score=res.exam_score,
-                    total_score=res.total_score
+                    year=2026,
+                    reopen=res.reopen,
+                    ca=res.ca,
+                    exams=res.exams,
                 )
                 created_count += 1
             else:
